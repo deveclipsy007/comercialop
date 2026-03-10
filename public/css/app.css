@@ -1,0 +1,186 @@
+/* ============================================================
+   Operon Intelligence Platform — Global Styles
+   Design System: Intelligence Dark Tech
+   Colors: operon-teal #0A1D2A | operon-energy #18C29C | brand-red #E11D48
+   ============================================================ */
+
+/* ── Custom Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0A1D2A; }
+::-webkit-scrollbar-thumb { background: #18C29C33; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #18C29C66; }
+
+/* ── Blob Animation ──────────────────────────────────────── */
+@keyframes blob {
+    0%   { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: scale(1) rotate(0deg); }
+    25%  { border-radius: 40% 60% 70% 30% / 40% 70% 30% 60%; transform: scale(1.05) rotate(90deg); }
+    50%  { border-radius: 70% 30% 40% 60% / 30% 60% 40% 70%; transform: scale(0.95) rotate(180deg); }
+    75%  { border-radius: 30% 70% 60% 40% / 70% 40% 60% 30%; transform: scale(1.02) rotate(270deg); }
+    100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: scale(1) rotate(360deg); }
+}
+
+.animate-blob { animation: blob 12s ease-in-out infinite; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
+
+/* ── Orbit Animation ─────────────────────────────────────── */
+@keyframes orbit {
+    from { transform: rotate(0deg) translateX(180px) rotate(0deg); }
+    to   { transform: rotate(360deg) translateX(180px) rotate(-360deg); }
+}
+.animate-orbit { animation: orbit 20s linear infinite; }
+
+/* ── Pop-in Animation ────────────────────────────────────── */
+@keyframes popIn {
+    0%   { opacity: 0; transform: scale(0.8) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-popIn { animation: popIn 0.3s ease-out forwards; }
+
+/* ── Pulse Glow ──────────────────────────────────────────── */
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 10px #18C29C33; }
+    50%       { box-shadow: 0 0 25px #18C29C88, 0 0 50px #18C29C33; }
+}
+.animate-pulseGlow { animation: pulseGlow 2s ease-in-out infinite; }
+
+/* ── Slide In ────────────────────────────────────────────── */
+@keyframes slideInFromRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+.animate-slideIn { animation: slideInFromRight 0.3s ease-out forwards; }
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeInUp { animation: fadeInUp 0.4s ease-out forwards; }
+
+/* ── Energy Glow Utilities ───────────────────────────────── */
+.glow-energy { box-shadow: 0 0 20px #18C29C44; }
+.glow-energy-sm { box-shadow: 0 0 10px #18C29C33; }
+.glow-red { box-shadow: 0 0 20px #E11D4844; }
+
+/* ── Glass Effect ────────────────────────────────────────── */
+.glass {
+    background: rgba(10, 29, 42, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(24, 194, 156, 0.12);
+}
+
+.glass-surface {
+    background: rgba(35, 32, 38, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Score Badge Colors ──────────────────────────────────── */
+.score-high   { color: #18C29C; background: rgba(24,194,156,0.12); }
+.score-medium { color: #F59E0B; background: rgba(245,158,11,0.12); }
+.score-low    { color: #E11D48; background: rgba(225,29,72,0.12); }
+
+/* ── Kanban Card ─────────────────────────────────────────── */
+.kanban-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: grab;
+}
+.kanban-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3), 0 0 15px rgba(24, 194, 156, 0.1);
+}
+.kanban-card:active { cursor: grabbing; }
+.kanban-card.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.sidebar-collapsed { width: 64px !important; }
+.sidebar-collapsed .sidebar-label { display: none !important; }
+.sidebar-collapsed .sidebar-logo-text { display: none !important; }
+
+/* ── Token Progress Bar ──────────────────────────────────── */
+.token-bar-fill {
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(90deg, #18C29C, #0ea5e9);
+}
+.token-bar-fill.warning { background: linear-gradient(90deg, #F59E0B, #EF4444); }
+.token-bar-fill.critical { background: linear-gradient(90deg, #EF4444, #E11D48); }
+
+/* ── AI Loading Spinner ──────────────────────────────────── */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.ai-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #18C29C22;
+    border-top-color: #18C29C;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
+
+/* ── Pipeline Stage Colors ───────────────────────────────── */
+.stage-new        { border-color: #6B7280; }
+.stage-contacted  { border-color: #3B82F6; }
+.stage-qualified  { border-color: #8B5CF6; }
+.stage-proposal   { border-color: #F59E0B; }
+.stage-won        { border-color: #18C29C; }
+.stage-lost       { border-color: #E11D48; }
+
+/* ── Map Overrides (Leaflet dark theme) ──────────────────── */
+.leaflet-popup-content-wrapper {
+    background: #232026 !important;
+    border: 1px solid rgba(24, 194, 156, 0.2) !important;
+    border-radius: 12px !important;
+    color: #F1F5F9 !important;
+}
+.leaflet-popup-tip { background: #232026 !important; }
+.leaflet-bar a {
+    background: #232026 !important;
+    border-color: rgba(24, 194, 156, 0.2) !important;
+    color: #94A3B8 !important;
+}
+.leaflet-bar a:hover { background: #0A1D2A !important; color: #18C29C !important; }
+
+/* ── Tooltip ─────────────────────────────────────────────── */
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0A1D2A;
+    color: #F1F5F9;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    border: 1px solid rgba(24, 194, 156, 0.2);
+    z-index: 100;
+}
+[data-tooltip]:hover::after { opacity: 1; }
+
+/* ── Prose (AI text outputs) ─────────────────────────────── */
+.ai-prose p { margin-bottom: 0.5rem; }
+.ai-prose ul { list-style: disc; padding-left: 1.25rem; }
+.ai-prose li { margin-bottom: 0.25rem; }
+
+/* ── Flash messages ──────────────────────────────────────── */
+.flash-success { background: rgba(24, 194, 156, 0.1); border-color: rgba(24, 194, 156, 0.3); color: #18C29C; }
+.flash-error   { background: rgba(225, 29, 72, 0.1);  border-color: rgba(225, 29, 72, 0.3);  color: #F87171; }
+.flash-warning { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #FCD34D; }
+
+/* ── Print ───────────────────────────────────────────────── */
+@media print {
+    .sidebar, .topbar, .no-print { display: none !important; }
+    body { background: white !important; color: black !important; }
+}

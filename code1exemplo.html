@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Operon Intelligence Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#e21d48",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#19171a",
+                        "operon-teal": "#0A1D2A",
+                        "operon-energy": "#18C29C",
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .glow-teal {
+            text-shadow: 0 0 15px rgba(24, 194, 156, 0.5);
+        }
+        .bg-blur {
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen overflow-x-hidden selection:bg-primary/30">
+<div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-operon-energy/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#84CC16]/10 rounded-full blur-[120px]"></div>
+</div>
+<div class="flex relative z-10">
+<!-- Sidebar -->
+<aside class="w-72 fixed left-0 top-0 h-screen bg-operon-teal flex flex-col border-r border-white/5 transition-all">
+<div class="p-6">
+<div class="flex items-center gap-3">
+<div class="size-10 bg-operon-energy/20 rounded-xl flex items-center justify-center border border-operon-energy/30">
+<span class="material-symbols-outlined text-operon-energy" style="font-variation-settings: 'FILL' 1">shield_with_heart</span>
+</div>
+<div>
+<h1 class="text-xl font-extrabold tracking-tighter text-operon-energy glow-teal">OPERON AGENTS</h1>
+<p class="text-xs text-slate-400 font-medium tracking-widest uppercase">Intelligence</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 mt-6 space-y-2"><div class="px-4 mb-4">
+<p class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">PROTOCOLOS</p>
+</div>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary text-white font-semibold shadow-lg shadow-primary/20 transition-all" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+    Nexus
+</a>
+<a class="flex items-center justify-between px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined">table_view</span>
+        Vault
+    </div>
+<span class="bg-white/10 text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-full">10</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined">map</span>
+    Atlas
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined">track_changes</span>
+    Hunter
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined">upload</span>
+    Genesis
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+    Agenda
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined">event_available</span>
+    Follow-up
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined">adjust</span>
+    SPIN Hub
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined">shield</span>
+    Admin
+</a>
+<div class="pt-4 pb-2 px-4">
+<div class="h-px bg-white/10 w-full"></div>
+</div>
+<button class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/5 text-slate-200 hover:bg-white/10 transition-all border border-white/5">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-operon-energy">smart_toy</span>
+<span class="font-medium">OPERON AI</span>
+</div>
+<div class="size-2 bg-operon-energy rounded-full animate-pulse shadow-[0_0_8px_#18C29C]"></div>
+</button></nav>
+<div class="p-4 mt-auto">
+<div class="bg-white/5 border border-white/10 rounded-2xl p-5 mb-4 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-2 opacity-20">
+<span class="material-symbols-outlined text-4xl">psychology</span>
+</div>
+<h3 class="text-sm font-bold text-white mb-1">Cérebro de Governança</h3>
+<p class="text-xs text-slate-400 mb-4 leading-relaxed">Sistema ativo. Pronto para análise profunda de mercado.</p>
+<button class="w-full bg-primary hover:bg-primary/90 text-white text-sm font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-primary/20">Executar Análise</button>
+</div>
+<div class="flex items-center gap-3 px-2">
+<div class="size-10 rounded-full bg-slate-800 border border-white/10 bg-center bg-cover" data-alt="User profile avatar placeholder" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCKLzRswa-nio8SC-X3TXLoNTQKXnNsWG3w7ztEUMnSSrlOVsNH9FHTVN3z9ctw2APIQBCXiSX6x3HzMG0WBJrHtg3IJ8-GrBZ2p5qW9KdHB93-xYtFxY8fgCvNgI2MNiwlJAw-Zq2IMjgVoUlgr8OB2WuvrmWi777kEn7dfQVPRxrG6VNzUTTP6Oysm9MARUUub5K9CThRekzzQIxR2B2i85g4pwh-V5PVqjZUI3OGWexgt7qi5ML4u8tVCFD4c1_LlqDbWKIV_Fo')"></div>
+<div class="flex-1">
+<p class="text-xs font-bold text-white">Commander Alex</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tight font-medium">System Admin</p>
+</div>
+<button class="text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm">settings</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 ml-72 min-h-screen">
+<!-- Top Bar -->
+<header class="h-20 sticky top-0 bg-background-light/50 dark:bg-[#0B0F12]/80 backdrop-blur-xl border-b border-white/5 z-50 flex items-center justify-between px-10">
+<div class="flex-1 max-w-xl">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-white/5 border-none rounded-2xl pl-12 pr-4 py-2.5 text-sm text-slate-200 focus:ring-1 focus:ring-primary/50 placeholder:text-slate-600 transition-all" placeholder="Buscar inteligência de missão..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<button class="p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-[#0B0F12]"></span>
+</button>
+<button class="p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+</div>
+<div class="h-8 w-px bg-white/10"></div>
+<div class="flex items-center gap-3 cursor-pointer group">
+<div class="text-right">
+<p class="text-sm font-bold text-white group-hover:text-primary transition-colors">Agent HQ</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Standard Node</p>
+</div>
+<div class="size-10 rounded-xl bg-gradient-to-br from-primary to-rose-700 flex items-center justify-center font-bold text-white shadow-lg shadow-primary/20">
+                            HQ
+                        </div>
+</div>
+</div>
+</header>
+<div class="p-10 max-w-7xl mx-auto space-y-8">
+<!-- Hero Header -->
+<section class="space-y-2">
+<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest"><span class="size-1.5 bg-primary rounded-full animate-pulse"></span> Status do Sistema: Operacional</div>
+<h2 class="text-5xl font-black tracking-tighter text-slate-900 dark:text-white">Painel de Controle Nexus</h2>
+<p class="text-lg text-slate-500 dark:text-slate-400 max-w-2xl font-medium">Inteligência de vendas de alto ticket ativa. Todos os agentes estão sincronizados com o Cérebro de Governança.</p>
+</section>
+<!-- Metrics -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:grid-cols-5">
+<div class="rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 p-8 flex flex-col justify-between group hover:border-primary/30 transition-all">
+<div>
+<p class="text-slate-400 text-sm font-semibold mb-1">Faturamento Total</p>
+<h3 class="text-3xl font-black text-white tracking-tight drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">R$ 2.450.000,00</h3>
+</div>
+<div class="mt-6 flex items-center gap-2 text-operon-energy font-bold text-sm"><span class="material-symbols-outlined text-sm">trending_up</span> +12.4% vs mês anterior</div>
+</div>
+<div class="rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 p-8 flex flex-col justify-between group hover:border-primary/30 transition-all">
+<div>
+<p class="text-slate-400 text-sm font-semibold mb-1 text-nowrap">Leads Qualificados</p>
+<h3 class="text-3xl font-black text-white tracking-tight">124</h3>
+</div>
+<div class="mt-6 space-y-2">
+<div class="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-tighter">
+<span>Otimização</span>
+<span>75%</span>
+</div>
+<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-violet-600 to-indigo-600 w-3/4"></div>
+</div>
+</div>
+</div><div class="rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 p-8 flex flex-col justify-between group hover:border-primary/30 transition-all">
+<div>
+<p class="text-slate-400 text-sm font-semibold mb-1">Pipeline Total</p>
+<h3 class="text-3xl font-black text-white tracking-tight">R$ 8.2M</h3>
+</div>
+<div class="mt-6 flex items-center gap-2 text-primary font-bold text-sm">
+<span class="material-symbols-outlined text-sm">account_balance_wallet</span>
+        7 negócios em fechamento
+    </div>
+</div>
+<div class="rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 p-8 flex flex-col justify-between col-span-1 lg:col-span-2 relative overflow-hidden">
+<div class="absolute top-0 right-0 size-32 bg-primary/5 blur-3xl"></div>
+<div class="relative flex flex-col h-full justify-between">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-slate-400 text-sm font-semibold mb-1">Economia de Inteligência</p>
+<h3 class="text-3xl font-black text-white tracking-tight">750 <span class="text-slate-600">/ 1000</span></h3>
+</div>
+<div class="bg-primary/20 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border border-primary/20">Recarga em 2d</div>
+</div>
+<div class="mt-6 space-y-3">
+<div class="w-full h-3 bg-white/5 border border-white/5 rounded-full overflow-hidden p-0.5">
+<div class="h-full bg-primary rounded-full" style="width: 75%;"></div>
+</div>
+<div class="flex justify-between items-center text-xs text-slate-500 font-medium">
+<span>Eficiência de Créditos</span>
+<span class="text-slate-300">Alta Performance</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Activity Table -->
+<div class="rounded-2xl bg-white/[0.03] border border-white/10 overflow-hidden backdrop-blur-md">
+<div class="px-8 py-6 border-b border-white/5 flex items-center justify-between">
+<div>
+<h4 class="text-lg font-bold text-white">Operações de Análise de IA</h4>
+<p class="text-xs text-slate-500 font-medium">Log em tempo real das atividades do cérebro de governança</p>
+</div>
+<button class="px-4 py-2 bg-white/5 hover:bg-white/10 text-xs font-bold text-white rounded-xl transition-all border border-white/10">Exportar Log</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-white/[0.02] text-xs uppercase tracking-widest text-slate-500 font-bold">
+<tr>
+<th class="px-8 py-4">Operação</th>
+<th class="px-8 py-4">Status</th>
+<th class="px-8 py-4">Agente</th>
+<th class="px-8 py-4">Confiança</th>
+<th class="px-8 py-4 text-right">Horário</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/5">
+<tr class="hover:bg-white/[0.02] transition-colors group">
+<td class="px-8 py-5">
+<div class="flex items-center gap-3">
+<div class="size-8 bg-operon-energy/10 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-operon-energy text-lg">biotech</span>
+</div>
+<span class="text-sm font-bold text-slate-200">Predição de Fechamento - Lead Ultra</span>
+</div>
+</td>
+<td class="px-8 py-5">
+<span class="px-2.5 py-1 bg-operon-energy/20 text-operon-energy text-[10px] font-black uppercase rounded-lg border border-operon-energy/20">Sucesso</span>
+</td>
+<td class="px-8 py-5 text-sm text-slate-400">Agente-X7</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-2">
+<div class="flex-1 h-1 bg-white/10 rounded-full w-24 overflow-hidden">
+<div class="h-full bg-operon-energy w-[98%]"></div>
+</div>
+<span class="text-xs font-bold text-slate-200">98%</span>
+</div>
+</td>
+<td class="px-8 py-5 text-right text-xs text-slate-500 font-mono">12:04:33:892</td>
+</tr>
+<tr class="hover:bg-white/[0.02] transition-colors group">
+<td class="px-8 py-5">
+<div class="flex items-center gap-3">
+<div class="size-8 bg-primary/10 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-lg">monitoring</span>
+</div>
+<span class="text-sm font-bold text-slate-200">Análise de Sentimento em Reunião</span>
+</div>
+</td>
+<td class="px-8 py-5">
+<span class="px-2.5 py-1 bg-primary/20 text-primary text-[10px] font-black uppercase rounded-lg border border-primary/20">Processando</span>
+</td>
+<td class="px-8 py-5 text-sm text-slate-400">Cérebro de Governança</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-2">
+<div class="flex-1 h-1 bg-white/10 rounded-full w-24 overflow-hidden">
+<div class="h-full bg-primary w-[45%]"></div>
+</div>
+<span class="text-xs font-bold text-slate-200">45%</span>
+</div>
+</td>
+<td class="px-8 py-5 text-right text-xs text-slate-500 font-mono">12:04:31:002</td>
+</tr>
+<tr class="hover:bg-white/[0.02] transition-colors group">
+<td class="px-8 py-5">
+<div class="flex items-center gap-3">
+<div class="size-8 bg-amber-500/10 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-amber-500 text-lg">database</span>
+</div>
+<span class="text-sm font-bold text-slate-200">Qualificação Automática de Prospect</span>
+</div>
+</td>
+<td class="px-8 py-5">
+<span class="px-2.5 py-1 bg-white/10 text-slate-400 text-[10px] font-black uppercase rounded-lg border border-white/10">Fila</span>
+</td>
+<td class="px-8 py-5 text-sm text-slate-400">Agente-V2</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-2">
+<div class="flex-1 h-1 bg-white/10 rounded-full w-24 overflow-hidden">
+<div class="h-full bg-slate-600 w-0"></div>
+</div>
+<span class="text-xs font-bold text-slate-500">0%</span>
+</div>
+</td>
+<td class="px-8 py-5 text-right text-xs text-slate-500 font-mono">12:04:28:541</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

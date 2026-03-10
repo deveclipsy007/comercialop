@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vault - Operon AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#e21d48",
+                        "operon-charcoal": "#19171a",
+                        "operon-teal": "#0A1D2A",
+                        "operon-energy": "#18C29C",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#19171a",
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="relative flex h-screen w-full overflow-hidden">
+<!-- Sidebar -->
+<aside class="flex h-full w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-operon-teal p-4"><!-- Logo Section -->
+<div class="px-4 py-6 mb-2">
+<div class="flex items-center gap-3">
+<div class="size-10 bg-operon-energy/20 rounded-full flex items-center justify-center text-operon-energy border border-operon-energy/30">
+<span class="material-symbols-outlined">security</span>
+</div>
+<div>
+<h1 class="text-sm font-black tracking-wider text-operon-energy leading-none">OPERON AGENTS</h1>
+<p class="text-[10px] font-bold tracking-[0.2em] text-slate-400 mt-1 uppercase">INTELLIGENCE</p>
+</div>
+</div>
+</div>
+<!-- Navigation -->
+<nav class="flex flex-col gap-0.5 grow px-2 overflow-y-auto custom-scrollbar">
+<div class="text-[10px] font-bold text-slate-500 px-3 uppercase tracking-[0.15em] mb-3 mt-4">PROTOCOLOS</div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-xl">grid_view</span>
+<span class="text-sm font-medium">Nexus</span>
+</a>
+<a class="flex items-center justify-between px-3 py-2.5 rounded-2xl bg-primary text-white shadow-lg shadow-primary/20" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-xl fill-1">view_kanban</span>
+<span class="text-sm font-bold">Vault</span>
+</div>
+<span class="bg-black/20 px-2 py-0.5 rounded text-[10px] font-bold">10</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">map</span>
+<span class="text-sm font-medium">Atlas</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">radar</span>
+<span class="text-sm font-medium">Hunter</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">upload_file</span>
+<span class="text-sm font-medium">Genesis</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">calendar_today</span>
+<span class="text-sm font-medium">Agenda</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">event_repeat</span>
+<span class="text-sm font-medium">Follow-up</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">track_changes</span>
+<span class="text-sm font-medium">SPIN Hub</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">shield</span>
+<span class="text-sm font-medium">Admin</span>
+</a>
+<!-- Operon AI Button -->
+<div class="mt-8 px-1">
+<button class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-operon-energy text-xl">smart_toy</span>
+<span class="text-xs font-bold tracking-wider text-white uppercase">OPERON AI</span>
+</div>
+<span class="size-2 bg-operon-energy rounded-full animate-pulse"></span>
+</button>
+</div>
+</nav>
+<!-- Footer Section -->
+<div class="mt-auto p-2 flex flex-col gap-4">
+<!-- Governance Card -->
+<div class="rounded-2xl bg-white/5 border border-white/10 p-4 relative overflow-hidden group">
+<div class="relative z-10">
+<div class="flex justify-between items-start mb-2">
+<p class="text-xs font-bold text-white">Cérebro de Governança</p>
+<span class="material-symbols-outlined text-slate-500 text-lg">psychology</span>
+</div>
+<p class="text-[10px] text-slate-400 leading-relaxed mb-4">Sistema ativo. Pronto para análise profunda de mercado.</p>
+<button class="w-full py-2.5 bg-primary rounded-xl text-[11px] font-bold text-white hover:brightness-110 transition-all">
+                Executar Análise
+            </button>
+</div>
+</div>
+<!-- User Profile -->
+<div class="flex items-center justify-between px-2 py-2">
+<div class="flex items-center gap-3">
+<img alt="Commander Alex" class="size-9 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDcRAlpA-hPsfHVNm9BZLZj555RlO_Ep37ZeI6ab1Vq8yJ--f28VEwio5MQAxLu0YzCy76hkghrldf_Ilbrw8ENAHPbj9mWaMn9roUEgErXvQATBduzg2wuJ5wHJ15iNkBXcBNw0rsC7FWQkspqY73dvi5ePEYaQHTvZ8bhrBCA6ZNbSuKWTbNQOfgdiQipGvPQL4PBnAJbCiQMBOIq11H2ZVQozaYCAjXtmqUxxtMMXDHahv-v3leHmwj2lY8qG-4sLd16trHSZc"/>
+<div class="flex flex-col">
+<p class="text-xs font-bold text-white leading-none mb-1">Commander Alex</p>
+<p class="text-[9px] font-medium text-slate-500 tracking-wider uppercase">SYSTEM ADMIN</p>
+</div>
+</div>
+<button class="text-slate-500 hover:text-white">
+<span class="material-symbols-outlined text-lg">settings</span>
+</button>
+</div>
+</div></aside>
+<!-- Main Content -->
+<main class="flex flex-1 flex-col overflow-hidden bg-slate-50 dark:bg-operon-charcoal">
+<!-- Topbar -->
+<header class="flex h-16 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-operon-charcoal px-8">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
+<input class="w-full rounded-xl border-none bg-slate-100 dark:bg-white/5 py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/50 transition-all" placeholder="Buscar no Vault..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex size-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="flex size-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined">tune</span>
+</button>
+<div class="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-slate-900 dark:text-white leading-none">Operon AI</p>
+<p class="text-[10px] text-slate-500 font-medium">High-Ticket Sales</p>
+</div>
+<img class="size-10 rounded-full border-2 border-primary/20 object-cover" data-alt="User avatar of the sales manager" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDcRAlpA-hPsfHVNm9BZLZj555RlO_Ep37ZeI6ab1Vq8yJ--f28VEwio5MQAxLu0YzCy76hkghrldf_Ilbrw8ENAHPbj9mWaMn9roUEgErXvQATBduzg2wuJ5wHJ15iNkBXcBNw0rsC7FWQkspqY73dvi5ePEYaQHTvZ8bhrBCA6ZNbSuKWTbNQOfgdiQipGvPQL4PBnAJbCiQMBOIq11H2ZVQozaYCAjXtmqUxxtMMXDHahv-v3leHmwj2lY8qG-4sLd16trHSZc"/>
+</div>
+</div>
+</header>
+<!-- Subheader / Tabs -->
+<div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-operon-charcoal px-8">
+<div class="flex gap-8">
+<button class="border-b-2 border-primary px-1 py-4 text-sm font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">view_kanban</span>
+                        Kanban
+                    </button>
+<button class="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">list_alt</span>
+                        Lista
+                    </button>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium text-slate-500 mr-2">Filtros: Todos os valores</span>
+<button class="rounded-lg bg-slate-100 dark:bg-white/5 px-3 py-1.5 text-xs font-bold">Hoje</button>
+</div>
+</div>
+<!-- Kanban Area -->
+<div class="flex-1 overflow-x-auto p-6">
+<div class="flex h-full gap-6 min-w-max">
+<!-- Coluna 1: PROSPECÇÃO -->
+<div class="flex w-80 flex-col gap-4">
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-2">
+<span class="size-2 rounded-full bg-slate-400"></span>
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-500">Prospecção (03)</h3>
+</div>
+<span class="rounded-md bg-slate-200 dark:bg-white/10 px-2 py-0.5 text-[10px] font-bold">3 CARDS</span>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Card 1 -->
+<div class="group flex flex-col gap-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-white/5 p-4 shadow-sm hover:shadow-md transition-all">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<p class="text-sm font-bold text-slate-900 dark:text-white">Ricardo Oliveira</p>
+<p class="text-[11px] text-slate-500">Diretor Executivo</p>
+</div>
+<span class="rounded-full bg-slate-100 dark:bg-white/10 px-2 py-1 text-[9px] font-bold uppercase text-slate-500">Cold Outreach</span>
+</div>
+<div class="flex items-center justify-between">
+<p class="text-xs font-bold text-primary">R$ 185.000</p>
+<div class="flex text-amber-400">
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+</div>
+</div>
+<button class="w-full rounded-lg bg-slate-100 dark:bg-white/10 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-primary hover:text-white transition-colors">
+                                    Solicitar Análise
+                                </button>
+</div>
+<!-- Card Generic placeholder to fill space -->
+<div class="flex flex-col gap-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 p-4 opacity-50">
+<div class="h-4 w-24 bg-slate-200 dark:bg-white/10 rounded"></div>
+<div class="h-3 w-32 bg-slate-100 dark:bg-white/5 rounded"></div>
+</div>
+</div>
+</div>
+<!-- Coluna 2: QUALIFICAÇÃO -->
+<div class="flex w-80 flex-col gap-4">
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-2">
+<span class="size-2 rounded-full bg-operon-energy"></span>
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-500">Qualificação (02)</h3>
+</div>
+<span class="rounded-md bg-operon-energy/20 text-operon-energy px-2 py-0.5 text-[10px] font-bold">2 CARDS</span>
+</div>
+<div class="flex flex-col gap-3">
+<div class="group flex flex-col gap-4 rounded-xl border border-operon-energy/30 bg-white dark:bg-operon-energy/5 p-4 shadow-sm hover:shadow-md transition-all">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<p class="text-sm font-bold text-slate-900 dark:text-white">João Silva</p>
+<p class="text-[11px] text-slate-500">Founder &amp; CEO</p>
+</div>
+<span class="rounded-full bg-operon-energy/20 px-2 py-1 text-[9px] font-bold uppercase text-operon-energy flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px] animate-pulse">psychology</span>
+                                        IA Analisando
+                                    </span>
+</div>
+<div class="flex items-center justify-between">
+<p class="text-xs font-bold text-operon-energy">R$ 250.000</p>
+<div class="flex text-amber-400">
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+</div>
+</div>
+<button class="w-full rounded-lg bg-operon-energy py-2 text-xs font-bold text-operon-teal shadow-lg shadow-operon-energy/20 hover:brightness-110 transition-all">
+                                    Análise Profunda
+                                </button>
+</div>
+</div>
+</div>
+<!-- Coluna 3: PROPOSTA -->
+<div class="flex w-80 flex-col gap-4">
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-2">
+<span class="size-2 rounded-full bg-primary"></span>
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-500">Proposta (01)</h3>
+</div>
+<span class="rounded-md bg-primary/20 text-primary px-2 py-0.5 text-[10px] font-bold">1 CARD</span>
+</div>
+<div class="flex flex-col gap-3">
+<div class="group flex flex-col gap-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-white/5 p-4 shadow-sm hover:shadow-md transition-all">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<p class="text-sm font-bold text-slate-900 dark:text-white">Beatriz Mendes</p>
+<p class="text-[11px] text-slate-500">CMO Tech Global</p>
+</div>
+<span class="rounded-full bg-primary/10 px-2 py-1 text-[9px] font-bold uppercase text-primary">Proposta Enviada</span>
+</div>
+<div class="flex items-center justify-between">
+<p class="text-xs font-bold text-slate-900 dark:text-white">R$ 540.000</p>
+<div class="flex text-amber-400">
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+</div>
+</div>
+<button class="w-full rounded-lg bg-operon-energy py-2 text-xs font-bold text-operon-teal shadow-lg shadow-operon-energy/20 hover:brightness-110 transition-all">
+                                    Análise Profunda
+                                </button>
+</div>
+</div>
+</div>
+<!-- Add Column Placeholder -->
+<div class="flex w-80 flex-col gap-4 opacity-30 grayscale pointer-events-none">
+<div class="flex items-center justify-between px-2">
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-500">Fechamento</h3>
+<span class="material-symbols-outlined text-sm">add_circle</span>
+</div>
+<div class="h-40 w-full rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700"></div>
+</div>
+</div>
+</div>
+<!-- Bottom Action Footer (Mobile only view / contextual) -->
+<div class="h-12 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-operon-charcoal px-8 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+<div class="flex gap-4">
+<span>Total em Pipeline: R$ 975.000</span>
+<span>Meta Mensal: 62%</span>
+</div>
+<div class="flex items-center gap-1 text-operon-energy">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+                    Sincronizado com CRM
+                </div>
+</div>
+</main>
+</div>
+</body></html>
