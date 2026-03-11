@@ -154,7 +154,7 @@ $score     = $lead['priority_score'] ?? 0;
         <!-- Operon 4D Results (injected via JS) -->
         <div id="operon4d-results" class="hidden space-y-6"></div>
 
-        <!-- Deep Analysis (Competitors, Target Audience, Value Proposition) -->
+        <!-- Deep Analysis (Modular Intelligence) -->
         <div class="bg-surface border border-stroke rounded-cardLg p-7 shadow-soft">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pt-2">
                 <h2 class="text-xl font-bold text-text flex items-center gap-3">
@@ -163,50 +163,230 @@ $score     = $lead['priority_score'] ?? 0;
                     </div>
                     Inteligência Profunda
                 </h2>
-                <button id="btn-deep-analyze" data-lead-id="<?= e($lead['id']) ?>"
-                        class="h-9 px-4 rounded-pill bg-surface2 border border-stroke text-text text-xs hover:bg-surface3 transition-all flex items-center justify-center gap-1.5 font-medium">
-                    <span class="material-symbols-outlined text-[16px]">magic_button</span> Gerar Insights
-                </button>
+                <!-- No global generate button anymore -->
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5" id="deep-analysis-cards">
-                <!-- Value Proposition -->
-                <div class="bg-surface2 border border-stroke rounded-card p-5">
-                    <h3 class="text-[11px] font-bold text-mint uppercase tracking-[0.1em] mb-3 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-[14px]">storefront</span> O que vende
-                    </h3>
-                    <div id="va-content" class="text-sm text-subtle leading-relaxed overflow-y-auto max-h-48 pr-2">
-                        <?= !empty($analysis['valueProposition']) ? nl2br(e($analysis['valueProposition'])) : '<span class="text-muted italic">Aguardando geração...</span>' ?>
-                    </div>
-                </div>
-
-                <!-- Target Audience -->
-                <div class="bg-surface2 border border-stroke rounded-card p-5">
-                    <h3 class="text-[11px] font-bold text-[#60A5FA] uppercase tracking-[0.1em] mb-3 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-[14px]">groups</span> Público-Alvo
-                    </h3>
-                    <div id="ta-content" class="text-sm text-subtle leading-relaxed overflow-y-auto max-h-48 pr-2">
-                        <?= !empty($analysis['targetAudience']) ? nl2br(e($analysis['targetAudience'])) : '<span class="text-muted italic">Aguardando geração...</span>' ?>
-                    </div>
-                </div>
-
-                <!-- Competitors -->
-                <div class="bg-surface2 border border-stroke rounded-card p-5">
-                    <h3 class="text-[11px] font-bold text-amber-500 uppercase tracking-[0.1em] mb-3 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-[14px]">swords</span> Concorrentes
-                    </h3>
-                    <div id="ca-content" class="text-sm text-subtle leading-relaxed overflow-y-auto max-h-48 pr-2">
-                        <?php if (!empty($analysis['competitors']) && is_array($analysis['competitors'])): ?>
-                            <ul class="list-disc list-inside space-y-1.5">
-                                <?php foreach ($analysis['competitors'] as $comp): ?>
-                                    <li><?= e($comp) ?></li>
-                                <?php endforeach; ?>
-                            </ul>
-                        <?php else: ?>
-                            <span class="text-muted italic">Aguardando geração...</span>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="deep-analysis-cards">
+                <?php foreach ($availableIntelligences as $intel): 
+                    $key = $intel['key'];
+                    $record = $intelligenceHistory[$key] ?? null;
+                    $status = $record ? $record['status'] : 'pending';
+                    
+                    // Decoded JSON context inside the manager handles presentation
+                    $resultContent = '';
+                    if ($status === 'completed' && !empty($record['result_data_decoded'])) {
+                        // Tratar formato em array vs texto livre
+                        if(isset($record['result_data_decoded']['content'])){
+                            $resultContent = nl2br(e($record['result_data_decoded']['content']));
+                        } elseif (isset($record['result_data_decoded']['items']) && is_array($record['result_data_decoded']['items'])) {
+                            $resultContent = '<ul class="list-disc list-inside space-y-1.5">';
+                            foreach ($record['result_data_decoded']['items'] as $item) {
+                                $resultContent .= '<li>' . e($item) . '</li>';
+                            }
+                            $resultContent .= '</ul>';
+                        }
+                    } elseif ($status === 'failed') {
+                        $resultContent = '<span class="text-red-400 text-xs italic">Erro: ' . e($record['error_message'] ?? 'Falha na geração') . '</span>';
+                    }
+                ?>
+                <div class="bg-surface2 border border-stroke rounded-card p-5 flex flex-col h-full relative group">
+                    <!-- Head -->
+                    <div class="flex items-start justify-between mb-3">
+                        <h3 class="text-[11px] font-bold text-[<?= e($intel['color'] ?? 'white') ?>] uppercase tracking-[0.1em] flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-[14px]"><?= e($intel['icon']) ?></span> <?= e($intel['name']) ?>
+                        </h3>
+                        <?php if($status === 'completed'): ?>
+                            <div class="size-5 rounded-full bg-lime/10 flex items-center justify-center border border-lime/20" title="Concluído">
+                                <span class="material-symbols-outlined text-lime text-[12px]">check</span>
+                            </div>
                         <?php endif; ?>
                     </div>
+                    
+                    <!-- Content Area -->
+                    <div id="intel-content-<?= e($key) ?>" class="text-sm text-subtle leading-relaxed overflow-y-auto max-h-48 pr-2 flex-grow mb-4">
+                        <?php if (empty($resultContent)): ?>
+                            <p class="text-xs text-muted/70 italic mb-2"><?= e($intel['description']) ?></p>
+                            <span class="text-muted italic flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[14px]">hourglass_empty</span> Aguardando geração...
+                            </span>
+                        <?php else: ?>
+                            <?= $resultContent ?>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Footer Action -->
+                    <div class="mt-auto flex items-center justify-between border-t border-stroke pt-4 z-10 relative">
+                        <div class="flex items-center gap-1.5 text-xs font-medium text-amber-500/80 bg-amber-500/5 px-2 py-1 rounded-md border border-amber-500/20">
+                            <span class="material-symbols-outlined text-[14px]">generating_tokens</span> <?= e($intel['tokens']) ?>
+                        </div>
+                        
+                        <button id="btn-run-intel-<?= e($key) ?>" 
+                                onclick="runDeepIntelligence('<?= e($lead['id']) ?>', '<?= e($key) ?>')"
+                                class="h-8 px-4 rounded-pill <?= $status === 'completed' ? 'bg-surface3 text-text hover:bg-surface border border-stroke' : 'bg-lime text-bg hover:brightness-110 shadow-glow' ?> text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <?php if($status === 'completed'): ?>
+                                <span class="material-symbols-outlined text-[14px]">refresh</span> Atualizar
+                            <?php else: ?>
+                                <span class="material-symbols-outlined text-[14px]">magic_button</span> Gerar
+                            <?php endif; ?>
+                        </button>
+                    </div>
                 </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Call Recordings & Transcriptions -->
+        <div class="bg-surface border border-stroke rounded-cardLg p-7 shadow-soft">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h2 class="text-xl font-bold text-text flex items-center gap-3">
+                    <div class="size-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-indigo-400 text-[20px]">mic</span>
+                    </div>
+                    Calls & Transcrições
+                </h2>
+                
+                <div class="flex items-center gap-3">
+                    <button id="btn-record-audio" onclick="toggleRecording('<?= $lead['id'] ?>')" class="h-9 px-4 rounded-pill bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 text-[12px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                        <span class="material-symbols-outlined text-[16px]" id="icon-record-audio">mic</span> <span id="text-record-audio">Gravar Áudio</span>
+                        <span id="time-record-audio" class="hidden text-[10px] bg-rose-500/20 px-1.5 py-0.5 rounded ml-1 tracking-wider font-mono">00:00</span>
+                    </button>
+
+                    <label id="btn-upload-audio" class="h-9 px-4 rounded-pill bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 text-[12px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                        <span class="material-symbols-outlined text-[16px]">upload_file</span> Enviar Áudio
+                        <input type="file" id="call-audio-upload" accept="audio/*,video/mp4" class="hidden" onchange="uploadCallAudio(this, '<?= $lead['id'] ?>')">
+                    </label>
+
+                    <!-- DIV PARA CONFIRMAR GRAVAÇÃO -->
+                    <div id="confirm-audio-div" class="hidden items-center gap-2">
+                        <div class="flex items-center text-[12px] font-mono text-lime-400 bg-lime-400/10 px-3 h-9 rounded-pill border border-lime-400/20">
+                            <span class="material-symbols-outlined text-[14px] mr-1">check_circle</span>
+                            Áudio Pronto (<span id="confirm-audio-time">00:00</span>)
+                        </div>
+                        <button onclick="submitRecordedAudio()" id="btn-submit-audio" class="h-9 px-4 rounded-pill bg-lime text-bg hover:brightness-110 shadow-glow text-[12px] font-bold transition-all flex items-center justify-center gap-1.5">
+                            Transcrever e Analisar
+                        </button>
+                        <button onclick="discardRecordedAudio()" class="h-9 w-9 rounded-full bg-red-400/10 text-red-400 hover:bg-red-400/20 border border-red-400/20 flex items-center justify-center transition-all" title="Descartar gravação">
+                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4" id="calls-list-container">
+                <?php if(empty($calls)): ?>
+                    <div class="py-10 text-center border border-dashed border-stroke rounded-xl bg-surface2/50">
+                        <span class="material-symbols-outlined text-muted text-4xl mb-3">mic_off</span>
+                        <p class="text-sm text-subtle">Nenhuma call registrada para este lead.</p>
+                        <p class="text-xs text-muted mt-1">Faça upload de uma gravação para transcrever e analisar comercialmente.</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach($calls as $call): 
+                        $rawAnalysis = $call['analysis_data'] ? json_decode($call['analysis_data'], true) : null;
+                        $execSummary = $rawAnalysis['executive_summary'] ?? 'Resumo pendente ou não estruturado.';
+                        
+                        $statusColors = [
+                            'uploading'    => 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+                            'stored'       => 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+                            'transcribing' => 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+                            'transcribed'  => 'text-lime-400 bg-lime-400/10 border-lime-400/20',
+                            'analyzing'    => 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20',
+                            'completed'    => 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+                            'failed'       => 'text-red-400 bg-red-400/10 border-red-400/20',
+                        ];
+                        $stColor = $statusColors[$call['status']] ?? 'text-muted bg-surface3 border-stroke';
+                        
+                        $statusLabels = [
+                            'uploading'    => 'Enviando...',
+                            'stored'       => 'Na Fila',
+                            'transcribing' => 'Transcrevendo (Whisper)',
+                            'transcribed'  => 'Transcritão',
+                            'analyzing'    => 'Analisando Negócio',
+                            'completed'    => 'Concluído',
+                            'failed'       => 'Falha',
+                        ];
+                        $stLabel = $statusLabels[$call['status']] ?? $call['status'];
+                    ?>
+                    <div class="border border-stroke rounded-xl overflow-hidden call-item" data-call-id="<?= $call['id'] ?>" data-status="<?= $call['status'] ?>">
+                        <!-- Header -->
+                        <div class="bg-surface2 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer" onclick="toggleCallDetails(<?= $call['id'] ?>)">
+                            <div class="flex items-center gap-3">
+                                <span class="material-symbols-outlined text-muted">record_voice_over</span>
+                                <div>
+                                    <h4 class="font-bold text-sm text-text"><?= e($call['title']) ?></h4>
+                                    <div class="flex items-center gap-2 text-xs text-muted mt-1">
+                                        <span><?= date('d/m/Y H:i', strtotime($call['created_at'])) ?></span>
+                                        <span>•</span>
+                                        <span><?= $call['duration'] ? gmdate("i:s", (int)$call['duration']) : '--:--' ?></span>
+                                        <?php if($call['language']): ?>
+                                            <span>•</span><span class="uppercase"><?= e($call['language']) ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center gap-3">
+                                <span class="px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-md border <?= $stColor ?> status-badge flex items-center gap-1.5">
+                                    <?php if(in_array($call['status'], ['uploading', 'transcribing', 'analyzing'])): ?>
+                                        <span class="material-symbols-outlined text-[12px] animate-spin">refresh</span>
+                                    <?php endif; ?>
+                                    <span class="status-text"><?= $stLabel ?></span>
+                                </span>
+                                <span class="material-symbols-outlined text-muted text-sm transition-transform duration-200" id="call-icon-<?= $call['id'] ?>">expand_more</span>
+                            </div>
+                        </div>
+
+                        <!-- Body (Hidden by default unless completed/failed) -->
+                        <div id="call-body-<?= $call['id'] ?>" class="hidden border-t border-stroke bg-surface/50 p-5">
+                            
+                            <?php if($call['status'] === 'failed'): ?>
+                                <div class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm mb-4">
+                                    Falha no processamento: <?= e($call['error_message']) ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if($call['status'] === 'completed' && $rawAnalysis): ?>
+                                <div class="mb-5">
+                                    <h5 class="text-xs font-bold text-mint uppercase tracking-wider mb-2">Resumo da Call</h5>
+                                    <p class="text-sm text-text leading-relaxed"><?= nl2br(e($execSummary)) ?></p>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                                    <div class="bg-surface2 p-4 rounded-lg border border-stroke">
+                                        <h5 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">warning</span> Dores / Objeções</h5>
+                                        <ul class="list-disc list-inside text-sm text-subtle space-y-1">
+                                            <?php foreach(($rawAnalysis['core_pain_points']??[]) as $d) echo "<li>".e($d)."</li>"; ?>
+                                            <?php foreach(($rawAnalysis['identified_objections']??[]) as $d) echo "<li>".e($d)."</li>"; ?>
+                                        </ul>
+                                    </div>
+                                    <div class="bg-surface2 p-4 rounded-lg border border-stroke">
+                                        <h5 class="text-xs font-bold text-lime-400 uppercase tracking-wider mb-2 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">flag</span> Próximos Passos</h5>
+                                        <ul class="list-disc list-inside text-sm text-subtle space-y-1">
+                                            <?php foreach(($rawAnalysis['recommended_next_steps']??[]) as $d) echo "<li>".e($d)."</li>"; ?>
+                                        </ul>
+                                        <div class="mt-3 text-xs">
+                                            <span class="text-muted">Fit (ICP):</span> <span class="font-bold text-text"><?= e($rawAnalysis['icp_fit_score']??'N/A') ?>/100</span>
+                                            <span class="mx-2 text-stroke">|</span>
+                                            <span class="text-muted">Temperatura:</span> <span class="font-bold text-text"><?= e($rawAnalysis['temperature']??'N/A') ?></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if($call['transcript_clean']): ?>
+                                <div class="mt-4">
+                                    <button class="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1" onclick="document.getElementById('transcript-<?= $call['id'] ?>').classList.toggle('hidden')">
+                                        <span class="material-symbols-outlined text-[14px]">notes</span> Ver Transcrição Completa
+                                    </button>
+                                    <div id="transcript-<?= $call['id'] ?>" class="hidden mt-3 p-4 bg-bg border border-stroke rounded-lg max-h-64 overflow-y-auto text-xs text-subtle leading-loose">
+                                        <?= nl2br(e($call['transcript_clean'])) ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -848,46 +1028,72 @@ setTimeout(() => {
         });
     }
 
-    const btnDeep = document.getElementById('btn-deep-analyze');
-    if (btnDeep) {
-        btnDeep.addEventListener('click', async () => {
-            const container = document.getElementById('deep-analysis-cards');
-            if(!container) return;
-            
-            const originalText = btnDeep.innerHTML;
-            btnDeep.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">refresh</span> Processando...';
-            btnDeep.disabled = true;
-            
-            try {
-                const data = await operonFetch('/vault/' + LEAD_ID + '/insights', { method: 'POST' });
-                
-                if (data && !data.error) {
-                    const va = document.getElementById('va-content');
-                    if(va) va.innerHTML = data.valueProposition ? escHtml(data.valueProposition).replace(/\\\\n/g, '<br>') : '<span class="text-muted italic">Erro no vetor.</span>';
-                    
-                    const ta = document.getElementById('ta-content');
-                    if(ta) ta.innerHTML = data.targetAudience ? escHtml(data.targetAudience).replace(/\\\\n/g, '<br>') : '<span class="text-muted italic">Erro no vetor.</span>';
-                    
-                    const ca = document.getElementById('ca-content');
-                    if(ca) {
-                        if (data.competitors && Array.isArray(data.competitors) && data.competitors.length > 0) {
-                            ca.innerHTML = '<ul class="list-disc list-inside space-y-1.5">' + data.competitors.map(c => '<li>' + escHtml(c) + '</li>').join('') + '</ul>';
-                        } else {
-                            ca.innerHTML = '<span class="text-muted italic">Sem dados competitivos.</span>';
-                        }
-                    }
-                } else {
-                    alert(data?.error || 'Subrotina de inteligência profunda abortada.');
+    // New deep intelligence logic
+    window.runDeepIntelligence = async function(leadId, key) {
+        const btn = document.getElementById('btn-run-intel-' + key);
+        const contentDiv = document.getElementById('intel-content-' + key);
+        if(!btn || !contentDiv) return;
+
+        const originalHtml = btn.innerHTML;
+        const originalClasses = btn.className;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[14px] animate-spin">refresh</span> Processando';
+        btn.className = 'h-8 px-4 rounded-pill bg-surface3 border border-stroke text-text text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 opacity-80 cursor-not-allowed';
+
+        try {
+            const res = await operonFetch('/intelligence/run', {
+                method: 'POST',
+                body: JSON.stringify({ lead_id: leadId, type: key })
+            });
+
+            if(res && res.success) {
+                // Update balance if returned
+                if(res.tokenBalance !== undefined) {
+                    const elBalance = document.getElementById('nexus-token-balance');
+                    if(elBalance) elBalance.innerText = res.tokenBalance.toLocaleString('pt-BR');
                 }
-            } catch (e) {
-                console.error(e);
-                alert('Erro de conexão neural.');
-            } finally {
-                btnDeep.innerHTML = originalText;
-                btnDeep.disabled = false;
+
+                // Format the content
+                let contentHtml = '';
+                const data = res.result;
+
+                if (data.content) {
+                    contentHtml = escHtml(data.content).replace(/\\\\n/g, '<br>');
+                } else if (data.items && Array.isArray(data.items)) {
+                    contentHtml = '<ul class="list-disc list-inside space-y-1.5">';
+                    data.items.forEach(item => {
+                        contentHtml += '<li>' + escHtml(item) + '</li>';
+                    });
+                    contentHtml += '</ul>';
+                }
+
+                contentDiv.innerHTML = contentHtml;
+
+                // Update Button to "Atualizar" state
+                btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">refresh</span> Atualizar';
+                btn.className = 'h-8 px-4 rounded-pill bg-surface3 text-text hover:bg-surface border border-stroke text-[11px] font-bold transition-all flex items-center justify-center gap-1.5';
+                
+                // Add the checkmark to header
+                const header = btn.closest('.bg-surface2').querySelector('h3').parentElement;
+                if(!header.querySelector('.bg-lime\\/10')) {
+                    header.insertAdjacentHTML('beforeend', '<div class="size-5 rounded-full bg-lime/10 flex items-center justify-center border border-lime/20" title="Concluído"><span class="material-symbols-outlined text-lime text-[12px]">check</span></div>');
+                }
+
+            } else {
+                throw new Error(res?.error || 'Erro na inteligência.');
             }
-        });
-    }
+
+        } catch (e) {
+            console.error(e);
+            alert('Falha ao processar inteligência: ' + e.message);
+            // Revert state
+            btn.innerHTML = originalHtml;
+            btn.className = originalClasses;
+        } finally {
+            btn.disabled = false;
+        }
+    };
 }, 100);
 
 // ── 4D Renderer ───────────────────────────────────────────
@@ -932,6 +1138,235 @@ function render4D(data) {
         container.appendChild(card);
     });
 }
+
+// ── Calls & Transcriptions Logic ──────────────────────────
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingInterval = null;
+let recordingSeconds = 0;
+let currentRecordedBlob = null;
+let currentRecordLeadId = null;
+
+async function toggleRecording(leadId) {
+    const btn = document.getElementById('btn-record-audio');
+    const icon = document.getElementById('icon-record-audio');
+    const text = document.getElementById('text-record-audio');
+    const timeDisplay = document.getElementById('time-record-audio');
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        // Parar gravação
+        mediaRecorder.stop();
+        clearInterval(recordingInterval);
+        
+        btn.classList.remove('bg-rose-500/20', 'animate-pulse');
+        icon.innerText = 'mic';
+        text.innerText = 'Gravar Áudio';
+        timeDisplay.classList.add('hidden');
+        
+        // Hide initial buttons
+        btn.classList.add('hidden');
+        document.getElementById('btn-upload-audio').classList.add('hidden');
+
+        // Show confirm panel
+        const confirmDiv = document.getElementById('confirm-audio-div');
+        const confirmTime = document.getElementById('confirm-audio-time');
+        confirmDiv.classList.remove('hidden');
+        confirmDiv.classList.add('flex');
+        
+        const m = String(Math.floor(recordingSeconds / 60)).padStart(2, '0');
+        const s = String(recordingSeconds % 60).padStart(2, '0');
+        confirmTime.innerText = m + ':' + s; // Using concatenation to avoid PHP Heredoc syntax error
+
+        return; 
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        currentRecordLeadId = leadId;
+
+        mediaRecorder.ondataavailable = e => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+            currentRecordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            stream.getTracks().forEach(track => track.stop());
+        };
+
+        // Iniciar gravação de fato
+        mediaRecorder.start();
+        recordingSeconds = 0;
+        timeDisplay.innerText = '00:00';
+        timeDisplay.classList.remove('hidden');
+        
+        btn.classList.add('bg-rose-500/20', 'animate-pulse');
+        icon.innerText = 'stop_circle';
+        text.innerText = 'Parar';
+
+        recordingInterval = setInterval(() => {
+            recordingSeconds++;
+            const m = String(Math.floor(recordingSeconds / 60)).padStart(2, '0');
+            const s = String(recordingSeconds % 60).padStart(2, '0');
+            timeDisplay.innerText = m + ':' + s; // Using concatenation
+        }, 1000);
+
+    } catch (err) {
+        console.error('Microfone negado ou indisponível', err);
+        alert('Não foi possível acessar seu microfone. Detalhes: ' + err.message);
+    }
+}
+
+function discardRecordedAudio() {
+    currentRecordedBlob = null;
+    currentRecordLeadId = null;
+    
+    // Hide confirm div
+    const confirmDiv = document.getElementById('confirm-audio-div');
+    confirmDiv.classList.remove('flex');
+    confirmDiv.classList.add('hidden');
+    
+    // Show original buttons
+    document.getElementById('btn-record-audio').classList.remove('hidden');
+    document.getElementById('btn-upload-audio').classList.remove('hidden');
+}
+
+async function submitRecordedAudio() {
+    if (!currentRecordedBlob || !currentRecordLeadId) return;
+    
+    const btnSubmit = document.getElementById('btn-submit-audio');
+    const originalContent = btnSubmit.innerHTML;
+    btnSubmit.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> Enviando...';
+    btnSubmit.disabled = true;
+    
+    const formData = new FormData();
+    formData.append('audio', new File([currentRecordedBlob], 'recording_' + Date.now() + '.webm', { type: 'audio/webm' }));
+    formData.append('lead_id', currentRecordLeadId);
+
+    try {
+        const res = await fetch('/calls/upload', {
+            method: 'POST',
+            body: formData
+        }).then(r => r.json());
+
+        if (res && res.success) {
+            location.reload();
+        } else {
+            alert('Falha ao enviar gravação: ' + (res.error || 'Erro desconhecido.'));
+            btnSubmit.innerHTML = originalContent;
+            btnSubmit.disabled = false;
+        }
+    } catch(e) {
+        console.error(e);
+        alert('Erro na conexão ao subir áudio gravado.');
+        btnSubmit.innerHTML = originalContent;
+        btnSubmit.disabled = false;
+    }
+}
+
+function resetRecordingBtn() {
+    const btn = document.getElementById('btn-record-audio');
+    const icon = document.getElementById('icon-record-audio');
+    const text = document.getElementById('text-record-audio');
+    const timeDisplay = document.getElementById('time-record-audio');
+    
+    btn.classList.remove('bg-rose-500/20', 'animate-pulse');
+    icon.classList.remove('animate-spin');
+    icon.innerText = 'mic';
+    text.innerText = 'Gravar Áudio';
+    timeDisplay.classList.add('hidden');
+    btn.disabled = false;
+}
+
+async function uploadCallAudio(input, leadId) {
+    if(!input.files || input.files.length === 0) return;
+    
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('audio', file);
+    formData.append('lead_id', leadId);
+
+    // Show loading state on label
+    const label = input.closest('label');
+    const originalLabelHtml = label.innerHTML;
+    label.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> Enviando...';
+    label.classList.add('opacity-50', 'pointer-events-none');
+
+    try {
+        const res = await fetch('/calls/upload', {
+            method: 'POST',
+            body: formData
+            // Note: Não passe Content-Type aqui para que o fetch monte o multipart border
+        }).then(r => r.json());
+
+        if (res && res.success) {
+            // Recarrega a página para exibir o novo card em status 'uploading/stored'
+            location.reload();
+        } else {
+            alert('Falha no upload: ' + (res.error || 'Erro desconhecido.'));
+            label.innerHTML = originalLabelHtml;
+            label.classList.remove('opacity-50', 'pointer-events-none');
+            input.value = ''; // reset input
+        }
+    } catch(e) {
+        console.error(e);
+        alert('Erro ao enviar áudio.');
+        label.innerHTML = originalLabelHtml;
+        label.classList.remove('opacity-50', 'pointer-events-none');
+        input.value = '';
+    }
+}
+
+function toggleCallDetails(callId) {
+    const body = document.getElementById('call-body-' + callId);
+    const icon = document.getElementById('call-icon-' + callId);
+    if(body && icon) {
+        body.classList.toggle('hidden');
+        if(body.classList.contains('hidden')) {
+            icon.style.transform = 'rotate(0deg)';
+        } else {
+            icon.style.transform = 'rotate(180deg)';
+        }
+    }
+}
+
+// ── Background Polling for Ongoing Calls ──────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const ongoingCalls = [];
+    document.querySelectorAll('.call-item').forEach(el => {
+        const status = el.getAttribute('data-status');
+        if (['uploading', 'stored', 'transcribing', 'analyzing'].includes(status)) {
+            ongoingCalls.push(el.getAttribute('data-call-id'));
+        }
+    });
+
+    if (ongoingCalls.length > 0) {
+        const pollInterval = setInterval(async () => {
+            try {
+                const res = await fetch('/calls/status?ids=' + ongoingCalls.join(',')).then(r => r.json());
+                if (res && res.success && res.calls) {
+                    let allDone = true;
+                    // Seletor básico para forçar reload caso um termine assim não precisamos codar update dom complexo agr
+                    for (const id of ongoingCalls) {
+                        const call = res.calls[id];
+                        if(call && ['completed', 'failed'].includes(call.status)) {
+                            // Encontrou um que terminou. Reload da página para exibir os cards completos.
+                            location.reload();
+                            return;
+                        } else if (call) {
+                            allDone = false;
+                        }
+                    }
+                    if(allDone) clearInterval(pollInterval);
+                }
+            } catch(e) {
+                console.warn('Falha no polling', e);
+            }
+        }, 5000); // Poll a cada 5 segundos
+    }
+});
+
 
 // ── Timeline Tabs ─────────────────────────────────────────
 function switchTimelineTab(tab) {

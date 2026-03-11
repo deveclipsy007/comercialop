@@ -36,18 +36,18 @@ $aiModel = $agencySettings['ai_model'] ?? 'gemini-2.5-flash';
                 <div class="space-y-6">
                     <div>
                         <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Fuso Horário</label>
-                        <select name="timezone" class="w-full h-12 bg-surface2 border border-stroke rounded-pill px-5 text-sm text-text focus:outline-none focus:border-lime/50 transition-colors appearance-none cursor-pointer">
-                            <option value="America/Sao_Paulo" <?= $timezone === 'America/Sao_Paulo' ? 'selected' : '' ?>>America/Sao_Paulo (GMT-3)</option>
-                            <option value="UTC" <?= $timezone === 'UTC' ? 'selected' : '' ?>>UTC</option>
+                        <select name="timezone" class="w-full h-12 bg-surface2 border border-stroke rounded-pill px-5 text-sm text-text focus:outline-none focus:border-lime/50 transition-colors appearance-none cursor-pointer [color-scheme:dark]">
+                            <option value="America/Sao_Paulo" class="bg-surface2 text-lime font-bold" <?= $timezone === 'America/Sao_Paulo' ? 'selected' : '' ?>>America/Sao_Paulo (GMT-3)</option>
+                            <option value="UTC" class="bg-surface2 text-lime font-bold" <?= $timezone === 'UTC' ? 'selected' : '' ?>>UTC</option>
                         </select>
                     </div>
 
                     <div>
                         <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Modelo de Linguagem (Operon AI) *</label>
-                        <select name="ai_model" class="w-full h-12 bg-surface2 border border-stroke rounded-pill px-5 text-sm text-text focus:outline-none focus:border-lime/50 transition-colors appearance-none cursor-pointer">
-                            <option value="gemini-2.5-flash" <?= $aiModel === 'gemini-2.5-flash' ? 'selected' : '' ?>>Gemini 2.5 Flash (Rápido & Econômico)</option>
-                            <option value="gemini-2.5-pro" <?= $aiModel === 'gemini-2.5-pro' ? 'selected' : '' ?>>Gemini 2.5 Pro (Avançado - Maior Consumo)</option>
-                            <option value="gpt-4o" <?= $aiModel === 'gpt-4o' ? 'selected' : '' ?>>GPT-4o (OpenAI Premium)</option>
+                        <select name="ai_model" class="w-full h-12 bg-surface2 border border-stroke rounded-pill px-5 text-sm text-text focus:outline-none focus:border-lime/50 transition-colors appearance-none cursor-pointer [color-scheme:dark]">
+                            <option value="gemini-2.5-flash" class="bg-surface2 text-lime font-bold" <?= $aiModel === 'gemini-2.5-flash' ? 'selected' : '' ?>>Gemini 2.5 Flash (Rápido & Econômico)</option>
+                            <option value="gemini-2.5-pro" class="bg-surface2 text-lime font-bold" <?= $aiModel === 'gemini-2.5-pro' ? 'selected' : '' ?>>Gemini 2.5 Pro (Avançado - Maior Consumo)</option>
+                            <option value="gpt-4o" class="bg-surface2 text-lime font-bold" <?= $aiModel === 'gpt-4o' ? 'selected' : '' ?>>GPT-4o (OpenAI Premium)</option>
                         </select>
                         <p class="text-xs text-subtle mt-2 flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">info</span> Define qual LLM será utilizado por padrão no Copilot e análises breves.</p>
                     </div>

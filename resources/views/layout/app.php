@@ -6,6 +6,50 @@
     <meta name="csrf-token" content="<?= csrf_token() ?>">
     <title><?= e($pageTitle ?? 'Operon Intelligence') ?> — Operon</title>
 
+    <?php
+    $userSession = \App\Core\Session::get('auth_user') ?? [];
+    $linkedTenants = [];
+    $currentTenantName = 'Empresa';
+    
+    // Buscar configurações direto no banco para aplicar mudanças de White Label em Tempo Real
+    if (!empty($userSession['id'])) {
+        $realTimeWL = \App\Core\Database::selectFirst(
+            'SELECT wl_color, wl_logo, wl_features, max_tenants, can_create_tenants FROM users WHERE id = ?', 
+            [$userSession['id']]
+        );
+        if ($realTimeWL) {
+            $userSession['wl_color'] = $realTimeWL['wl_color'];
+            $userSession['wl_logo']  = $realTimeWL['wl_logo'];
+            $userSession['wl_features'] = $realTimeWL['wl_features'];
+            $userSession['max_tenants'] = $realTimeWL['max_tenants'];
+            $userSession['can_create_tenants'] = $realTimeWL['can_create_tenants'];
+        }
+
+        // Buscar todas as empresas que o usuário tem acesso
+        $linkedTenants = \App\Models\User::getLinkedTenants($userSession['id']);
+        foreach ($linkedTenants as $t) {
+            if ($t['id'] === \App\Core\Session::tenantId()) {
+                $currentTenantName = $t['name'];
+                break;
+            }
+        }
+    }
+    
+    $wlColor = $userSession['wl_color'] ?? '#E1FB15';
+    if ($wlColor === '') $wlColor = '#E1FB15';
+    
+    $wlLogo = $userSession['wl_logo'] ?? '';
+    if ($wlLogo === '') {
+        $wlLogo = 'https://imagedelivery.net/mYdfeAeRRdkIXG5w7XJhtQ/08d22f62-d69a-4d61-7a2f-f565e4546b00/public';
+    }
+
+    $wlFeaturesRaw = $userSession['wl_features'] ?? null;
+    $wlFeatures = null;
+    if ($wlFeaturesRaw !== null && $wlFeaturesRaw !== '') {
+        $wlFeatures = json_decode($wlFeaturesRaw, true) ?: [];
+    }
+    ?>
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
@@ -31,14 +75,14 @@
                         "text":        "#F5F5F5",
                         "muted":       "#A1A1AA",
                         "subtle":      "#71717A",
-                        "lime":        "#E1FB15",
+                        "lime":        "<?= $wlColor ?>",
                         "mint":        "#32D583",
                         
                         // Legado Operon p/ não quebrar views não ajustadas ainda
-                        "primary":           "#E1FB15", 
+                        "primary":           "<?= $wlColor ?>", 
                         "operon-charcoal":   "#000000",
                         "operon-teal":       "#131313",
-                        "operon-energy":     "#E1FB15",
+                        "operon-energy":     "<?= $wlColor ?>",
                         "background-dark":   "#000000",
                         "background-light":  "#F8F6F6",
                         "brand-surface":     "#131313",
@@ -94,31 +138,45 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
         
         <!-- Logo Area -->
         <a href="/" class="flex items-center flex-shrink-0 min-w-[120px]">
-            <img src="https://imagedelivery.net/mYdfeAeRRdkIXG5w7XJhtQ/08d22f62-d69a-4d61-7a2f-f565e4546b00/public" alt="Operon Intelligence" class="h-12 lg:h-[52px] w-auto object-contain relative -left-2 transition-transform hover:scale-105">
+            <img src="<?= e($wlLogo) ?>" alt="Operon Intelligence" class="h-12 lg:h-[52px] w-auto object-contain relative -left-2 transition-transform hover:scale-105">
         </a>
 
         <!-- Primary Navigation (Pills) -->
         <nav class="hidden flex-1 lg:flex items-center justify-center gap-2 overflow-x-auto hide-scrollbar px-4">
             <?php
             $navItems = [
-                ['label' => 'Overview', 'path' => '/',         'key' => 'dashboard'],
-                ['label' => 'Vault',    'path' => '/vault',    'key' => 'vault'],
-                ['label' => 'Atlas',    'path' => '/atlas',    'key' => 'atlas'],
-                ['label' => 'Hunter',   'path' => '/hunter',   'key' => 'hunter'],
-                ['label' => 'Genesis',  'path' => '/genesis',  'key' => 'genesis'],
-                ['label' => 'Agenda',   'path' => '/agenda',   'key' => 'agenda'],
-                ['label' => 'Follow-up','path' => '/follow-up','key' => 'followup'],
-                ['label' => 'SPIN Hub', 'path' => '/spin',     'key' => 'spin'],
+                ['label' => 'Overview',  'path' => '/',          'key' => 'dashboard', 'icon' => 'grid_view'],
+                ['label' => 'Vault',     'path' => '/vault',     'key' => 'vault',     'icon' => 'contacts'],
+                ['label' => 'Atlas',     'path' => '/atlas',     'key' => 'atlas',     'icon' => 'map'],
+                ['label' => 'Hunter',    'path' => '/hunter',    'key' => 'hunter',    'icon' => 'travel_explore'],
+                ['label' => 'Genesis',   'path' => '/genesis',   'key' => 'genesis',   'icon' => 'upload_file'],
+                ['label' => 'Agenda',    'path' => '/agenda',    'key' => 'agenda',    'icon' => 'calendar_today'],
+                ['label' => 'Follow-up', 'path' => '/follow-up', 'key' => 'agenda',    'icon' => 'notifications_active'],
+                ['label' => 'SPIN Hub',  'path' => '/spin',      'key' => 'spin',      'icon' => 'psychology_alt'],
+                ['label' => 'Knowledge', 'path' => '/knowledge', 'key' => 'knowledge', 'icon' => 'neurology'],
             ];
+
+            // Filter nav items based on WL features
+            $filteredNav = [];
+            foreach ($navItems as $item) {
+                if (is_array($wlFeatures) && !in_array($item['key'], $wlFeatures)) {
+                    continue;
+                }
+                $filteredNav[] = $item;
+            }
+
             $active = $active ?? '';
-            foreach ($navItems as $item): 
+            foreach ($filteredNav as $item): 
                 $isActive = $active === $item['key'];
             ?>
             <a href="<?= $item['path'] ?>"
-               class="flex items-center h-[40px] px-5 rounded-pill text-sm transition-all duration-200 whitespace-nowrap
-                      <?= $isActive 
-                          ? 'bg-lime text-bg font-medium shadow-glow' 
+               class="flex items-center gap-1.5 h-[40px] px-4 rounded-pill text-sm transition-all duration-200 whitespace-nowrap
+                      <?= $isActive
+                          ? 'bg-lime text-bg font-medium shadow-glow'
                           : 'bg-surface border border-white/5 text-muted hover:text-text hover:bg-surface2' ?>">
+                <?php if (!empty($item['icon'])): ?>
+                <span class="material-symbols-outlined" style="font-size:15px;font-variation-settings:'FILL' 1,'wght' 400"><?= $item['icon'] ?></span>
+                <?php endif; ?>
                 <?= $item['label'] ?>
             </a>
             <?php endforeach; ?>
@@ -144,11 +202,76 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
                 <span class="material-symbols-outlined text-[20px]">menu</span>
             </button>
 
+            <!-- Knowledge Base (Circular) -->
+            <a href="/knowledge"
+               title="Knowledge Base — IA da sua empresa"
+               class="flex size-10 items-center justify-center rounded-full bg-surface border border-white/5 text-muted hover:text-lime hover:border-lime/30 transition-all relative <?= ($active ?? '') === 'knowledge' ? 'border-lime/40 text-lime' : '' ?>">
+                <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1">neurology</span>
+                <?php if (($active ?? '') !== 'knowledge'): ?>
+                <span class="absolute top-[2px] right-[2px] size-2 bg-lime/60 rounded-full border-2 border-bg"></span>
+                <?php endif; ?>
+            </a>
+
             <!-- Copilot Action (Circular) -->
             <button onclick="openModal('copilotModal')" class="flex size-10 items-center justify-center rounded-full bg-surface border border-white/5 text-muted hover:text-lime hover:border-lime/30 transition-all group relative" title="Operon AI">
                 <span class="material-symbols-outlined text-[20px]">smart_toy</span>
                 <span class="absolute top-[2px] right-[2px] size-2.5 bg-lime rounded-full animate-pulse border-2 border-bg"></span>
             </button>
+
+            <!-- Context Switcher (Multi-Company) -->
+            <?php if (!empty($linkedTenants)): ?>
+            <div class="relative" id="companySwitcherContainer">
+                <button id="companySwitcherBtn" class="hidden md:flex items-center gap-2 h-10 px-4 rounded-pill bg-surface2 border border-white/10 hover:border-lime/50 transition-all group">
+                    <span class="material-symbols-outlined text-[18px] text-lime">domain</span>
+                    <span class="text-sm font-medium text-text truncate max-w-[120px]"><?= e($currentTenantName) ?></span>
+                    <span class="material-symbols-outlined text-[18px] text-muted group-hover:text-text transition-transform duration-200" id="companySwitcherIcon">expand_more</span>
+                </button>
+
+                <!-- Dropdown Menu -->
+                <div id="companySwitcherMenu" class="absolute right-0 mt-3 w-64 bg-surface2 border border-stroke rounded-[20px] shadow-lg py-2 hidden z-50 transform opacity-0 scale-95 transition-all duration-200 origin-top-right">
+                    <div class="px-4 py-2 border-b border-stroke mb-2 flex items-center justify-between">
+                        <p class="text-xs font-bold text-subtle uppercase tracking-wider">Alternar Empresa</p>
+                        <span class="text-[10px] bg-lime/10 text-lime px-2 py-0.5 rounded-full border border-lime/20"><?= count($linkedTenants) ?></span>
+                    </div>
+                    <div class="max-h-[300px] overflow-y-auto px-2 custom-scrollbar">
+                        <?php foreach($linkedTenants as $tenant): 
+                            $isActive = $tenant['id'] === \App\Core\Session::tenantId();
+                        ?>
+                            <form action="/context/switch" method="POST" class="m-0">
+                                <input type="hidden" name="_csrf" value="<?= \App\Core\Session::csrf() ?>">
+                                <input type="hidden" name="tenant_id" value="<?= e($tenant['id']) ?>">
+                                <button type="submit" class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all <?= $isActive ? 'bg-lime/10 border border-lime/20' : 'hover:bg-surface3 border border-transparent' ?>">
+                                    <div class="size-8 rounded-lg flex items-center justify-center flex-shrink-0 <?= $isActive ? 'bg-lime text-black' : 'bg-surface border border-white/5 text-muted' ?>">
+                                        <span class="material-symbols-outlined text-[16px]">business</span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium truncate <?= $isActive ? 'text-lime' : 'text-text' ?>"><?= e($tenant['name']) ?></p>
+                                        <p class="text-[10px] text-muted truncate capitalize">Permissão: <?= e($tenant['pivot_role'] ?? 'Membro') ?></p>
+                                    </div>
+                                    <?php if($isActive): ?>
+                                        <span class="material-symbols-outlined text-[18px] text-lime">check_circle</span>
+                                    <?php endif; ?>
+                                </button>
+                            </form>
+                        <?php endforeach; ?>
+                        
+                        <?php if ((int)($userSession['max_tenants'] ?? 1) > count($linkedTenants) && ($userSession['can_create_tenants'] ?? 0)): ?>
+                            <div class="mt-2 p-2 border-t border-stroke">
+                                <button onclick="openCreateCompanyModal()" class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-subtle hover:text-lime hover:bg-lime/5 transition-all text-xs font-bold">
+                                    <span class="material-symbols-outlined text-[18px]">add_circle</span>
+                                    Criar Nova Empresa
+                                </button>
+                                <p class="text-[9px] text-muted text-center mt-1.5 px-4 italic">Limite: <?= count($linkedTenants) ?> / <?= $userSession['max_tenants'] ?></p>
+                            </div>
+                        <?php else: ?>
+                            <div class="mt-2 p-2 border-t border-stroke text-center">
+                                <p class="text-[9px] text-muted px-4 italic">Você está no limite de empresas (<?= $userSession['max_tenants'] ?>)</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <!-- User Dropdown -->
             <div class="relative" id="userDropdownContainer">
@@ -197,8 +320,11 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
     <div id="mobileNavOverlay" class="fixed inset-0 bg-bg z-40 flex-col hidden lg:hidden overflow-y-auto px-4 py-6 border-t border-stroke mt-[72px]">
         <div class="flex flex-col gap-3">
             <p class="text-[10px] font-bold text-subtle tracking-[0.2em] uppercase mb-2 px-2">Navegação Principal</p>
-            <?php foreach ($navItems as $item): ?>
-                <a href="<?= $item['path'] ?>" class="flex items-center h-12 px-5 rounded-pill text-sm transition-all duration-200 <?= ($active ?? '') === $item['key'] ? 'bg-lime text-bg font-medium' : 'bg-surface text-muted border border-white/5' ?>">
+            <?php foreach ($filteredNav as $item): ?>
+                <a href="<?= $item['path'] ?>" class="flex items-center gap-2.5 h-12 px-5 rounded-pill text-sm transition-all duration-200 <?= ($active ?? '') === $item['key'] ? 'bg-lime text-bg font-medium' : 'bg-surface text-muted border border-white/5' ?>">
+                    <?php if (!empty($item['icon'])): ?>
+                    <span class="material-symbols-outlined" style="font-size:18px;font-variation-settings:'FILL' 1,'wght' 400"><?= $item['icon'] ?></span>
+                    <?php endif; ?>
                     <?= $item['label'] ?>
                 </a>
             <?php endforeach; ?>
@@ -347,7 +473,46 @@ if (userDropdownBtn && userDropdownMenu) {
             }, 200);
         }
     });
-} // <--- Added missing closing brace
+} 
+
+// Company Switcher Dropdown Logic
+const companySwitcherBtn = document.getElementById('companySwitcherBtn');
+const companySwitcherMenu = document.getElementById('companySwitcherMenu');
+const companySwitcherIcon = document.getElementById('companySwitcherIcon');
+
+if (companySwitcherBtn && companySwitcherMenu) {
+    companySwitcherBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = companySwitcherMenu.classList.contains('hidden');
+        
+        if (isHidden) {
+            companySwitcherMenu.classList.remove('hidden');
+            if (companySwitcherIcon) companySwitcherIcon.style.transform = 'rotate(180deg)';
+            requestAnimationFrame(() => {
+                companySwitcherMenu.classList.remove('opacity-0', 'scale-95');
+                companySwitcherMenu.classList.add('opacity-100', 'scale-100');
+            });
+        } else {
+            companySwitcherMenu.classList.remove('opacity-100', 'scale-100');
+            companySwitcherMenu.classList.add('opacity-0', 'scale-95');
+            if (companySwitcherIcon) companySwitcherIcon.style.transform = 'rotate(0deg)';
+            setTimeout(() => {
+                companySwitcherMenu.classList.add('hidden');
+            }, 200);
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!companySwitcherMenu.classList.contains('hidden') && !e.target.closest('#companySwitcherContainer')) {
+            companySwitcherMenu.classList.remove('opacity-100', 'scale-100');
+            companySwitcherMenu.classList.add('opacity-0', 'scale-95');
+            if (companySwitcherIcon) companySwitcherIcon.style.transform = 'rotate(0deg)';
+            setTimeout(() => {
+                companySwitcherMenu.classList.add('hidden');
+            }, 200);
+        }
+    });
+}
 
 // Mobile Nav Toggle
 const mobileMenuBtn = document.getElementById('mobileMenuBtn');
@@ -357,6 +522,76 @@ if(mobileMenuBtn && mobileNavOverlay) {
         mobileNavOverlay.classList.toggle('hidden');
         mobileNavOverlay.classList.toggle('flex');
     });
+}
+</script>
+
+<!-- ─── Create Company Modal ────────────────────────── -->
+<div id="createCompanyModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-md" onclick="closeCreateCompanyModal()"></div>
+    <div class="relative w-full max-w-md bg-surface2 border border-stroke rounded-[32px] shadow-2xl overflow-hidden transform scale-95 opacity-0 transition-all duration-300" id="createCompanyModalContent">
+        <div class="p-8">
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center gap-3">
+                    <div class="size-12 rounded-2xl bg-lime/10 border border-lime/20 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-lime text-2xl">add_business</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-text">Nova Empresa</h3>
+                        <p class="text-xs text-subtle">Crie um novo ambiente de operação.</p>
+                    </div>
+                </div>
+                <button onclick="closeCreateCompanyModal()" class="size-10 rounded-full border border-stroke flex items-center justify-center text-muted hover:text-text hover:bg-surface3 transition-all">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form action="/context/create" method="POST" class="space-y-6">
+                <?= csrf_field() ?>
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] ml-1">Nome da Empresa</label>
+                    <input type="text" name="company_name" required placeholder="Ex: Nexus Filial Norte"
+                        class="w-full h-14 bg-surface3 border border-stroke rounded-2xl px-5 text-sm text-text placeholder:text-muted focus:outline-none focus:border-lime/50 focus:ring-1 focus:ring-lime/20 transition-all shadow-inner">
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeCreateCompanyModal()" class="flex-1 h-14 bg-surface3 text-text text-sm font-bold rounded-2xl border border-stroke hover:bg-surface hover:text-muted transition-all">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-[1.5] h-14 bg-lime text-bg text-sm font-black rounded-2xl shadow-glow hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined">rocket_launch</span>
+                        Criar e Ativar
+                    </button>
+                </div>
+                
+                <p class="text-[10px] text-center text-muted px-4">
+                    Ao criar, você se tornará o <b>Administrador</b> central deste novo ambiente.
+                </p>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openCreateCompanyModal() {
+    const modal = document.getElementById('createCompanyModal');
+    const content = document.getElementById('createCompanyModalContent');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    requestAnimationFrame(() => {
+        content.classList.remove('scale-95', 'opacity-0');
+        content.classList.add('scale-100', 'opacity-100');
+    });
+}
+
+function closeCreateCompanyModal() {
+    const modal = document.getElementById('createCompanyModal');
+    const content = document.getElementById('createCompanyModalContent');
+    content.classList.remove('scale-100', 'opacity-100');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 300);
 }
 </script>
 

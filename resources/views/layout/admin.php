@@ -1,5 +1,11 @@
 <?php
 // Layout exclusive to the admin portal
+// Fallback: If admin_tenant_id is not set (old session), set it now
+if (!empty($_SESSION['admin_auth']) && empty($_SESSION['admin_tenant_id'])) {
+    $_SESSION['admin_tenant_id'] = \App\Core\Session::tenantId();
+}
+$adminTenantId = $_SESSION['admin_tenant_id'] ?? null;
+$adminTenant = $adminTenantId ? \App\Core\Database::selectFirst('SELECT name FROM tenants WHERE id = ?', [$adminTenantId]) : null;
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="pt-br">
@@ -123,6 +129,15 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
 
         <!-- Right End Actions -->
         <div class="flex items-center gap-4 justify-end min-w-[120px]">
+
+            <!-- Admin Company Badge (Fixed Context) -->
+            <?php if ($adminTenant): ?>
+            <div class="hidden md:flex items-center gap-2 h-10 px-4 rounded-pill bg-surface2 border border-lime/20">
+                <span class="material-symbols-outlined text-[16px] text-lime">verified</span>
+                <span class="text-xs font-bold text-text truncate max-w-[140px]"><?= e($adminTenant['name']) ?></span>
+            </div>
+            <?php endif; ?>
+
             <!-- User Dropdown (Admin Profile Overview) -->
             <div class="relative" id="userDropdownContainer">
                 <button id="userDropdownBtn" class="flex items-center outline-none group gap-2">
@@ -137,6 +152,9 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
                     <div class="px-5 py-3 border-b border-stroke mb-2">
                         <p class="text-xs font-bold text-text truncate"><?= e(\App\Core\Session::get('name') ?? 'Admin') ?></p>
                         <p class="text-[10px] text-lime mt-0.5 font-bold uppercase tracking-widest truncate">Acesso Administrativo</p>
+                        <?php if ($adminTenant): ?>
+                        <p class="text-[9px] text-muted mt-1 truncate">Empresa-mãe: <?= e($adminTenant['name']) ?></p>
+                        <?php endif; ?>
                     </div>
                     
                     <a href="/" class="flex items-center gap-3 px-5 py-2.5 text-sm text-lime hover:text-bg hover:bg-lime transition-colors">

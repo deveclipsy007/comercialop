@@ -64,6 +64,42 @@
             </div>
         </div>
     </form>
+
+    <?php if ($user['wl_allow_setup'] ?? 0): ?>
+    <form method="POST" action="/profile/whitelabel" class="bg-surface border border-stroke rounded-cardLg overflow-hidden shadow-soft mt-8">
+        <?= csrf_field() ?>
+        <div class="px-8 py-6 border-b border-stroke">
+            <h4 class="text-base font-bold text-text flex items-center gap-2">
+                <span class="material-symbols-outlined text-lime">palette</span>
+                Personalização Visual
+            </h4>
+            <p class="text-sm text-subtle mt-1.5">Altere a cor principal e a logomarca que serão exibidas para você no sistema.</p>
+        </div>
+        
+        <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-3">Cor Principal</label>
+                <div class="flex items-center gap-3">
+                    <input type="color" name="wl_color" value="<?= e($user['wl_color'] ?? '#a3e635') ?>" class="size-12 rounded-xl cursor-pointer bg-surface2 border border-stroke p-1">
+                    <input type="text" value="<?= e($user['wl_color'] ?? '#a3e635') ?>" class="w-32 h-12 bg-surface2 border border-stroke rounded-xl px-4 text-sm text-text focus:outline-none uppercase font-mono" readonly>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-3">Logomarca (URL)</label>
+                <input type="url" name="wl_logo" value="<?= e($user['wl_logo'] ?? '') ?>" placeholder="https://..." class="w-full h-12 bg-surface2 border border-stroke rounded-xl px-4 text-sm text-text focus:outline-none focus:border-lime/50 transition-colors">
+            </div>
+        </div>
+
+        <div class="px-8 py-5 bg-surface2 border-t border-stroke flex justify-end">
+            <button type="submit" class="h-10 px-6 bg-lime hover:brightness-110 shadow-glow text-bg text-sm font-bold rounded-pill transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined text-[18px]">save</span>
+                Salvar Aparência
+            </button>
+        </div>
+    </form>
+    <?php endif; ?>
+
 </div>
 
 <script>

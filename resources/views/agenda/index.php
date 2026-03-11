@@ -135,9 +135,9 @@
 
             <div>
                 <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Tipo *</label>
-                <select name="event_type" class="w-full h-11 bg-surface2 border border-stroke rounded-pill px-5 text-sm text-text focus:outline-none focus:border-lime/50 transition-colors appearance-none cursor-pointer">
-                    <option value="reminder">🔔 Lembrete Ad-hoc</option>
-                    <option value="appointment">🤝 Compromisso / Call</option>
+                <select name="event_type" class="w-full h-11 bg-surface2 border border-stroke rounded-pill px-5 text-sm text-text focus:outline-none focus:border-lime/50 transition-colors appearance-none cursor-pointer [color-scheme:dark]">
+                    <option value="reminder" class="bg-surface2 text-lime font-bold">🔔 Lembrete Ad-hoc</option>
+                    <option value="appointment" class="bg-surface2 text-lime font-bold">🤝 Compromisso / Call</option>
                 </select>
             </div>
 

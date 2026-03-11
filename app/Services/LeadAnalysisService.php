@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Helpers\AIResponseParser;
+use App\Models\AnalysisTrace;
 use App\Models\Lead;
 use App\Services\AI\GeminiProvider;
 use App\Services\AI\OpenAIProvider;
@@ -46,6 +47,7 @@ PROMPT;
         $this->tokens->consume('lead_analysis', $tenantId);
 
         $systemPrompt = $this->baseSystemPrompt() . "\n\n" . $this->smartContext->buildLeadContext($lead);
+        $ragMeta      = $this->smartContext->getLastRetrievalMeta();
 
         $userPrompt = <<<PROMPT
 Analise esta empresa para qualificação de lead B2B.
@@ -94,11 +96,25 @@ Retorne APENAS um JSON válido (sem markdown) com a seguinte estrutura:
 }
 PROMPT;
 
+        $t0     = microtime(true);
         $result = $this->gemini->generateJson($systemPrompt, $userPrompt, ['google_search' => true]);
+        $latMs  = (int) ((microtime(true) - $t0) * 1000);
 
         if (!AIResponseParser::hasError($result)) {
             Lead::saveAnalysis($lead['id'], $tenantId, $result);
         }
+
+        AnalysisTrace::log(
+            tenantId:      $tenantId,
+            leadId:        $lead['id'],
+            operation:     'lead_analysis',
+            contextSource: $ragMeta['source'] ?? 'default',
+            queryText:     null,
+            chunksUsed:    array_map(fn($id) => ['chunk_id' => $id], $ragMeta['chunk_ids'] ?? []),
+            provider:      'gemini',
+            model:         config('services.gemini.model', 'gemini-2.0-flash'),
+            latencyMs:     $latMs
+        );
 
         return $result;
     }
@@ -108,17 +124,18 @@ PROMPT;
     public function runOperon4D(array $lead, string $tenantId): array
     {
         $agencyContext = $this->smartContext->buildOperonContext($lead);
+        $ragMeta       = $this->smartContext->getLastRetrievalMeta();
         $systemPrompt  = $this->baseSystemPrompt() . "\n\n" . $agencyContext;
 
         return [
-            'diagnostico' => $this->runDiagnosticoPerda($lead, $systemPrompt, $tenantId),
-            'potencial'   => $this->runPotencialComercial($lead, $systemPrompt, $tenantId),
-            'autoridade'  => $this->runAutoridadeLocal($lead, $systemPrompt, $tenantId),
-            'script'      => $this->runScriptAbordagem($lead, $systemPrompt, $tenantId),
+            'diagnostico' => $this->runDiagnosticoPerda($lead, $systemPrompt, $tenantId, $ragMeta),
+            'potencial'   => $this->runPotencialComercial($lead, $systemPrompt, $tenantId, $ragMeta),
+            'autoridade'  => $this->runAutoridadeLocal($lead, $systemPrompt, $tenantId, $ragMeta),
+            'script'      => $this->runScriptAbordagem($lead, $systemPrompt, $tenantId, $ragMeta),
         ];
     }
 
-    private function runDiagnosticoPerda(array $lead, string $systemPrompt, string $tenantId): array
+    private function runDiagnosticoPerda(array $lead, string $systemPrompt, string $tenantId, array $ragMeta = []): array
     {
         $this->tokens->consume('operon_diagnostico', $tenantId);
 
@@ -142,7 +159,22 @@ Retorne APENAS JSON válido:
 {"titulo":"string","status":"critico"|"atencao"|"moderado","problemas":[],"impactoFinanceiro":{"perda_mensal_min":0,"perda_mensal_max":0,"descricao":"string"},"urgencia":"alta"|"media"|"baixa","acoes_imediatas":[]}
 PROMPT;
 
-        return $this->gemini->generateJson($systemPrompt, $userPrompt);
+        $t0     = microtime(true);
+        $result = $this->gemini->generateJson($systemPrompt, $userPrompt);
+        $latMs  = (int) ((microtime(true) - $t0) * 1000);
+
+        AnalysisTrace::log(
+            tenantId:      $tenantId,
+            leadId:        $lead['id'],
+            operation:     'operon_diagnostico',
+            contextSource: $ragMeta['source'] ?? 'default',
+            chunksUsed:    array_map(fn($id) => ['chunk_id' => $id], $ragMeta['chunk_ids'] ?? []),
+            provider:      'gemini',
+            model:         config('services.gemini.model', 'gemini-2.0-flash'),
+            latencyMs:     $latMs
+        );
+
+        return $result;
     }
 
     // ─── Deep Insights (Value Proposition, Target Audience, Competitors) ─────
@@ -152,7 +184,8 @@ PROMPT;
         $this->tokens->consume('deep_insights', $tenantId);
 
         $systemPrompt = $this->baseSystemPrompt() . "\n\n" . $this->smartContext->buildLeadContext($lead);
-        
+        $ragMeta      = $this->smartContext->getLastRetrievalMeta();
+
         $userPrompt = <<<PROMPT
 Você precisa gerar insights comerciais profundos sobre esta empresa:
 Nome: {$lead['name']}
@@ -167,7 +200,9 @@ Retorne APENAS um JSON válido com a seguinte estrutura:
 }
 PROMPT;
 
+        $t0     = microtime(true);
         $result = $this->gemini->generateJson($systemPrompt, $userPrompt);
+        $latMs  = (int) ((microtime(true) - $t0) * 1000);
 
         if (!AIResponseParser::hasError($result)) {
             $analysis = $lead['analysis'] ?? [];
@@ -177,10 +212,21 @@ PROMPT;
             Lead::update($lead['id'], $tenantId, ['analysis' => $analysis]);
         }
 
+        AnalysisTrace::log(
+            tenantId:      $tenantId,
+            leadId:        $lead['id'],
+            operation:     'deep_analysis',
+            contextSource: $ragMeta['source'] ?? 'default',
+            chunksUsed:    array_map(fn($id) => ['chunk_id' => $id], $ragMeta['chunk_ids'] ?? []),
+            provider:      'gemini',
+            model:         config('services.gemini.model', 'gemini-2.0-flash'),
+            latencyMs:     $latMs
+        );
+
         return $result;
     }
 
-    private function runPotencialComercial(array $lead, string $systemPrompt, string $tenantId): array
+    private function runPotencialComercial(array $lead, string $systemPrompt, string $tenantId, array $ragMeta = []): array
     {
         $this->tokens->consume('operon_potencial', $tenantId);
         $cnpj = $lead['cnpj_data'] ?? null;
@@ -195,10 +241,25 @@ Retorne APENAS JSON válido:
 {"classificacao":"Entrada"|"Médio"|"Alto Ticket","score_potencial":0,"poder_compra":"string","servicos_recomendados":[{"nome":"string","prioridade":"alta"|"media"|"baixa"}],"valor_proposta":{"minimo":0,"maximo":0,"recorrente":true},"justificativa":"string"}
 PROMPT;
 
-        return $this->gemini->generateJson($systemPrompt, $userPrompt);
+        $t0     = microtime(true);
+        $result = $this->gemini->generateJson($systemPrompt, $userPrompt);
+        $latMs  = (int) ((microtime(true) - $t0) * 1000);
+
+        AnalysisTrace::log(
+            tenantId:      $tenantId,
+            leadId:        $lead['id'],
+            operation:     'operon_potencial',
+            contextSource: $ragMeta['source'] ?? 'default',
+            chunksUsed:    array_map(fn($id) => ['chunk_id' => $id], $ragMeta['chunk_ids'] ?? []),
+            provider:      'gemini',
+            model:         config('services.gemini.model', 'gemini-2.0-flash'),
+            latencyMs:     $latMs
+        );
+
+        return $result;
     }
 
-    private function runAutoridadeLocal(array $lead, string $systemPrompt, string $tenantId): array
+    private function runAutoridadeLocal(array $lead, string $systemPrompt, string $tenantId, array $ragMeta = []): array
     {
         $this->tokens->consume('operon_autoridade', $tenantId);
         $userPrompt = <<<PROMPT
@@ -207,10 +268,25 @@ Retorne APENAS JSON válido:
 {"status":"forte"|"moderado"|"fraco"|"inexistente","score_autoridade":0,"comparacao_setor":"string","metricas":{"avaliacao_atual":0,"total_avaliacoes":0,"media_setor":0},"impacto_faturamento":"string","acoes_melhoria":[{"acao":"string","impacto":"alto"|"medio"|"baixo"}]}
 PROMPT;
 
-        return $this->gemini->generateJson($systemPrompt, $userPrompt);
+        $t0     = microtime(true);
+        $result = $this->gemini->generateJson($systemPrompt, $userPrompt);
+        $latMs  = (int) ((microtime(true) - $t0) * 1000);
+
+        AnalysisTrace::log(
+            tenantId:      $tenantId,
+            leadId:        $lead['id'],
+            operation:     'operon_autoridade',
+            contextSource: $ragMeta['source'] ?? 'default',
+            chunksUsed:    array_map(fn($id) => ['chunk_id' => $id], $ragMeta['chunk_ids'] ?? []),
+            provider:      'gemini',
+            model:         config('services.gemini.model', 'gemini-2.0-flash'),
+            latencyMs:     $latMs
+        );
+
+        return $result;
     }
 
-    private function runScriptAbordagem(array $lead, string $systemPrompt, string $tenantId): string
+    private function runScriptAbordagem(array $lead, string $systemPrompt, string $tenantId, array $ragMeta = []): string
     {
         $this->tokens->consume('operon_script', $tenantId);
         $userPrompt = <<<PROMPT
@@ -219,7 +295,22 @@ Formato: 1. Abertura personalizada. 2. Gancho da dor. 3. Proposta de valor. 4. C
 IMPORTANTE: Máximo 150 palavras. Tom consultivo mas direto. Pronto para copiar e colar no WhatsApp.
 PROMPT;
 
-        return $this->gemini->generate($systemPrompt, $userPrompt);
+        $t0     = microtime(true);
+        $result = $this->gemini->generate($systemPrompt, $userPrompt);
+        $latMs  = (int) ((microtime(true) - $t0) * 1000);
+
+        AnalysisTrace::log(
+            tenantId:      $tenantId,
+            leadId:        $lead['id'],
+            operation:     'operon_script',
+            contextSource: $ragMeta['source'] ?? 'default',
+            chunksUsed:    array_map(fn($id) => ['chunk_id' => $id], $ragMeta['chunk_ids'] ?? []),
+            provider:      'gemini',
+            model:         config('services.gemini.model', 'gemini-2.0-flash'),
+            latencyMs:     $latMs
+        );
+
+        return $result;
     }
 
     // ─── SPIN Framework — 4 tokens ──────────────────────────────────
@@ -228,9 +319,9 @@ PROMPT;
     {
         $this->tokens->consume('spin_questions', $tenantId);
 
-        $maturity = $lead['analysis']['digitalMaturity'] ?? 'Média';
+        $maturity     = $lead['analysis']['digitalMaturity'] ?? 'Média';
         $systemPrompt = "Você é um consultor de vendas high-ticket especialista no framework SPIN.";
-        $userPrompt = <<<PROMPT
+        $userPrompt   = <<<PROMPT
 LEAD: {$lead['name']}
 SEGMENTO: {$lead['segment']}
 MATURIDADE: {$maturity}
@@ -242,7 +333,21 @@ Retorne JSON estrito:
 {"s":["Pergunta 1","Pergunta 2","Pergunta 3"],"p":["..."],"i":["..."],"n":["..."]}
 PROMPT;
 
-        return $this->gemini->generateJson($systemPrompt, $userPrompt, ['json_mode' => true]);
+        $t0     = microtime(true);
+        $result = $this->gemini->generateJson($systemPrompt, $userPrompt, ['json_mode' => true]);
+        $latMs  = (int) ((microtime(true) - $t0) * 1000);
+
+        AnalysisTrace::log(
+            tenantId:      $tenantId,
+            leadId:        $lead['id'] ?? null,
+            operation:     'spin_questions',
+            contextSource: AnalysisTrace::SOURCE_DEFAULT,
+            provider:      'gemini',
+            model:         config('services.gemini.model', 'gemini-2.0-flash'),
+            latencyMs:     $latMs
+        );
+
+        return $result;
     }
 
     // ─── Script Variations — 7 tokens ───────────────────────────────
@@ -254,7 +359,7 @@ PROMPT;
         $maturity = $lead['analysis']['digitalMaturity'] ?? 'Média';
 
         $systemPrompt = $this->baseSystemPrompt();
-        $userPrompt = <<<PROMPT
+        $userPrompt   = <<<PROMPT
 Crie variações de script de abordagem para este lead:
 Nome: {$lead['name']}
 Segmento: {$lead['segment']}
@@ -265,7 +370,21 @@ Para cada canal, crie um script curto e persuasivo (máx 80 palavras):
 Retorne JSON: {"whatsapp":"string","linkedin":"string","email":"string","coldCall":"string"}
 PROMPT;
 
-        return $this->gemini->generateJson($systemPrompt, $userPrompt);
+        $t0     = microtime(true);
+        $result = $this->gemini->generateJson($systemPrompt, $userPrompt);
+        $latMs  = (int) ((microtime(true) - $t0) * 1000);
+
+        AnalysisTrace::log(
+            tenantId:      $tenantId,
+            leadId:        $lead['id'] ?? null,
+            operation:     'script_variations',
+            contextSource: AnalysisTrace::SOURCE_DEFAULT,
+            provider:      'gemini',
+            model:         config('services.gemini.model', 'gemini-2.0-flash'),
+            latencyMs:     $latMs
+        );
+
+        return $result;
     }
 
     // ─── Follow-up Message Generation ─────────────────────────────────
@@ -275,7 +394,7 @@ PROMPT;
         $this->tokens->consume('followup_message', $tenantId);
 
         $systemPrompt = $this->baseSystemPrompt();
-        $userPrompt = <<<PROMPT
+        $userPrompt   = <<<PROMPT
 Crie um roteiro de mensagem de follow-up pronto para ser enviado (WhatsApp ou E-mail) para o lead abaixo.
 
 Lead: {$followup['lead_name']}
@@ -286,14 +405,28 @@ Contexto e Objeções: {$followup['lead_context']}
 Objetivo deste follow-up específico: {$followup['title']}
 Detalhes da tarefa: {$followup['description']}
 
-O roteiro deve ser persuasivo, direto, consultivo e adaptado ao contexto do lead. 
+O roteiro deve ser persuasivo, direto, consultivo e adaptado ao contexto do lead.
 Inclua um call to action (CTA) claro focado em avançar a negociação.
-Não exiba campos de placeholder gigantes, use quebras de linha e emojis contextuais se aplicável. Apenas o texto da mensagem. 
+Não exiba campos de placeholder gigantes, use quebras de linha e emojis contextuais se aplicável. Apenas o texto da mensagem.
 
 Seja premium, direto e "neon obsidian" (estilo elegante e agressivo).
 PROMPT;
 
-        return $this->gemini->generate($systemPrompt, $userPrompt);
+        $t0     = microtime(true);
+        $result = $this->gemini->generate($systemPrompt, $userPrompt);
+        $latMs  = (int) ((microtime(true) - $t0) * 1000);
+
+        AnalysisTrace::log(
+            tenantId:      $tenantId,
+            leadId:        $followup['lead_id'] ?? null,
+            operation:     'followup',
+            contextSource: AnalysisTrace::SOURCE_DEFAULT,
+            provider:      'gemini',
+            model:         config('services.gemini.model', 'gemini-2.0-flash'),
+            latencyMs:     $latMs
+        );
+
+        return $result;
     }
 
     // ─── Score Algorithm ─────────────────────────────────────────────

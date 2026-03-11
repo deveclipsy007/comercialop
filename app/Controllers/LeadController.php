@@ -9,14 +9,17 @@ use App\Core\Session;
 use App\Models\Lead;
 use App\Models\TokenQuota;
 use App\Services\LeadAnalysisService;
+use App\Services\DeepIntelligence\DeepIntelligenceManager;
 
 class LeadController
 {
     private LeadAnalysisService $analysisService;
+    private DeepIntelligenceManager $deepManager;
 
     public function __construct()
     {
         $this->analysisService = new LeadAnalysisService();
+        $this->deepManager = new DeepIntelligenceManager();
     }
 
     // ── Vault (Kanban / List) ────────────────────────────────
@@ -89,11 +92,17 @@ class LeadController
             [$tenantId, $id]
         );
 
+        // Buscar Inteligências Profundas
+        $availableIntelligences = $this->deepManager->getAvailableIntelligences();
+        $intelligenceHistory = $this->deepManager->getLeadIntelligences((int)$id, $tenantId);
+
         View::render('vault/show', [
             'active'       => 'vault',
             'lead'         => $lead,
             'tokenBalance' => $tokenBalance,
             'activities'   => $activities,
+            'availableIntelligences' => $availableIntelligences,
+            'intelligenceHistory' => $intelligenceHistory,
         ]);
     }
 

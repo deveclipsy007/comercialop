@@ -36,4 +36,15 @@ return [
         'key'      => env('GOOGLE_PLACES_API_KEY', ''),
         'endpoint' => 'https://maps.googleapis.com/maps/api/place/',
     ],
+
+    // ── Embeddings (RAG) ─────────────────────────────────────────
+    // Selecione o provider: 'gemini' (padrão, free) ou 'openai' (pago)
+    // Gemini usa a mesma GEMINI_API_KEY do LLM — sem chave extra.
+    'embedding' => [
+        'provider'         => env('EMBEDDING_PROVIDER', 'gemini'),
+        'gemini_model'     => 'text-embedding-004',          // 768 dims, free
+        'openai_model'     => 'text-embedding-3-small',      // 1536 dims, pago
+        'gemini_endpoint'  => 'https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent',
+        'openai_endpoint'  => 'https://api.openai.com/v1/embeddings',
+    ],
 ];

@@ -156,7 +156,7 @@ HTML;
         <!-- Map controls overlay -->
         <div class="absolute top-4 right-4 flex flex-col gap-2 z-[1000]">
             <button onclick="openModal('newLeadModal')"
-                    class="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:brightness-110 transition-all shadow-lg shadow-primary/20">
+                    class="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-bg text-xs font-bold hover:brightness-110 transition-all shadow-lg shadow-primary/20">
                 <span class="material-symbols-outlined text-base">add_location</span>
                 Adicionar Lead
             </button>
@@ -192,7 +192,7 @@ HTML;
             </div>
             <div class="flex justify-end gap-3 pt-2 border-t border-white/8">
                 <button type="button" onclick="closeModal('newLeadModal')" class="px-4 py-2 rounded-xl bg-white/5 text-slate-400 text-sm hover:bg-white/10 transition-all">Cancelar</button>
-                <button type="submit" class="px-5 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:brightness-110 transition-all">Adicionar</button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-primary text-bg text-sm font-bold hover:brightness-110 transition-all">Adicionar</button>
             </div>
         </form>
     </div>

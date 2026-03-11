@@ -21,7 +21,7 @@
                     <span class="text-xs text-slate-600 mt-1">Máximo 5MB · Formato CSV UTF-8</span>
                     <input type="file" name="csv" accept=".csv" class="hidden" required>
                 </label>
-                <button type="submit" class="w-full py-3 bg-primary rounded-xl text-white text-sm font-bold hover:brightness-110 transition-all shadow-md shadow-primary/20">
+                <button type="submit" class="w-full py-3 bg-primary rounded-xl text-bg text-sm font-bold hover:brightness-110 transition-all shadow-md shadow-primary/20">
                     Importar para o Vault
                 </button>
             </form>

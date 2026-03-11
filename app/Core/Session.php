@@ -116,6 +116,29 @@ class Session
         $_SESSION['name']      = $user['name'] ?? 'Usuário';
     }
 
+    /**
+     * Alterna a empresa ativa na Sessão e injeta as regras associadas na Tabela Pivot.
+     */
+    public static function switchTenant(string $tenantId, string $newRole = 'agent'): void
+    {
+        if (self::isAuthenticated()) {
+            $_SESSION['auth_user']['tenant_id'] = $tenantId;
+            $_SESSION['auth_user']['role'] = $newRole;
+            $_SESSION['tenant_id'] = $tenantId;
+            $_SESSION['role'] = $newRole;
+        }
+    }
+
+    /**
+     * Retorna o tenant_id fixo do painel administrativo.
+     * Este valor é definido uma vez no login do admin e NUNCA muda,
+     * garantindo isolamento entre o contexto admin e o contexto de usuário.
+     */
+    public static function adminTenantId(): ?string
+    {
+        return $_SESSION['admin_tenant_id'] ?? null;
+    }
+
     public static function logout(): void
     {
         self::destroy();

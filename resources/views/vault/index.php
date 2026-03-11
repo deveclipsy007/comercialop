@@ -98,7 +98,11 @@ $stageDotColors = [
                             </a>
                             <p class="text-xs text-muted truncate mt-0.5"><?= e($lead['segment']) ?></p>
                         </div>
-                        <span class="inline-flex items-center justify-center px-2 py-1 rounded-md text-[11px] font-bold bg-lime/10 text-lime border border-lime/20 flex-shrink-0"><?= $score ?></span>
+                        <?php if ($score === '🔥100'): ?>
+                            <span class="inline-flex items-center justify-center px-2 py-1 rounded-md text-[11px] font-bold bg-lime text-bg flex-shrink-0 shadow-glow"><?= ltrim($score, '🔥') ?></span>
+                        <?php else: ?>
+                            <span class="inline-flex items-center justify-center px-2 py-1 rounded-md text-[11px] font-bold bg-lime/10 text-lime border border-lime/20 flex-shrink-0"><?= $score ?></span>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Context & Tags -->

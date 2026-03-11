@@ -90,6 +90,9 @@ $pageSubtitle = 'Gerenciamento de acessos e equipe';
                                 <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-right">
+                                <a href="/admin/users/<?= e($u['id']) ?>" class="text-xs font-bold text-lime hover:brightness-110 mr-3">
+                                    Configurar
+                                </a>
                                 <form method="POST" action="/admin/users/toggle" style="display:inline;">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="user_id" value="<?= e($u['id']) ?>">

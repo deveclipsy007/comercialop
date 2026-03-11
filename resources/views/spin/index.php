@@ -23,18 +23,17 @@ $pageSubtitle = 'Framework de Perguntas de Alto Impacto';
                 <div class="flex flex-col gap-4">
                     <div>
                         <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Selecione o Lead</label>
-                        <select id="spinLeadSelect" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all">
-                            <option value="">— Escolha um lead —</option>
+                        <select id="spinLeadSelect" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all [color-scheme:dark]">
+                            <option value="" class="bg-surface text-slate-400">— Escolha um lead —</option>
                             <?php foreach ($leads as $lead): ?>
-                            <option value="<?= $lead['id'] ?>" data-segment="<?= e($lead['segment']) ?>" data-name="<?= e($lead['name']) ?>">
+                            <option value="<?= $lead['id'] ?>" data-segment="<?= e($lead['segment']) ?>" data-name="<?= e($lead['name']) ?>" class="bg-surface text-primary font-bold">
                                 <?= e($lead['name']) ?> (Score: <?= $lead['priority_score'] ?? 0 ?>)
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-
                     <button id="spinBtn" onclick="generateSpin()"
-                            class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white text-sm font-bold hover:brightness-110 transition-all shadow-lg shadow-primary/20">
+                            class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-bg text-sm font-bold hover:brightness-110 transition-all shadow-lg shadow-primary/20">
                         <span class="material-symbols-outlined text-lg">track_changes</span>
                         Gerar SPIN + Scripts
                     </button>

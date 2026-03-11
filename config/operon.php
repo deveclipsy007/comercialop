@@ -29,6 +29,9 @@ return [
         'lead_clients_analysis'           => ['input' => 1,  'output' => 2,  'total' => 3],
         'lead_competitors_analysis'       => ['input' => 1,  'output' => 2,  'total' => 3],
         'lead_sales_potential_analysis'   => ['input' => 1,  'output' => 2,  'total' => 3],
+        // RAG / Knowledge operations
+        'knowledge_index'                 => ['input' => 0,  'output' => 0,  'total' => 2],  // por chunk indexado
+        'embedding_query'                 => ['input' => 0,  'output' => 0,  'total' => 1],  // por query de retrieval
         'default'                         => ['input' => 1,  'output' => 2,  'total' => 3],
     ],
 

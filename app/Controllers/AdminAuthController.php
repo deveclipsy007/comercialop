@@ -59,6 +59,7 @@ class AdminAuthController
             Session::login($user);
         }
         $_SESSION['admin_auth'] = true; // Marca exclusiva do login administrativo!
+        $_SESSION['admin_tenant_id'] = $user['tenant_id']; // Tenant fixo do admin — NUNCA muda
 
         View::redirect('/admin');
     }

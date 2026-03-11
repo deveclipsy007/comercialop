@@ -17,7 +17,7 @@ class AdminController
             View::redirect('/admin/login');
         }
 
-        $tenantId = Session::get('tenant_id');
+        $tenantId = Session::adminTenantId();
         $settings = Database::selectFirst('SELECT * FROM agency_settings WHERE tenant_id = ?', [$tenantId]);
 
         // decodificar campos JSON, se existirem
@@ -43,7 +43,7 @@ class AdminController
             View::redirect('/admin');
         }
 
-        $tenantId = Session::get('tenant_id');
+        $tenantId = Session::adminTenantId();
 
         $differentials = array_filter(array_map('trim', explode("\n", $_POST['differentials'] ?? '')));
         $servicesRaw   = $_POST['services'] ?? [];
@@ -91,7 +91,7 @@ class AdminController
             View::redirect('/admin/login');
         }
 
-        $tenantId = Session::get('tenant_id');
+        $tenantId = Session::adminTenantId();
         $users = Database::select('SELECT id, name, email, role, active, created_at FROM users WHERE tenant_id = ? ORDER BY name ASC', [$tenantId]);
 
         View::render('admin/users', [
@@ -107,7 +107,7 @@ class AdminController
         }
 
         $id = $_POST['user_id'] ?? '';
-        $tenantId = Session::get('tenant_id');
+        $tenantId = Session::adminTenantId();
 
         // Impede que o próprio admin se desative
         if ($id === Session::get('id')) {
@@ -125,13 +125,183 @@ class AdminController
         View::redirect('/admin/users');
     }
 
+    public function userDetail(string $id): void
+    {
+        if (!Session::get('admin_auth')) {
+            View::redirect('/admin/login');
+            return;
+        }
+
+        $tenantId = Session::adminTenantId();
+        $user = Database::selectFirst('SELECT * FROM users WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
+
+        if (!$user) {
+            Session::flash('error', 'Usuário não encontrado.');
+            View::redirect('/admin/users');
+            return;
+        }
+
+        $raw = $user['wl_features'] ?? null;
+        $user['wl_features'] = (!empty($raw) && is_string($raw)) ? (json_decode($raw, true) ?? []) : [];
+
+        // Loading Multi-Company Data
+        $linkedTenants = \App\Models\User::getLinkedTenants($id);
+        $allTenants = Database::select('SELECT id, name FROM tenants ORDER BY name ASC');
+
+        View::render('admin/user_detail', [
+            'active' => 'admin_users',
+            'user'   => $user,
+            'linkedTenants' => $linkedTenants,
+            'allTenants' => $allTenants
+        ], 'layout.admin');
+    }
+
+    public function updateUserWhiteLabel(string $id): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403); return;
+        }
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token inválido.');
+            View::redirect('/admin/users/' . $id);
+            return;
+        }
+
+        $tenantId = Session::adminTenantId();
+        $user = Database::selectFirst('SELECT id FROM users WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
+
+        if (!$user) {
+            Session::flash('error', 'Usuário não encontrado.');
+            View::redirect('/admin/users');
+            return;
+        }
+
+        $wlColor = trim($_POST['wl_color'] ?? '#a3e635');
+        // validacao simples de hex
+        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $wlColor)) {
+            $wlColor = '#a3e635';
+        }
+
+        $wlFeatures = $_POST['wl_features'] ?? [];
+        $allowSetup = !empty($_POST['wl_allow_setup']) ? 1 : 0;
+        $wlLogo = trim($_POST['wl_logo'] ?? '');
+
+        // Multi-Company Limits Update
+        $maxTenants = max(1, (int)($_POST['max_tenants'] ?? 1));
+        $canCreateTenants = !empty($_POST['can_create_tenants']) ? 1 : 0;
+
+        // Atualizar Colunas de White Label e Multi-Company
+        Database::execute(
+            'UPDATE users SET wl_color = ?, wl_logo = ?, wl_features = ?, wl_allow_setup = ?, max_tenants = ?, can_create_tenants = ?, updated_at = datetime("now") WHERE id = ?',
+            [
+                $wlColor,
+                $wlLogo !== '' ? $wlLogo : null,
+                json_encode($wlFeatures),
+                $allowSetup,
+                $maxTenants,
+                $canCreateTenants,
+                $id
+            ]
+        );
+
+        Session::flash('success', 'Configurações de acesso e White Label salvas com sucesso.');
+        View::redirect('/admin/users/' . $id);
+    }
+
+    public function linkTenant(string $id): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403); return;
+        }
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token inválido.');
+            View::redirect('/admin/users/' . $id);
+            return;
+        }
+
+        $tenantId = Session::adminTenantId();
+        $user = Database::selectFirst('SELECT id, max_tenants FROM users WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
+        if (!$user) {
+            Session::flash('error', 'Usuário não encontrado.');
+            View::redirect('/admin/users');
+            return;
+        }
+
+        $newTenantId = $_POST['tenant_id'] ?? '';
+        if (!$newTenantId) {
+            Session::flash('error', 'Empresa não selecionada.');
+            View::redirect('/admin/users/' . $id);
+            return;
+        }
+
+        // Verificar limite
+        $currentCount = (int)Database::selectFirst('SELECT COUNT(*) as c FROM tenant_user WHERE user_id = ?', [$id])['c'];
+        if ($currentCount >= (int)($user['max_tenants'] ?? 1)) {
+            Session::flash('error', 'Usuário já atingiu o limite máximo de empresas.');
+            View::redirect('/admin/users/' . $id);
+            return;
+        }
+
+        // Verificar se empresa existe
+        $tenant = Database::selectFirst('SELECT id FROM tenants WHERE id = ?', [$newTenantId]);
+        if (!$tenant) {
+            Session::flash('error', 'Empresa não encontrada.');
+            View::redirect('/admin/users/' . $id);
+            return;
+        }
+
+        Database::execute(
+            'INSERT OR IGNORE INTO tenant_user (id, user_id, tenant_id, role) VALUES (?, ?, ?, ?)',
+            [bin2hex(random_bytes(8)), $id, $newTenantId, 'agent']
+        );
+
+        Session::flash('success', 'Empresa vinculada com sucesso.');
+        View::redirect('/admin/users/' . $id);
+    }
+
+    public function unlinkTenant(string $id): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403); return;
+        }
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token inválido.');
+            View::redirect('/admin/users/' . $id);
+            return;
+        }
+
+        $tenantIdToRemove = $_POST['tenant_id'] ?? '';
+        if (!$tenantIdToRemove) {
+            Session::flash('error', 'Empresa não identificada.');
+            View::redirect('/admin/users/' . $id);
+            return;
+        }
+
+        // Verificar se é a última empresa — não pode remover a última
+        $count = (int)Database::selectFirst('SELECT COUNT(*) as c FROM tenant_user WHERE user_id = ?', [$id])['c'];
+        if ($count <= 1) {
+            Session::flash('error', 'O usuário precisa manter ao menos um vínculo de empresa.');
+            View::redirect('/admin/users/' . $id);
+            return;
+        }
+
+        Database::execute(
+            'DELETE FROM tenant_user WHERE user_id = ? AND tenant_id = ?',
+            [$id, $tenantIdToRemove]
+        );
+
+        Session::flash('success', 'Vínculo com a empresa removido.');
+        View::redirect('/admin/users/' . $id);
+    }
+
     public function logs(): void
     {
         if (!Session::get('admin_auth')) {
             View::redirect('/admin/login');
         }
 
-        $tenantId = Session::get('tenant_id');
+        $tenantId = Session::adminTenantId();
         
         // Pega os logs globais do sistema de tokens da agência com as infos dos leads afetados
         $logs = Database::select('
@@ -169,7 +339,7 @@ class AdminController
             View::redirect('/admin/login');
         }
 
-        $tenantId = Session::get('tenant_id');
+        $tenantId = Session::adminTenantId();
         $tokenBalance = TokenQuota::getBalance($tenantId);
         
         $settings = Database::selectFirst('SELECT settings FROM tenants WHERE id = ?', [$tenantId]);
@@ -198,7 +368,7 @@ class AdminController
             http_response_code(403); return;
         }
 
-        $tenantId = Session::get('tenant_id');
+        $tenantId = Session::adminTenantId();
         
         $gemini = (int)($_POST['dist_gemini'] ?? 80);
         $openai = (int)($_POST['dist_openai'] ?? 20);

@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS users (
     password    TEXT NOT NULL,
     role        TEXT NOT NULL DEFAULT 'agent', -- admin | agent | viewer
     active      INTEGER NOT NULL DEFAULT 1,
+    wl_color    TEXT DEFAULT '#a3e635',
+    wl_logo     TEXT,
+    wl_features TEXT,
+    wl_allow_setup INTEGER DEFAULT 0,
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(tenant_id, email)
