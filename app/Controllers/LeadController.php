@@ -79,10 +79,21 @@ class LeadController
 
         $tokenBalance = TokenQuota::getBalance($tenantId);
 
+        // Buscar Timeline/Activities do Lead (ordenado do mais novo para o mais antigo)
+        $activities = \App\Core\Database::select(
+            "SELECT a.*, u.name as user_name 
+             FROM lead_activities a 
+             LEFT JOIN users u ON a.user_id = u.id 
+             WHERE a.tenant_id = ? AND a.lead_id = ? 
+             ORDER BY a.created_at DESC", 
+            [$tenantId, $id]
+        );
+
         View::render('vault/show', [
             'active'       => 'vault',
             'lead'         => $lead,
             'tokenBalance' => $tokenBalance,
+            'activities'   => $activities,
         ]);
     }
 
@@ -366,6 +377,110 @@ class LeadController
 
         Lead::update($id, $tenantId, ['tags' => $tags]);
         echo json_encode(['success' => true, 'tags' => $tags]);
+    }
+
+    // ── Timeline: Add Note ───────────────────────────────────
+    public function addNote(int|string $id): void
+    {
+        Session::requireAuth();
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token inválido.');
+            View::redirect("/vault/{$id}");
+        }
+
+        $tenantId = Session::get('tenant_id');
+        $userId   = Session::get('user_id');
+        
+        $lead = Lead::findByTenant($id, $tenantId);
+        if (!$lead) {
+            http_response_code(404);
+            return;
+        }
+
+        $content = trim($_POST['note_content'] ?? '');
+        if (empty($content)) {
+            Session::flash('error', 'A nota não pode ficar vazia.');
+            View::redirect("/vault/{$id}");
+        }
+
+        $activityId = uniqid('act_');
+        \App\Core\Database::execute(
+            "INSERT INTO lead_activities (id, tenant_id, lead_id, user_id, type, title, content) 
+             VALUES (?, ?, ?, ?, 'note', 'Nota Adicionada', ?)",
+            [$activityId, $tenantId, $id, $userId, $content]
+        );
+
+        Session::flash('success', 'Nota adicionada com sucesso.');
+        View::redirect("/vault/{$id}");
+    }
+
+    // ── Timeline: Upload Attachment ──────────────────────────
+    public function uploadAttachment(int|string $id): void
+    {
+        Session::requireAuth();
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token inválido.');
+            View::redirect("/vault/{$id}");
+        }
+
+        $tenantId = Session::get('tenant_id');
+        $userId   = Session::get('user_id');
+        
+        $lead = Lead::findByTenant($id, $tenantId);
+        if (!$lead) {
+            http_response_code(404);
+            return;
+        }
+
+        $file = $_FILES['attachment'] ?? null;
+        if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
+            Session::flash('error', 'Nenhum arquivo válido foi enviado.');
+            View::redirect("/vault/{$id}");
+        }
+
+        // Validações básicas (tamanho, ext)
+        $maxSize = 5 * 1024 * 1024; // 5 MB
+        if ($file['size'] > $maxSize) {
+            Session::flash('error', 'O arquivo excede o limite de 5MB.');
+            View::redirect("/vault/{$id}");
+        }
+
+        $allowedExts = ['jpg', 'jpeg', 'png', 'pdf', 'csv', 'docx', 'xlsx'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExts)) {
+            Session::flash('error', 'Tipo de arquivo não permitido.');
+            View::redirect("/vault/{$id}");
+        }
+
+        // Criar diretório se não existir
+        $uploadDir = __DIR__ . '/../../public/uploads/leads/' . $tenantId;
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $filename = uniqid('file_') . '.' . $ext;
+        $destPath = $uploadDir . '/' . $filename;
+        $publicUrl = '/uploads/leads/' . $tenantId . '/' . $filename;
+
+        if (move_uploaded_file($file['tmp_name'], $destPath)) {
+            // Salvar na timeline como attachment, url dentro do metadata
+            $activityId = uniqid('act_');
+            $metadata = json_encode(['url' => $publicUrl, 'filename' => $file['name'], 'ext' => $ext]);
+
+            \App\Core\Database::execute(
+                "INSERT INTO lead_activities (id, tenant_id, lead_id, user_id, type, title, content, metadata) 
+                 VALUES (?, ?, ?, ?, 'attachment', 'Anexo Adicionado', ?, ?)",
+                [$activityId, $tenantId, $id, $userId, 'Arquivo anexado ao perfil.', $metadata]
+            );
+
+            Session::flash('success', 'Arquivo anexado com sucesso.');
+        } else {
+            Session::flash('error', 'Erro ao salvar o arquivo no servidor.');
+        }
+
+        View::redirect("/vault/{$id}");
     }
 
     // ── Helper ───────────────────────────────────────────────

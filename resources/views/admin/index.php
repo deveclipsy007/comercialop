@@ -11,9 +11,9 @@ $pageSubtitle = 'Configurações do Sistema';
             <h2 class="text-xl font-black text-white">Configurações da Agência</h2>
             <p class="text-sm text-slate-400 mt-0.5">Defina o contexto que a IA usa para personalizar todas as análises</p>
         </div>
-        <div class="flex items-center gap-2 text-xs text-slate-500 bg-white/3 border border-white/8 px-3 py-1.5 rounded-xl">
-            <span class="material-symbols-outlined text-sm">shield</span>
-            Provider: <span class="text-operon-energy font-bold ml-1"><?= e(strtoupper($config['provider'] ?? 'gemini')) ?></span>
+        <div class="flex items-center gap-2 text-xs text-muted font-bold tracking-widest uppercase bg-surface2 border border-stroke px-3 py-1.5 rounded-pill shadow-soft">
+            <span class="material-symbols-outlined text-[14px]">shield</span>
+            Provider: <span class="text-lime"><?= e(strtoupper($config['provider'] ?? 'gemini')) ?></span>
         </div>
     </div>
 
@@ -26,93 +26,60 @@ $pageSubtitle = 'Configurações do Sistema';
             <div class="lg:col-span-2 flex flex-col gap-5">
 
                 <!-- Agency Identity -->
-                <div class="bg-brand-surface border border-white/8 rounded-2xl p-6">
-                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-operon-energy text-base">business</span>
+                <div class="bg-surface border border-stroke rounded-cardLg p-6 shadow-soft">
+                    <h3 class="text-sm font-bold text-text mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-lime text-base">business</span>
                         Identidade da Agência
                     </h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome da Agência</label>
+                            <label class="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">Nome da Agência</label>
                             <input type="text" name="agency_name" value="<?= e($settings['agency_name'] ?? '') ?>" placeholder="Agência Nexus Digital"
-                                   class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all">
+                                   class="w-full bg-surface2 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder-subtle focus:outline-none focus:border-lime/50 transition-all">
                         </div>
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Cidade / Região</label>
+                            <label class="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">Cidade / Região</label>
                             <input type="text" name="agency_city" value="<?= e($settings['agency_city'] ?? '') ?>" placeholder="São Paulo, SP"
-                                   class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all">
+                                   class="w-full bg-surface2 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder-subtle focus:outline-none focus:border-lime/50 transition-all">
                         </div>
                         <div class="col-span-2">
-                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nicho de Atuação</label>
-                            <input type="text" name="agency_niche" value="<?= e($settings['agency_niche'] ?? '') ?>" placeholder="Marketing Digital para Negócios Locais"
-                                   class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all">
+                            <label class="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">Nicho de Atuação</label>
+                            <input type="text" name="agency_niche" value="<?= e($settings['agency_niche'] ?? '') ?>" placeholder="Marketing Digital"
+                                   class="w-full bg-surface2 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder-subtle focus:outline-none focus:border-lime/50 transition-all">
                         </div>
                         <div class="col-span-2">
-                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Resumo da Oferta (para IA)</label>
-                            <textarea name="offer_summary" rows="3" placeholder="Descreva o que sua agência oferece em 2-3 frases diretas..."
-                                      class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all resize-none"><?= e($settings['offer_summary'] ?? '') ?></textarea>
+                            <label class="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">Resumo da Oferta</label>
+                            <textarea name="offer_summary" rows="2" placeholder="Descreva brevemente..."
+                                      class="w-full bg-surface2 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder-subtle focus:outline-none focus:border-lime/50 transition-all resize-none"><?= e($settings['offer_summary'] ?? '') ?></textarea>
                         </div>
                     </div>
                 </div>
 
-                <!-- Differentials -->
-                <div class="bg-brand-surface border border-white/8 rounded-2xl p-6">
-                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-operon-energy text-base">star</span>
-                        Diferenciais (um por linha)
-                    </h3>
-                    <textarea name="differentials" rows="5"
-                              placeholder="IA integrada em todos os processos&#10;Cases comprovados com +300% de crescimento&#10;Gestor dedicado com acesso direto&#10;Relatórios semanais com dados reais"
-                              class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all resize-none"><?= e(implode("\n", $settings['differentials'] ?? [])) ?></textarea>
-                </div>
-
-                <!-- ICP Profile -->
-                <div class="bg-brand-surface border border-white/8 rounded-2xl p-6">
-                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-operon-energy text-base">person_search</span>
-                        Perfil do Cliente Ideal (ICP)
-                    </h3>
-                    <textarea name="icp_profile" rows="3"
-                              placeholder="Empresas locais com faturamento entre R$50k-500k/mês, presença digital fraca, que perdem clientes para a concorrência online..."
-                              class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all resize-none"><?= e($settings['icp_profile'] ?? '') ?></textarea>
-                </div>
-
-                <!-- Services -->
-                <div class="bg-brand-surface border border-white/8 rounded-2xl p-6">
-                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-operon-energy text-base">inventory</span>
-                        Serviços e Preços
-                    </h3>
-                    <div id="servicesList" class="flex flex-col gap-2 mb-3">
-                        <?php foreach (($settings['services'] ?? []) as $svc): ?>
-                        <div class="flex items-center gap-2">
-                            <input type="text" name="services[][name]" value="<?= e($svc['name']) ?>" placeholder="Nome do serviço"
-                                   class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 transition-all">
-                            <input type="number" name="services[][price]" value="<?= $svc['price'] ?>" placeholder="Preço (R$)"
-                                   class="w-32 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 transition-all">
-                            <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300">
-                                <span class="material-symbols-outlined text-lg">close</span>
-                            </button>
+                <!-- Links rápidos p/ as outras seções -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <a href="/admin/ai-config" class="bg-surface2 border border-stroke hover:border-lime/30 rounded-card p-5 group transition-all flex flex-col justify-between h-32">
+                        <div class="flex items-center gap-3 text-text group-hover:text-lime transition-colors">
+                            <span class="material-symbols-outlined rounded-full bg-surface p-2 border border-stroke">psychology</span>
+                            <span class="font-bold text-sm">Motor Neural (I.A)</span>
                         </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <button type="button" onclick="addService()"
-                            class="flex items-center gap-1.5 text-xs text-operon-energy hover:underline font-medium">
-                        <span class="material-symbols-outlined text-base">add_circle</span>
-                        Adicionar serviço
-                    </button>
-                </div>
+                        <p class="text-xs text-subtle">Roteamento de prompts, LLMs e Limits.</p>
+                    </a>
 
-                <!-- Custom Context -->
-                <div class="bg-brand-surface border border-white/8 rounded-2xl p-6">
-                    <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-operon-energy text-base">psychology</span>
-                        Contexto Personalizado para IA
-                    </h3>
-                    <p class="text-xs text-slate-500 mb-3">Informações adicionais para personalizar ainda mais as análises de IA (cases, objeções comuns, etc.)</p>
-                    <textarea name="custom_context" rows="4"
-                              placeholder="Case: Clínica Dental Smile — aumentamos o agendamento em 340% em 4 meses com tráfego pago + automação WhatsApp. Objeção mais comum: 'já tenho um site'. Nossa resposta: site sem tráfego não converte..."
-                              class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all resize-none"><?= e($settings['custom_context'] ?? '') ?></textarea>
+                    <a href="/admin/users" class="bg-surface2 border border-stroke hover:border-lime/30 rounded-card p-5 group transition-all flex flex-col justify-between h-32">
+                        <div class="flex items-center gap-3 text-text group-hover:text-lime transition-colors">
+                            <span class="material-symbols-outlined rounded-full bg-surface p-2 border border-stroke">group</span>
+                            <span class="font-bold text-sm">Equipe</span>
+                        </div>
+                        <p class="text-xs text-subtle">Acessos, cargos e logins individuais.</p>
+                    </a>
+                    
+                    <a href="/admin/logs" class="bg-surface2 border border-stroke hover:border-mint/30 rounded-card p-5 group transition-all flex flex-col justify-between h-32">
+                        <div class="flex items-center gap-3 text-text group-hover:text-mint transition-colors">
+                            <span class="material-symbols-outlined rounded-full bg-surface p-2 border border-stroke">history</span>
+                            <span class="font-bold text-sm">Auditoria</span>
+                        </div>
+                        <p class="text-xs text-subtle">Trilhas de uso de base e tokens globais.</p>
+                    </a>
                 </div>
 
             </div>
@@ -120,63 +87,23 @@ $pageSubtitle = 'Configurações do Sistema';
             <!-- Right: Token + Status -->
             <div class="flex flex-col gap-5">
 
-                <!-- Token Economy -->
-                <?php if (!empty($tokenBalance)): ?>
-                <div class="bg-brand-surface border border-operon-energy/20 rounded-2xl p-5">
-                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-operon-energy text-base">bolt</span>
-                        Token Economy
-                    </h3>
-                    <div class="text-center mb-4">
-                        <div class="text-3xl font-black text-operon-energy"><?= $tokenBalance['remaining'] ?? 0 ?></div>
-                        <p class="text-xs text-slate-400 mt-1">tokens disponíveis</p>
+                <!-- AI Setup Callout (Substitui os tokens visuais pra simplificar) -->
+                <div class="bg-surface border border-stroke rounded-cardLg p-6 shadow-soft text-center group">
+                    <div class="size-16 mx-auto bg-lime/10 rounded-full flex items-center justify-center text-lime mb-3 border border-lime/20 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-2xl">neurology</span>
                     </div>
-                    <div class="w-full h-2 bg-white/5 rounded-full overflow-hidden mb-3">
-                        <?php $pct = min(100, round((($tokenBalance['used'] ?? 0) / max($tokenBalance['limit'] ?? 1, 1)) * 100)); ?>
-                        <div class="h-full rounded-full token-bar-fill" style="width: <?= $pct ?>%"></div>
-                    </div>
-                    <div class="flex justify-between text-xs text-slate-500 mb-4">
-                        <span>Usados: <b class="text-white"><?= $tokenBalance['used'] ?? 0 ?></b></span>
-                        <span>Limite: <b class="text-white"><?= $tokenBalance['limit'] ?? 0 ?></b></span>
-                    </div>
-                    <div class="flex items-center justify-between text-xs">
-                        <span class="text-slate-500">Plano:</span>
-                        <span class="font-bold text-operon-energy uppercase"><?= $tokenBalance['tier'] ?? 'starter' ?></span>
-                    </div>
-                    <div class="flex items-center justify-between text-xs mt-1">
-                        <span class="text-slate-500">Reset:</span>
-                        <span class="text-slate-300"><?= $tokenBalance['reset_at'] ?? '—' ?></span>
-                    </div>
-                </div>
-                <?php endif; ?>
-
-                <!-- AI Config -->
-                <div class="bg-brand-surface border border-white/8 rounded-2xl p-5">
-                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-operon-energy text-base">smart_toy</span>
-                        Configuração IA
-                    </h3>
-                    <div class="flex flex-col gap-3 text-sm">
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-400">Modelo ativo</span>
-                            <span class="font-bold text-white">Operon Intelligence</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-400">Provider</span>
-                            <span class="font-bold text-operon-energy uppercase"><?= e($config['provider'] ?? 'gemini') ?></span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-400">Google Search</span>
-                            <span class="size-2 bg-operon-energy rounded-full inline-block animate-pulse"></span>
-                        </div>
-                    </div>
-                    <p class="text-[10px] text-slate-600 mt-4">Configure as API keys no arquivo .env</p>
+                    <h4 class="font-bold text-text mb-1 text-sm">Motor Neural Mapeado</h4>
+                    <p class="text-xs text-subtle leading-relaxed mb-4">A inteligência artificial irá absorver as identidades e configurações de nicho acima para orquestrar as abordagens dos Leads.</p>
+                    
+                    <a href="/admin/ai-config" class="inline-block px-4 py-1.5 text-xs font-bold text-lime uppercase tracking-widest border border-lime/20 rounded-pill hover:bg-lime/10 transition-colors">
+                        Gerenciar IA
+                    </a>
                 </div>
 
                 <!-- Save Button -->
                 <button type="submit"
-                        class="w-full py-3.5 bg-operon-energy rounded-xl text-black text-sm font-black hover:brightness-110 transition-all shadow-lg glow-energy-sm">
-                    Salvar Configurações
+                        class="w-full py-3.5 bg-lime rounded-pill text-bg text-sm font-black hover:brightness-110 transition-all shadow-glow flex justify-center items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">save</span> Salvar Modificações
                 </button>
 
             </div>

@@ -23,13 +23,25 @@
             theme: {
                 extend: {
                     colors: {
-                        "primary":           "#E11D48",
-                        "operon-charcoal":   "#19171A",
-                        "operon-teal":       "#0A1D2A",
-                        "operon-energy":     "#18C29C",
-                        "background-dark":   "#19171A",
+                        "bg":          "#000000",
+                        "surface":     "#131313",
+                        "surface2":    "#1A1A1A",
+                        "surface3":    "#202020",
+                        "stroke":      "#2A2A2A",
+                        "text":        "#F5F5F5",
+                        "muted":       "#A1A1AA",
+                        "subtle":      "#71717A",
+                        "lime":        "#E1FB15",
+                        "mint":        "#32D583",
+                        
+                        // Legado Operon p/ não quebrar views não ajustadas ainda
+                        "primary":           "#E1FB15", 
+                        "operon-charcoal":   "#000000",
+                        "operon-teal":       "#131313",
+                        "operon-energy":     "#E1FB15",
+                        "background-dark":   "#000000",
                         "background-light":  "#F8F6F6",
-                        "brand-surface":     "#232026",
+                        "brand-surface":     "#131313",
                     },
                     fontFamily: {
                         "display": ["Plus Jakarta Sans", "sans-serif"],
@@ -39,18 +51,21 @@
                         "lg":      "1rem",
                         "xl":      "1.5rem",
                         "2xl":     "1.75rem",
+                        "card":    "28px",
+                        "cardLg":  "32px",
+                        "pill":    "9999px",
                         "full":    "9999px",
                     },
                     boxShadow: {
-                        "energy": "0 0 20px rgba(24,194,156,0.3)",
-                        "energy-sm": "0 0 10px rgba(24,194,156,0.2)",
+                        "soft": "0 8px 30px rgba(0,0,0,0.28)",
+                        "glow": "0 0 0 1px rgba(225,251,21,0.08), 0 8px 24px rgba(225,251,21,0.15)",
                     },
                 },
             },
         };
     </script>
 </head>
-<body class="bg-background-dark font-display text-slate-100 antialiased">
+<body class="bg-bg font-display text-text antialiased">
 
 <!-- Flash Messages -->
 <?php
@@ -72,233 +87,172 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
 </div>
 <?php endif; ?>
 
-<div class="relative flex h-screen w-full overflow-hidden">
+<div class="relative flex flex-col h-screen w-full overflow-hidden bg-bg">
 
-    <!-- ── Sidebar ─────────────────────────────────────────── -->
-    <aside id="sidebar" class="flex h-full w-64 flex-col border-r border-slate-800 bg-operon-teal p-4 transition-all duration-300 relative z-10 flex-shrink-0">
+    <!-- ── Topbar Premium ──────────────────────────────────────── -->
+    <header class="flex h-[72px] lg:h-[88px] items-center justify-between border-b border-stroke bg-bg px-4 md:px-8 flex-shrink-0 z-20">
+        
+        <!-- Logo Area -->
+        <a href="/" class="flex items-center flex-shrink-0 min-w-[120px]">
+            <img src="https://imagedelivery.net/mYdfeAeRRdkIXG5w7XJhtQ/08d22f62-d69a-4d61-7a2f-f565e4546b00/public" alt="Operon Intelligence" class="h-12 lg:h-[52px] w-auto object-contain relative -left-2 transition-transform hover:scale-105">
+        </a>
 
-        <!-- Logo -->
-        <div class="px-4 py-5 mb-2">
-            <div class="flex items-center gap-3">
-                <div class="size-10 bg-operon-energy/20 rounded-full flex items-center justify-center text-operon-energy border border-operon-energy/30 flex-shrink-0">
-                    <span class="material-symbols-outlined text-lg">security</span>
-                </div>
-                <div class="sidebar-label">
-                    <h1 class="text-sm font-black tracking-wider text-operon-energy leading-none sidebar-logo-text">OPERON AGENTS</h1>
-                    <p class="text-[10px] font-bold tracking-[0.2em] text-slate-400 mt-0.5 uppercase sidebar-logo-text">INTELLIGENCE</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Token Bar -->
-        <?php
-        $tb = $tokenBalance ?? null;
-        $tbUsed  = $tb['used'] ?? 0;
-        $tbLimit = $tb['limit'] ?? 100;
-        $tbPct   = $tbLimit > 0 ? min(100, round(($tbUsed / $tbLimit) * 100)) : 0;
-        $tbClass = $tbPct >= 90 ? 'critical' : ($tbPct >= 70 ? 'warning' : '');
-        ?>
-        <div class="mx-2 mb-4 px-3 py-2.5 rounded-xl bg-white/5 border border-white/8 sidebar-label">
-            <div class="flex justify-between items-center mb-1.5">
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tokens IA</span>
-                <span id="tokenLabel" class="text-[10px] font-bold <?= $tbPct >= 90 ? 'text-red-400' : ($tbPct >= 70 ? 'text-yellow-400' : 'text-operon-energy') ?>"><?= $tbUsed ?>/<?= $tbLimit ?></span>
-            </div>
-            <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <div id="tokenBar" class="h-full rounded-full token-bar-fill <?= $tbClass ?>" style="width: <?= $tbPct ?>%"></div>
-            </div>
-        </div>
-
-        <!-- Navigation -->
-        <nav class="flex flex-col gap-0.5 grow px-2 overflow-y-auto">
+        <!-- Primary Navigation (Pills) -->
+        <nav class="hidden flex-1 lg:flex items-center justify-center gap-2 overflow-x-auto hide-scrollbar px-4">
             <?php
             $navItems = [
-                ['icon' => 'grid_view',     'label' => 'Nexus',    'path' => '/',         'key' => 'dashboard'],
-                ['icon' => 'view_kanban',   'label' => 'Vault',    'path' => '/vault',    'key' => 'vault'],
-                ['icon' => 'map',           'label' => 'Atlas',    'path' => '/atlas',    'key' => 'atlas'],
-                ['icon' => 'radar',         'label' => 'Hunter',   'path' => '/hunter',   'key' => 'hunter'],
-                ['icon' => 'upload_file',   'label' => 'Genesis',  'path' => '/genesis',  'key' => 'genesis'],
-                ['icon' => 'calendar_today','label' => 'Agenda',   'path' => '/agenda',   'key' => 'agenda'],
-                ['icon' => 'event_repeat',  'label' => 'Follow-up','path' => '/follow-up','key' => 'followup'],
-                ['icon' => 'track_changes', 'label' => 'SPIN Hub', 'path' => '/spin',     'key' => 'spin'],
+                ['label' => 'Overview', 'path' => '/',         'key' => 'dashboard'],
+                ['label' => 'Vault',    'path' => '/vault',    'key' => 'vault'],
+                ['label' => 'Atlas',    'path' => '/atlas',    'key' => 'atlas'],
+                ['label' => 'Hunter',   'path' => '/hunter',   'key' => 'hunter'],
+                ['label' => 'Genesis',  'path' => '/genesis',  'key' => 'genesis'],
+                ['label' => 'Agenda',   'path' => '/agenda',   'key' => 'agenda'],
+                ['label' => 'Follow-up','path' => '/follow-up','key' => 'followup'],
+                ['label' => 'SPIN Hub', 'path' => '/spin',     'key' => 'spin'],
             ];
             $active = $active ?? '';
+            foreach ($navItems as $item): 
+                $isActive = $active === $item['key'];
             ?>
-
-            <div class="text-[10px] font-bold text-slate-500 px-3 uppercase tracking-[0.15em] mb-2 mt-2 sidebar-label">PROTOCOLOS</div>
-
-            <?php foreach ($navItems as $item): ?>
             <a href="<?= $item['path'] ?>"
-               class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group sidebar-nav-item
-                      <?= $active === $item['key']
-                          ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                          : 'text-slate-400 hover:text-white hover:bg-white/8' ?>">
-                <span class="material-symbols-outlined text-xl <?= $active === $item['key'] ? 'fill-1' : '' ?> flex-shrink-0"><?= $item['icon'] ?></span>
-                <span class="text-sm font-<?= $active === $item['key'] ? 'bold' : 'medium' ?> sidebar-label"><?= $item['label'] ?></span>
+               class="flex items-center h-[40px] px-5 rounded-pill text-sm transition-all duration-200 whitespace-nowrap
+                      <?= $isActive 
+                          ? 'bg-lime text-bg font-medium shadow-glow' 
+                          : 'bg-surface border border-white/5 text-muted hover:text-text hover:bg-surface2' ?>">
+                <?= $item['label'] ?>
             </a>
             <?php endforeach; ?>
-
-            <!-- Operon AI Copilot Button -->
-            <div class="mt-6 px-1 sidebar-label">
-                <button onclick="openModal('copilotModal')"
-                        class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-operon-energy text-xl">smart_toy</span>
-                        <span class="text-xs font-bold tracking-wider text-white uppercase">OPERON AI</span>
-                    </div>
-                    <span class="size-2 bg-operon-energy rounded-full animate-pulse"></span>
-                </button>
-            </div>
-
-            <!-- Admin Link -->
-            <?php if ((\App\Core\Session::get('role') ?? '') === 'admin'): ?>
-            <div class="mt-2 px-1">
-                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all
-                    <?= $active === 'admin' ? 'bg-primary/20 text-primary' : 'text-slate-500 hover:text-white hover:bg-white/8' ?>">
-                    <span class="material-symbols-outlined text-xl flex-shrink-0">shield</span>
-                    <span class="text-sm font-medium sidebar-label">Admin</span>
-                </a>
-            </div>
-            <?php endif; ?>
         </nav>
 
-        <!-- Footer: Governance Card + User -->
-        <div class="mt-auto flex flex-col gap-3 pt-4 border-t border-white/8">
-
-            <!-- Governance Card -->
-            <div class="rounded-2xl bg-white/5 border border-white/10 p-3 sidebar-label">
-                <div class="flex justify-between items-start mb-1">
-                    <p class="text-[11px] font-bold text-white">Cérebro de Governança</p>
-                    <span class="material-symbols-outlined text-slate-500 text-base">psychology</span>
-                </div>
-                <p class="text-[9px] text-slate-400 leading-relaxed mb-3">Sistema ativo. Pronto para análise profunda de mercado.</p>
-                <a href="/vault" class="block w-full py-2 bg-primary rounded-xl text-[10px] font-bold text-white text-center hover:brightness-110 transition-all">
-                    Executar Análise
-                </a>
+        <!-- Right End Actions -->
+        <div class="flex items-center gap-3 md:gap-4 justify-end min-w-[120px]">
+            <!-- Token Indicator -->
+            <?php
+            $tb = $tokenBalance ?? null;
+            $tbUsed  = $tb['used'] ?? 0;
+            $tbLimit = $tb['limit'] ?? 100;
+            ?>
+            <div class="hidden md:flex items-center h-10 px-4 rounded-pill bg-surface border border-white/5 gap-2">
+                <span class="material-symbols-outlined text-lime text-sm">bolt</span>
+                <span class="text-xs font-bold text-text"><?= $tbUsed ?><span class="text-subtle font-medium ml-1">/ <?= $tbLimit ?></span></span>
             </div>
 
-            <!-- User Profile -->
-            <div class="flex items-center justify-between px-2 py-1">
-                <div class="flex items-center gap-2.5">
-                    <div class="size-8 rounded-full bg-operon-energy/20 border border-operon-energy/30 flex items-center justify-center flex-shrink-0">
-                        <span class="material-symbols-outlined text-operon-energy text-base">person</span>
+            <div class="hidden md:block h-6 w-px bg-stroke"></div>
+
+            <!-- Mobile Menu Toggle -->
+            <button id="mobileMenuBtn" class="flex lg:hidden size-10 items-center justify-center rounded-full bg-surface border border-white/5 text-muted hover:text-text hover:bg-surface2 transition-all">
+                <span class="material-symbols-outlined text-[20px]">menu</span>
+            </button>
+
+            <!-- Copilot Action (Circular) -->
+            <button onclick="openModal('copilotModal')" class="flex size-10 items-center justify-center rounded-full bg-surface border border-white/5 text-muted hover:text-lime hover:border-lime/30 transition-all group relative" title="Operon AI">
+                <span class="material-symbols-outlined text-[20px]">smart_toy</span>
+                <span class="absolute top-[2px] right-[2px] size-2.5 bg-lime rounded-full animate-pulse border-2 border-bg"></span>
+            </button>
+
+            <!-- User Dropdown -->
+            <div class="relative" id="userDropdownContainer">
+                <button id="userDropdownBtn" class="flex items-center outline-none group">
+                    <div class="size-10 rounded-full bg-surface border border-white/5 flex items-center justify-center text-muted group-hover:text-text group-hover:bg-surface2 transition-all">
+                        <span class="material-symbols-outlined text-[20px]">person</span>
                     </div>
-                    <div class="sidebar-label">
-                        <p class="text-xs font-bold text-white leading-none"><?= e(\App\Core\Session::get('name') ?? 'Usuário') ?></p>
-                        <p class="text-[9px] font-medium text-slate-500 tracking-wider uppercase mt-0.5"><?= e(\App\Core\Session::get('role') ?? 'agent') ?></p>
+                </button>
+
+                 <!-- Dropdown Menu -->
+                 <div id="userDropdownMenu" class="absolute right-0 mt-3 w-56 bg-surface2 border border-stroke rounded-[24px] shadow-soft py-2 hidden z-50 transform opacity-0 scale-95 transition-all duration-200 origin-top-right">
+                    <div class="px-5 py-3 border-b border-stroke mb-2">
+                        <p class="text-xs font-bold text-text truncate"><?= e(\App\Core\Session::get('name') ?? 'Usuário') ?></p>
+                        <p class="text-[10px] text-muted mt-0.5 truncate"><?= e(\App\Core\Session::get('email') ?? 'usuario@operon.com') ?></p>
+                    </div>
+                    
+                    <a href="/costs" class="flex items-center gap-3 px-5 py-2.5 text-sm text-muted hover:text-text hover:bg-surface3 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">payments</span> Controle de Custos
+                    </a>
+                    <a href="/profile" class="flex items-center gap-3 px-5 py-2.5 text-sm text-muted hover:text-text hover:bg-surface3 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">account_circle</span> Perfil
+                    </a>
+                    <a href="/logs" class="flex items-center gap-3 px-5 py-2.5 text-sm text-muted hover:text-text hover:bg-surface3 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">history</span> Logs
+                    </a>
+                    <a href="/settings" class="flex items-center gap-3 px-5 py-2.5 text-sm text-muted hover:text-text hover:bg-surface3 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">settings</span> Configurações
+                    </a>
+                    <a href="/integrations" class="flex items-center gap-3 px-5 py-2.5 text-sm text-muted hover:text-text hover:bg-surface3 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">extension</span> Integrações
+                    </a>
+
+
+
+                    <div class="border-t border-stroke mt-2 pt-2">
+                        <a href="/logout" class="flex items-center gap-3 px-5 py-2.5 text-sm text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">logout</span> Sair
+                        </a>
                     </div>
                 </div>
-                <a href="/logout" class="text-slate-500 hover:text-white transition-colors sidebar-label" title="Sair">
-                    <span class="material-symbols-outlined text-lg">logout</span>
-                </a>
             </div>
-
         </div>
-    </aside>
+    </header>
 
-    <!-- ── Main Content ────────────────────────────────────── -->
-    <div id="mainContent" class="flex flex-1 flex-col overflow-hidden min-w-0 transition-all duration-300">
-
-        <!-- Topbar -->
-        <header class="flex h-16 items-center justify-between border-b border-slate-800 bg-operon-charcoal px-6 flex-shrink-0 z-10">
-            <div class="flex items-center gap-4 flex-1">
-                <!-- Sidebar Toggle -->
-                <button id="sidebarToggle" class="size-9 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all" title="Toggle sidebar">
-                    <span class="material-symbols-outlined text-xl">menu</span>
-                </button>
-
-                <!-- Page Title -->
-                <div>
-                    <h2 class="text-sm font-bold text-white leading-none"><?= e($pageTitle ?? 'Dashboard') ?></h2>
-                    <?php if (!empty($pageSubtitle)): ?>
-                    <p class="text-[10px] text-slate-500 mt-0.5"><?= e($pageSubtitle) ?></p>
-                    <?php endif; ?>
-                </div>
-            </div>
-
-            <!-- Right side actions -->
-            <div class="flex items-center gap-3">
-                <!-- Token indicator (compact) -->
-                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/8">
-                    <span class="material-symbols-outlined text-operon-energy text-sm">bolt</span>
-                    <span class="text-[11px] font-bold text-slate-300"><?= $tbUsed ?><span class="text-slate-500">/<?= $tbLimit ?></span></span>
-                </div>
-
-                <!-- AI Badge -->
-                <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-operon-energy/10 border border-operon-energy/20">
-                    <span class="size-1.5 bg-operon-energy rounded-full animate-pulse"></span>
-                    <span class="text-[10px] font-bold tracking-wider text-operon-energy uppercase">Operon Intelligence</span>
-                </div>
-
-                <div class="h-8 w-px bg-slate-800 mx-1"></div>
-
-                <!-- Notifications -->
-                <button class="size-9 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white transition-colors">
-                    <span class="material-symbols-outlined text-xl">notifications</span>
-                </button>
-
-                <!-- User Avatar -->
-                <div class="flex items-center gap-2.5">
-                    <div class="text-right hidden sm:block">
-                        <p class="text-xs font-bold text-white leading-none"><?= e(\App\Core\Session::get('name') ?? 'Usuário') ?></p>
-                        <p class="text-[10px] text-slate-500 font-medium">High-Ticket Sales</p>
-                    </div>
-                    <div class="size-9 rounded-full bg-operon-energy/20 border-2 border-operon-energy/30 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-operon-energy text-base">person</span>
-                    </div>
-                </div>
-            </div>
-        </header>
-
-        <!-- Page Content -->
-        <main class="flex-1 overflow-y-auto bg-background-dark">
-            <?= $content ?>
-        </main>
-
+    <!-- Mobile Navigation Overlay (Visible only on small screens when triggered) -->
+    <div id="mobileNavOverlay" class="fixed inset-0 bg-bg z-40 flex-col hidden lg:hidden overflow-y-auto px-4 py-6 border-t border-stroke mt-[72px]">
+        <div class="flex flex-col gap-3">
+            <p class="text-[10px] font-bold text-subtle tracking-[0.2em] uppercase mb-2 px-2">Navegação Principal</p>
+            <?php foreach ($navItems as $item): ?>
+                <a href="<?= $item['path'] ?>" class="flex items-center h-12 px-5 rounded-pill text-sm transition-all duration-200 <?= ($active ?? '') === $item['key'] ? 'bg-lime text-bg font-medium' : 'bg-surface text-muted border border-white/5' ?>">
+                    <?= $item['label'] ?>
+                </a>
+            <?php endforeach; ?>
+        </div>
     </div>
+
+    <!-- ── Main Content Area ───────────────────────────────── -->
+    <main id="mainContent" class="flex-1 overflow-y-auto bg-bg relative z-10">
+        <?= $content ?>
+    </main>
 </div>
 
 <!-- ── Copilot Modal ───────────────────────────────────────── -->
-<div id="copilotModal" class="fixed inset-0 z-50 modal-backdrop hidden items-end justify-center sm:items-center p-4 bg-black/50 backdrop-blur-sm">
-    <div class="w-full max-w-lg bg-brand-surface border border-white/10 rounded-2xl shadow-2xl animate-popIn overflow-hidden">
+<div id="copilotModal" class="fixed inset-0 z-50 modal-backdrop hidden items-end justify-center sm:items-center p-4 bg-bg/80 backdrop-blur-md">
+    <div class="w-full max-w-lg bg-surface border border-stroke rounded-cardLg shadow-soft animate-popIn overflow-hidden">
         <!-- Header -->
-        <div class="flex items-center justify-between px-5 py-4 border-b border-white/8">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-stroke">
             <div class="flex items-center gap-3">
-                <div class="size-8 bg-operon-energy/20 rounded-full flex items-center justify-center border border-operon-energy/30">
-                    <span class="material-symbols-outlined text-operon-energy text-base">smart_toy</span>
+                <div class="size-10 bg-lime/10 rounded-full flex items-center justify-center border border-lime/20">
+                    <span class="material-symbols-outlined text-lime text-lg">smart_toy</span>
                 </div>
                 <div>
-                    <p class="text-sm font-bold text-white leading-none">Operon Intelligence</p>
-                    <p class="text-[10px] text-operon-energy mt-0.5 flex items-center gap-1">
-                        <span class="size-1.5 bg-operon-energy rounded-full animate-pulse inline-block"></span>
-                        Sistema ativo
+                    <p class="text-base font-bold text-text leading-none">Operon Intelligence</p>
+                    <p class="text-xs font-medium text-muted mt-1 flex items-center gap-1.5">
+                        <span class="size-1.5 bg-lime rounded-full animate-pulse inline-block"></span>
+                        Sistema conectado
                     </p>
                 </div>
             </div>
-            <button onclick="closeModal('copilotModal')" class="text-slate-400 hover:text-white transition-colors">
-                <span class="material-symbols-outlined">close</span>
+            <button onclick="closeModal('copilotModal')" class="flex size-8 items-center justify-center rounded-full bg-surface2 text-muted hover:text-text transition-colors border border-white/5">
+                <span class="material-symbols-outlined text-lg">close</span>
             </button>
         </div>
 
         <!-- Messages -->
-        <div id="copilotMessages" class="h-64 overflow-y-auto p-4 flex flex-col gap-3">
-            <div class="flex gap-3">
-                <div class="size-6 bg-operon-energy/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span class="material-symbols-outlined text-operon-energy text-xs">smart_toy</span>
+        <div id="copilotMessages" class="h-72 overflow-y-auto p-6 flex flex-col gap-4">
+            <div class="flex gap-4">
+                <div class="size-8 bg-lime/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border border-lime/20">
+                    <span class="material-symbols-outlined text-lime text-sm">smart_toy</span>
                 </div>
-                <div class="bg-white/5 rounded-xl rounded-tl-none px-3 py-2.5 text-sm text-slate-300 max-w-xs">
-                    Olá! Sou o Copilot da Operon. Como posso ajudar sua prospecção hoje?
+                <div class="bg-surface2 border border-stroke rounded-[20px] rounded-tl-none px-4 py-3 text-sm text-text max-w-xs shadow-sm shadow-black/20">
+                    Olá! Sou o Operon Intelligence. Como posso acelerar os seus resultados hoje?
                 </div>
             </div>
         </div>
 
         <!-- Input -->
-        <div class="px-4 py-3 border-t border-white/8">
-            <form id="copilotForm" class="flex gap-2">
+        <div class="px-6 py-4 border-t border-stroke bg-surface2">
+            <form id="copilotForm" class="flex gap-3">
                 <?= csrf_field() ?>
-                <input id="copilotInput" type="text" placeholder="Pergunte algo sobre seus leads..."
-                       class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-operon-energy/50 focus:ring-1 focus:ring-operon-energy/30 transition-all">
-                <button type="submit" class="size-10 bg-operon-energy rounded-xl flex items-center justify-center hover:brightness-110 transition-all flex-shrink-0">
-                    <span class="material-symbols-outlined text-black text-lg">send</span>
+                <input id="copilotInput" type="text" placeholder="Formule seu comando..."
+                       class="flex-1 bg-surface border border-stroke rounded-pill px-5 py-3 text-sm text-text placeholder-muted focus:outline-none focus:border-lime/50 transition-all">
+                <button type="submit" class="size-12 bg-lime rounded-full flex items-center justify-center hover:brightness-110 shadow-glow transition-all flex-shrink-0">
+                    <span class="material-symbols-outlined text-bg text-[22px]">arrow_upward</span>
                 </button>
             </form>
         </div>
@@ -321,19 +275,19 @@ copilotForm?.addEventListener('submit', async (e) => {
     // Append user message
     copilotMessages.innerHTML += `
         <div class="flex gap-3 justify-end">
-            <div class="bg-operon-energy/20 border border-operon-energy/20 rounded-xl rounded-tr-none px-3 py-2.5 text-sm text-white max-w-xs">${msg}</div>
+            <div class="bg-surface3 border border-stroke rounded-[20px] rounded-tr-none px-4 py-3 text-sm text-text max-w-xs">${msg}</div>
         </div>`;
     copilotInput.value = '';
 
     // Append loading
     const loaderId = 'copilot-loader-' + Date.now();
     copilotMessages.innerHTML += `
-        <div id="${loaderId}" class="flex gap-3">
-            <div class="size-6 bg-operon-energy/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span class="material-symbols-outlined text-operon-energy text-xs">smart_toy</span>
+        <div id="${loaderId}" class="flex gap-4 animate-pulse">
+            <div class="size-8 bg-lime/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border border-lime/20">
+                <span class="material-symbols-outlined text-lime text-sm">smart_toy</span>
             </div>
-            <div class="bg-white/5 rounded-xl rounded-tl-none px-3 py-2.5">
-                <div class="ai-spinner"></div>
+            <div class="bg-surface2 border border-stroke rounded-[20px] rounded-tl-none px-4 py-3 flex items-center justify-center">
+                <div class="ai-spinner border-lime !w-4 !h-4"></div>
             </div>
         </div>`;
     copilotMessages.scrollTop = copilotMessages.scrollHeight;
@@ -345,18 +299,65 @@ copilotForm?.addEventListener('submit', async (e) => {
         });
         document.getElementById(loaderId)?.remove();
         copilotMessages.innerHTML += `
-            <div class="flex gap-3">
-                <div class="size-6 bg-operon-energy/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span class="material-symbols-outlined text-operon-energy text-xs">smart_toy</span>
+            <div class="flex gap-4">
+                <div class="size-8 bg-lime/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border border-lime/20">
+                    <span class="material-symbols-outlined text-lime text-sm">smart_toy</span>
                 </div>
-                <div class="bg-white/5 rounded-xl rounded-tl-none px-3 py-2.5 text-sm text-slate-300 max-w-xs ai-prose">${res.reply || res.error || 'Erro ao processar.'}</div>
+                <div class="bg-surface2 border border-stroke rounded-[20px] rounded-tl-none px-4 py-3 text-sm text-text max-w-xs ai-prose shadow-sm shadow-black/20">${res.reply || res.error || 'Erro processando.'}</div>
             </div>`;
     } catch {
         document.getElementById(loaderId)?.remove();
-        copilotMessages.innerHTML += `<div class="text-xs text-red-400 px-4">Erro de conexão.</div>`;
+        copilotMessages.innerHTML += `<div class="text-[10px] font-bold tracking-wider uppercase text-red-500 px-12">Falha de Comlink.</div>`;
     }
     copilotMessages.scrollTop = copilotMessages.scrollHeight;
 });
+
+// User Dropdown Logic
+const userDropdownBtn = document.getElementById('userDropdownBtn');
+const userDropdownMenu = document.getElementById('userDropdownMenu');
+
+if (userDropdownBtn && userDropdownMenu) {
+    userDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = userDropdownMenu.classList.contains('hidden');
+        
+        if (isHidden) {
+            userDropdownMenu.classList.remove('hidden');
+            // Allow display block to apply before animating opacity/scale
+            requestAnimationFrame(() => {
+                userDropdownMenu.classList.remove('opacity-0', 'scale-95');
+                userDropdownMenu.classList.add('opacity-100', 'scale-100');
+            });
+        } else {
+            userDropdownMenu.classList.remove('opacity-100', 'scale-100');
+            userDropdownMenu.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                userDropdownMenu.classList.add('hidden');
+            }, 200); // match transition duration
+        }
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!userDropdownMenu.classList.contains('hidden') && !e.target.closest('#userDropdownContainer')) {
+            userDropdownMenu.classList.remove('opacity-100', 'scale-100');
+            userDropdownMenu.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                userDropdownMenu.classList.add('hidden');
+            }, 200);
+        }
+    });
+} // <--- Added missing closing brace
+
+// Mobile Nav Toggle
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const mobileNavOverlay = document.getElementById('mobileNavOverlay');
+if(mobileMenuBtn && mobileNavOverlay) {
+    mobileMenuBtn.addEventListener('click', () => {
+        mobileNavOverlay.classList.toggle('hidden');
+        mobileNavOverlay.classList.toggle('flex');
+    });
+}
 </script>
 
 <?= $extraScripts ?? '' ?>

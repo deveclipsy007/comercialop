@@ -13,51 +13,28 @@ class AdminController
 {
     public function index(): void
     {
-        Session::requireAuth();
-
-        // Only admin role can access
-        if (Session::get('role') !== 'admin') {
-            Session::flash('error', 'Acesso negado.');
-            View::redirect('/');
+        if (!Session::get('admin_auth')) {
+            View::redirect('/admin/login');
         }
 
         $tenantId = Session::get('tenant_id');
-        $db       = Database::getInstance();
+        $settings = Database::selectFirst('SELECT * FROM agency_settings WHERE tenant_id = ?', [$tenantId]);
 
-        // Load agency settings
-        $settings = $db->selectFirst(
-            "SELECT * FROM agency_settings WHERE tenant_id = ?",
-            [$tenantId]
-        );
-
-        // Parse JSON fields
+        // decodificar campos JSON, se existirem
         if ($settings) {
-            $settings['differentials'] = json_decode($settings['differentials'] ?? '[]', true) ?? [];
-            $settings['services']      = json_decode($settings['services'] ?? '[]', true) ?? [];
-            $settings['cases']         = json_decode($settings['cases'] ?? '[]', true) ?? [];
+            $settings['differentials'] = json_decode($settings['differentials'] ?? '[]', true);
+            $settings['services']      = json_decode($settings['services'] ?? '[]', true);
         }
 
-        $tokenBalance = TokenQuota::getBalance($tenantId);
-
-        // Current env/config values for display
-        $config = [
-            'provider' => env('OPERON_PROVIDER', 'gemini'),
-            'tier'     => $tokenBalance['tier'] ?? 'starter',
-        ];
-
         View::render('admin/index', [
-            'active'       => 'admin',
-            'settings'     => $settings,
-            'tokenBalance' => $tokenBalance,
-            'config'       => $config,
-        ]);
+            'active'   => 'admin_config',
+            'settings' => $settings,
+        ], 'layout.admin');
     }
 
     public function save(): void
     {
-        Session::requireAuth();
-
-        if (Session::get('role') !== 'admin') {
+        if (!Session::get('admin_auth')) {
             http_response_code(403); return;
         }
 
@@ -67,7 +44,6 @@ class AdminController
         }
 
         $tenantId = Session::get('tenant_id');
-        $db       = Database::getInstance();
 
         $differentials = array_filter(array_map('trim', explode("\n", $_POST['differentials'] ?? '')));
         $servicesRaw   = $_POST['services'] ?? [];
@@ -90,22 +66,157 @@ class AdminController
             'updated_at'     => date('Y-m-d H:i:s'),
         ];
 
-        $existing = $db->selectFirst("SELECT id FROM agency_settings WHERE tenant_id = ?", [$tenantId]);
+        $existing = Database::selectFirst("SELECT id FROM agency_settings WHERE tenant_id = ?", [$tenantId]);
 
         if ($existing) {
             $sets  = implode(', ', array_map(fn($k) => "{$k} = ?", array_keys($data)));
             $vals  = array_values($data);
             $vals[] = $tenantId;
-            $db->execute("UPDATE agency_settings SET {$sets} WHERE tenant_id = ?", $vals);
+            Database::execute("UPDATE agency_settings SET {$sets} WHERE tenant_id = ?", $vals);
         } else {
             $data['id']        = 'settings_' . uniqid();
             $data['tenant_id'] = $tenantId;
             $cols = implode(', ', array_keys($data));
             $phs  = implode(', ', array_fill(0, count($data), '?'));
-            $db->execute("INSERT INTO agency_settings ({$cols}) VALUES ({$phs})", array_values($data));
+            Database::execute("INSERT INTO agency_settings ({$cols}) VALUES ({$phs})", array_values($data));
         }
 
         Session::flash('success', 'Configurações salvas! O contexto da agência foi atualizado para todas as análises de IA.');
         View::redirect('/admin');
+    }
+
+    public function users(): void
+    {
+        if (!Session::get('admin_auth')) {
+            View::redirect('/admin/login');
+        }
+
+        $tenantId = Session::get('tenant_id');
+        $users = Database::select('SELECT id, name, email, role, active, created_at FROM users WHERE tenant_id = ? ORDER BY name ASC', [$tenantId]);
+
+        View::render('admin/users', [
+            'active' => 'admin_users',
+            'users'  => $users
+        ], 'layout.admin');
+    }
+
+    public function toggleUser(): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403); return;
+        }
+
+        $id = $_POST['user_id'] ?? '';
+        $tenantId = Session::get('tenant_id');
+
+        // Impede que o próprio admin se desative
+        if ($id === Session::get('id')) {
+            Session::flash('error', 'Você não pode desativar sua própria conta.');
+            View::redirect('/admin/users');
+        }
+
+        $user = Database::selectFirst('SELECT id, active FROM users WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
+        if ($user) {
+            $newStatus = $user['active'] ? 0 : 1;
+            Database::execute('UPDATE users SET active = ? WHERE id = ?', [$newStatus, $id]);
+            Session::flash('success', $newStatus ? 'Usuário ativado.' : 'Usuário desativado.');
+        }
+
+        View::redirect('/admin/users');
+    }
+
+    public function logs(): void
+    {
+        if (!Session::get('admin_auth')) {
+            View::redirect('/admin/login');
+        }
+
+        $tenantId = Session::get('tenant_id');
+        
+        // Pega os logs globais do sistema de tokens da agência com as infos dos leads afetados
+        $logs = Database::select('
+            SELECT tl.*, l.name as lead_name 
+            FROM token_logs tl 
+            LEFT JOIN leads l ON tl.lead_id = l.id 
+            WHERE tl.tenant_id = ? 
+            ORDER BY tl.created_at DESC 
+            LIMIT 100
+        ', [$tenantId]);
+
+        // Também pega logs gerais do sistema, se tivermos a lead_activities adaptável pra log geral (no caso as atividades da base)
+        $activities = Database::select('
+            SELECT la.*, u.name as user_name, l.name as lead_name
+            FROM lead_activities la
+            LEFT JOIN users u ON la.user_id = u.id
+            LEFT JOIN leads l ON la.lead_id = l.id
+            WHERE la.tenant_id = ? 
+            ORDER BY la.created_at DESC 
+            LIMIT 50
+        ', [$tenantId]);
+
+        View::render('admin/logs', [
+            'active'     => 'admin_logs',
+            'tokenLogs'  => $logs,
+            'activities' => $activities
+        ], 'layout.admin');
+        Session::flash('success', 'Distribuição de modelos (LLM Routing) e Configurações de Token atualizados.');
+        View::redirect('/admin/ai-config');
+    }
+
+    public function aiConfigs(): void
+    {
+        if (!Session::get('admin_auth')) {
+            View::redirect('/admin/login');
+        }
+
+        $tenantId = Session::get('tenant_id');
+        $tokenBalance = TokenQuota::getBalance($tenantId);
+        
+        $settings = Database::selectFirst('SELECT settings FROM tenants WHERE id = ?', [$tenantId]);
+        
+        $dist = ['gemini' => 80, 'openai' => 20];
+        if ($settings && !empty($settings['settings'])) {
+            $json = json_decode($settings['settings'], true);
+            if (isset($json['ai_distribution'])) {
+                $dist = $json['ai_distribution'];
+            }
+        }
+
+        $config = require __DIR__ . '/../../config/operon.php';
+
+        View::render('admin/ai_config', [
+            'active'         => 'admin_ai',
+            'config'         => $config,
+            'tokenBalance'   => $tokenBalance,
+            'aiDistribution' => $dist
+        ], 'layout.admin');
+    }
+
+    public function saveAiConfigs(): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403); return;
+        }
+
+        $tenantId = Session::get('tenant_id');
+        
+        $gemini = (int)($_POST['dist_gemini'] ?? 80);
+        $openai = (int)($_POST['dist_openai'] ?? 20);
+
+        if ($gemini + $openai !== 100) {
+            $openai = 100 - $gemini;
+        }
+
+        $tenantInfo = Database::selectFirst('SELECT settings FROM tenants WHERE id = ?', [$tenantId]);
+        $currentSettings = json_decode($tenantInfo['settings'] ?? '{}', true) ?: [];
+        
+        $currentSettings['ai_distribution'] = ['gemini' => $gemini, 'openai' => $openai];
+
+        Database::execute('UPDATE tenants SET settings = ? WHERE id = ?', [
+            json_encode($currentSettings), $tenantId
+        ]);
+
+        Session::flash('success', 'Distribuição de I.A e Roteamento de LLM atualizados.');
+        View::redirect('/admin/ai-config');
     }
 }

@@ -88,14 +88,16 @@ class TokenQuota
 
     public static function logEntry(string $tenantId, string $operation, int $cost, array $meta = []): void
     {
+        $id = bin2hex(random_bytes(8));
         Database::execute(
-            'INSERT INTO token_entries (tenant_id, operation, tokens_consumed, meta, created_at)
-             VALUES (?, ?, ?, ?, datetime("now"))',
+            'INSERT INTO token_logs (id, tenant_id, operation, tokens_used, lead_id, created_at)
+             VALUES (?, ?, ?, ?, ?, datetime("now"))',
             [
+                $id,
                 $tenantId,
                 $operation,
                 $cost,
-                json_encode($meta),
+                $meta['lead_id'] ?? null,
             ]
         );
     }
@@ -103,7 +105,7 @@ class TokenQuota
     public static function recentEntries(string $tenantId, int $limit = 20): array
     {
         return Database::select(
-            'SELECT * FROM token_entries WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?',
+            'SELECT * FROM token_logs WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?',
             [$tenantId, $limit]
         );
     }

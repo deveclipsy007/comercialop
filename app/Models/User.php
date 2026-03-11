@@ -45,6 +45,18 @@ class User
         return password_verify($password, $user['password']);
     }
 
+    public static function updateProfile(string $id, array $data): bool
+    {
+        return Database::execute(
+            'UPDATE users SET name = ?, email = ?, updated_at = datetime("now") WHERE id = ?',
+            [
+                $data['name'],
+                $data['email'],
+                $id
+            ]
+        ) > 0;
+    }
+
     public static function allByTenant(string $tenantId): array
     {
         return Database::select(

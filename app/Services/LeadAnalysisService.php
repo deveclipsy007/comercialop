@@ -268,6 +268,34 @@ PROMPT;
         return $this->gemini->generateJson($systemPrompt, $userPrompt);
     }
 
+    // ─── Follow-up Message Generation ─────────────────────────────────
+
+    public function generateFollowupMessage(array $followup, string $tenantId): string
+    {
+        $this->tokens->consume('followup_message', $tenantId);
+
+        $systemPrompt = $this->baseSystemPrompt();
+        $userPrompt = <<<PROMPT
+Crie um roteiro de mensagem de follow-up pronto para ser enviado (WhatsApp ou E-mail) para o lead abaixo.
+
+Lead: {$followup['lead_name']}
+Segmento: {$followup['lead_segment']}
+Estágio atual: {$followup['pipeline_status']}
+Contexto e Objeções: {$followup['lead_context']}
+
+Objetivo deste follow-up específico: {$followup['title']}
+Detalhes da tarefa: {$followup['description']}
+
+O roteiro deve ser persuasivo, direto, consultivo e adaptado ao contexto do lead. 
+Inclua um call to action (CTA) claro focado em avançar a negociação.
+Não exiba campos de placeholder gigantes, use quebras de linha e emojis contextuais se aplicável. Apenas o texto da mensagem. 
+
+Seja premium, direto e "neon obsidian" (estilo elegante e agressivo).
+PROMPT;
+
+        return $this->gemini->generate($systemPrompt, $userPrompt);
+    }
+
     // ─── Score Algorithm ─────────────────────────────────────────────
 
     public function calculateScore(array $lead): int

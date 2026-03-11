@@ -11,51 +11,52 @@ $tags      = $lead['tags'] ?? [];
 $score     = $lead['priority_score'] ?? 0;
 ?>
 
-<div class="flex items-center gap-3 mb-6">
-    <a href="/vault" class="text-zinc-400 hover:text-white transition-colors">
-        <span class="material-symbols-outlined text-xl">arrow_back</span>
+<div class="flex items-center gap-4 mb-8">
+    <a href="/vault" class="size-10 flex items-center justify-center rounded-full bg-surface border border-stroke text-muted hover:text-text hover:bg-surface2 transition-all">
+        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
     </a>
     <div class="flex-1 min-w-0">
-        <h1 class="text-2xl font-bold text-white truncate"><?= e($lead['name']) ?></h1>
-        <p class="text-zinc-400 text-sm"><?= e($lead['segment']) ?></p>
+        <h1 class="text-[28px] font-bold text-text truncate tracking-tight"><?= e($lead['name']) ?></h1>
+        <p class="text-sm text-muted mt-0.5"><?= e($lead['segment']) ?></p>
     </div>
-    <div class="flex items-center gap-2">
-        <span class="px-3 py-1 rounded-full text-xs font-semibold border <?= stageBadgeClass($lead['pipeline_status']) ?>">
+    <div class="flex flex-col md:flex-row items-end md:items-center gap-3">
+        <span class="px-4 py-1.5 rounded-pill text-xs font-bold border border-stroke bg-surface flex items-center gap-2">
+            <span class="size-2 rounded-full inline-block" style="background:<?= $stageDotColors[$lead['pipeline_status']] ?? '#202020' ?>"></span>
             <?= stageLabel($lead['pipeline_status']) ?>
         </span>
-        <span class="px-3 py-1 rounded-full text-xs font-bold border <?= scoreBg($score) ?>">
+        <span class="px-4 py-1.5 rounded-pill text-xs font-bold bg-lime/10 text-lime border border-lime/20 shadow-glow">
             Score <?= $score ?>
         </span>
     </div>
 </div>
 
 <!-- Action bar -->
-<div class="flex flex-wrap gap-2 mb-6">
+<div class="flex flex-wrap gap-3 mb-8">
     <?php if ($lead['phone']): ?>
     <a href="https://wa.me/55<?= preg_replace('/\D/', '', $lead['phone']) ?>?text=<?= urlencode('Olá, ' . $lead['name'] . '!') ?>"
        target="_blank"
-       class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors">
-        <span class="material-symbols-outlined text-base">chat</span> WhatsApp
+       class="inline-flex items-center gap-2 h-10 px-5 bg-mint/10 hover:bg-mint/20 border border-mint/20 text-mint rounded-pill text-sm font-bold transition-all">
+        <span class="material-symbols-outlined text-[18px]">chat</span> WhatsApp
     </a>
     <?php endif; ?>
     <?php if ($lead['website']): ?>
     <a href="<?= e($lead['website']) ?>" target="_blank"
-       class="inline-flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg text-sm font-medium transition-colors">
-        <span class="material-symbols-outlined text-base">open_in_new</span> Site
+       class="inline-flex items-center gap-2 h-10 px-5 bg-surface border border-stroke hover:bg-surface2 text-text rounded-pill text-sm font-medium transition-all">
+        <span class="material-symbols-outlined text-[18px]">open_in_new</span> Site
     </a>
     <?php endif; ?>
     <button onclick="openModal('edit-lead-modal')"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg text-sm font-medium transition-colors">
-        <span class="material-symbols-outlined text-base">edit</span> Editar
+            class="inline-flex items-center gap-2 h-10 px-5 bg-surface border border-stroke hover:bg-surface2 text-text rounded-pill text-sm font-medium transition-all">
+        <span class="material-symbols-outlined text-[18px]">edit</span> Editar
     </button>
     <button id="btn-analyze" data-lead-id="<?= e($lead['id']) ?>"
-            class="ai-trigger inline-flex items-center gap-2 px-4 py-2 bg-[#18C29C]/10 hover:bg-[#18C29C]/20 border border-[#18C29C]/30 text-[#18C29C] rounded-lg text-sm font-medium transition-colors">
-        <span class="material-symbols-outlined text-base">psychology</span>
+            class="ai-trigger inline-flex items-center gap-2 h-10 px-6 bg-lime text-bg rounded-pill text-sm font-bold shadow-glow hover:brightness-110 transition-all ml-auto">
+        <span class="material-symbols-outlined text-[18px]">psychology</span>
         <?= $analysis ? 'Re-analisar' : 'Analisar com IA' ?>
     </button>
     <button id="btn-4d" data-lead-id="<?= e($lead['id']) ?>"
-            class="ai-trigger inline-flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-400 rounded-lg text-sm font-medium transition-colors">
-        <span class="material-symbols-outlined text-base">auto_awesome</span> Operon 4D
+            class="ai-trigger inline-flex items-center gap-2 h-10 px-5 bg-white text-bg rounded-pill text-sm font-bold hover:bg-white/90 transition-all shadow-soft ml-2">
+        <span class="material-symbols-outlined text-[18px]">auto_awesome</span> Operon 4D
     </button>
 </div>
 
@@ -66,33 +67,40 @@ $score     = $lead['priority_score'] ?? 0;
 
         <!-- AI Analysis -->
         <?php if ($analysis): ?>
-        <div class="bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="font-semibold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[#18C29C]">psychology</span>
+        <div class="bg-surface border border-stroke rounded-cardLg p-7 shadow-soft">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-text flex items-center gap-3">
+                    <div class="size-10 rounded-full bg-lime/10 border border-lime/20 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-lime text-[20px]">psychology</span>
+                    </div>
                     Diagnóstico IA
                 </h2>
-                <span class="text-xs text-zinc-500">
-                    Maturidade: <span class="text-amber-400 font-medium"><?= e($analysis['digitalMaturity'] ?? '—') ?></span>
-                </span>
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-1">Maturidade Digital</span>
+                    <span class="text-sm font-bold text-lime"><?= e($analysis['digitalMaturity'] ?? '—') ?></span>
+                </div>
             </div>
 
             <?php if (!empty($analysis['scoreExplanation'])): ?>
-            <p class="text-zinc-300 text-sm mb-4 italic">"<?= e($analysis['scoreExplanation']) ?>"</p>
+            <div class="mb-6 p-4 rounded-xl bg-surface2 border-l-2 border-lime/50 text-sm text-muted italic">
+                "<?= e($analysis['scoreExplanation']) ?>"
+            </div>
             <?php endif; ?>
 
             <?php if (!empty($analysis['summary'])): ?>
-            <p class="text-zinc-400 text-sm mb-4"><?= e($analysis['summary']) ?></p>
+            <p class="text-text text-sm mb-8 leading-relaxed"><?= e($analysis['summary']) ?></p>
             <?php endif; ?>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <?php if (!empty($analysis['diagnosis'])): ?>
-                <div>
-                    <p class="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">Problemas críticos</p>
-                    <ul class="space-y-1">
+                <div class="bg-surface2 rounded-xl p-5 border border-stroke">
+                    <p class="text-[11px] font-bold text-red-500 uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
+                        <span class="size-1.5 rounded-full bg-red-500"></span> Problemas Críticos
+                    </p>
+                    <ul class="space-y-3">
                         <?php foreach ($analysis['diagnosis'] as $item): ?>
-                        <li class="flex items-start gap-2 text-sm text-zinc-300">
-                            <span class="material-symbols-outlined text-red-400 text-base mt-0.5 shrink-0">warning</span>
+                        <li class="flex items-start gap-2.5 text-sm text-subtle">
+                            <span class="material-symbols-outlined text-red-500 text-[16px] mt-0.5 shrink-0">warning</span>
                             <?= e($item) ?>
                         </li>
                         <?php endforeach; ?>
@@ -101,12 +109,14 @@ $score     = $lead['priority_score'] ?? 0;
                 <?php endif; ?>
 
                 <?php if (!empty($analysis['opportunities'])): ?>
-                <div>
-                    <p class="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">Oportunidades</p>
-                    <ul class="space-y-1">
+                <div class="bg-surface2 rounded-xl p-5 border border-stroke">
+                    <p class="text-[11px] font-bold text-mint uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
+                        <span class="size-1.5 rounded-full bg-mint"></span> Oportunidades
+                    </p>
+                    <ul class="space-y-3">
                         <?php foreach ($analysis['opportunities'] as $item): ?>
-                        <li class="flex items-start gap-2 text-sm text-zinc-300">
-                            <span class="material-symbols-outlined text-emerald-400 text-base mt-0.5 shrink-0">check_circle</span>
+                        <li class="flex items-start gap-2.5 text-sm text-subtle">
+                            <span class="material-symbols-outlined text-mint text-[16px] mt-0.5 shrink-0">check_circle</span>
                             <?= e($item) ?>
                         </li>
                         <?php endforeach; ?>
@@ -116,79 +126,84 @@ $score     = $lead['priority_score'] ?? 0;
             </div>
 
             <?php if (!empty($analysis['urgencyLevel'])): ?>
-            <div class="mt-4 pt-4 border-t border-zinc-700/50 flex items-center gap-2">
-                <span class="text-xs text-zinc-500">Urgência:</span>
+            <div class="mt-8 pt-6 border-t border-stroke flex items-center justify-between">
+                <span class="text-[11px] font-bold text-muted uppercase tracking-[0.1em]">Nível de Urgência</span>
                 <?php $urg = $analysis['urgencyLevel'];
-                $urgClass = $urg === 'Alta' ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                          : ($urg === 'Média' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                          : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'); ?>
-                <span class="px-2 py-0.5 rounded text-xs font-semibold border <?= $urgClass ?>"><?= e($urg) ?></span>
+                $urgClass = $urg === 'Alta' ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                          : ($urg === 'Média' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                          : 'bg-mint/10 text-mint border-mint/20'); ?>
+                <span class="px-3 py-1 rounded-pill text-xs font-bold border <?= $urgClass ?>"><?= e($urg) ?></span>
             </div>
             <?php endif; ?>
         </div>
         <?php else: ?>
-        <div class="bg-zinc-900/60 border border-dashed border-zinc-700 rounded-2xl p-8 text-center">
-            <span class="material-symbols-outlined text-4xl text-zinc-600 mb-3 block">psychology</span>
-            <p class="text-zinc-400 text-sm mb-4">Nenhuma análise IA ainda. Clique em "Analisar com IA" para gerar o diagnóstico.</p>
+        <div class="bg-surface border border-dashed border-stroke rounded-cardLg p-10 text-center flex flex-col items-center justify-center min-h-[300px]">
+            <div class="size-16 rounded-full bg-surface2 border border-stroke flex items-center justify-center mb-4">
+                <span class="material-symbols-outlined text-3xl text-muted">psychology</span>
+            </div>
+            <p class="text-text font-medium text-lg mb-2">Diagnóstico Pendente</p>
+            <p class="text-subtle text-sm mb-6 max-w-sm">Este lead ainda não passou pela análise da Operon Intelligence. Execute agora para identificar oportunidades e gerar insights.</p>
             <button id="btn-analyze-empty" data-lead-id="<?= e($lead['id']) ?>"
-                    class="ai-trigger inline-flex items-center gap-2 px-4 py-2 bg-[#18C29C]/10 hover:bg-[#18C29C]/20 border border-[#18C29C]/30 text-[#18C29C] rounded-lg text-sm font-medium transition-colors">
-                <span class="material-symbols-outlined text-base">auto_fix_high</span>
-                Analisar agora
+                    class="ai-trigger inline-flex items-center gap-2 h-10 px-6 bg-lime text-bg rounded-pill text-sm font-bold shadow-glow hover:brightness-110 transition-all">
+                <span class="material-symbols-outlined text-[18px]">auto_fix_high</span>
+                Iniciar Análise Completa
             </button>
         </div>
         <?php endif; ?>
 
         <!-- Operon 4D Results (injected via JS) -->
-        <div id="operon4d-results" class="hidden space-y-4"></div>
+        <div id="operon4d-results" class="hidden space-y-6"></div>
 
         <!-- Deep Analysis (Competitors, Target Audience, Value Proposition) -->
-        <div class="bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="font-semibold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-violet-400">query_stats</span>
+        <div class="bg-surface border border-stroke rounded-cardLg p-7 shadow-soft">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pt-2">
+                <h2 class="text-xl font-bold text-text flex items-center gap-3">
+                    <div class="size-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white text-[20px]">query_stats</span>
+                    </div>
                     Inteligência Profunda
                 </h2>
                 <button id="btn-deep-analyze" data-lead-id="<?= e($lead['id']) ?>"
-                        class="text-xs px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 rounded border border-violet-500/30 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm">magic_button</span> Gerar Insights
+                        class="h-9 px-4 rounded-pill bg-surface2 border border-stroke text-text text-xs hover:bg-surface3 transition-all flex items-center justify-center gap-1.5 font-medium">
+                    <span class="material-symbols-outlined text-[16px]">magic_button</span> Gerar Insights
                 </button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="deep-analysis-cards">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5" id="deep-analysis-cards">
                 <!-- Value Proposition -->
-                <div class="bg-zinc-800/50 border border-zinc-700/30 rounded-xl p-4">
-                    <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-emerald-400 text-sm">storefront</span> O que vende
+                <div class="bg-surface2 border border-stroke rounded-card p-5">
+                    <h3 class="text-[11px] font-bold text-mint uppercase tracking-[0.1em] mb-3 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[14px]">storefront</span> O que vende
                     </h3>
-                    <div id="va-content" class="text-sm text-zinc-300 leading-relaxed">
-                        <?= !empty($analysis['valueProposition']) ? nl2br(e($analysis['valueProposition'])) : '<span class="text-zinc-500 italic">Insight não gerado.</span>' ?>
+                    <div id="va-content" class="text-sm text-subtle leading-relaxed overflow-y-auto max-h-48 pr-2">
+                        <?= !empty($analysis['valueProposition']) ? nl2br(e($analysis['valueProposition'])) : '<span class="text-muted italic">Aguardando geração...</span>' ?>
                     </div>
                 </div>
 
                 <!-- Target Audience -->
-                <div class="bg-zinc-800/50 border border-zinc-700/30 rounded-xl p-4">
-                    <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-blue-400 text-sm">groups</span> Público-Alvo
+                <div class="bg-surface2 border border-stroke rounded-card p-5">
+                    <h3 class="text-[11px] font-bold text-[#60A5FA] uppercase tracking-[0.1em] mb-3 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[14px]">groups</span> Público-Alvo
                     </h3>
-                    <div id="ta-content" class="text-sm text-zinc-300 leading-relaxed">
-                        <?= !empty($analysis['targetAudience']) ? nl2br(e($analysis['targetAudience'])) : '<span class="text-zinc-500 italic">Insight não gerado.</span>' ?>
+                    <div id="ta-content" class="text-sm text-subtle leading-relaxed overflow-y-auto max-h-48 pr-2">
+                        <?= !empty($analysis['targetAudience']) ? nl2br(e($analysis['targetAudience'])) : '<span class="text-muted italic">Aguardando geração...</span>' ?>
                     </div>
                 </div>
 
                 <!-- Competitors -->
-                <div class="bg-zinc-800/50 border border-zinc-700/30 rounded-xl p-4">
-                    <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-amber-400 text-sm">swords</span> Concorrentes
+                <div class="bg-surface2 border border-stroke rounded-card p-5">
+                    <h3 class="text-[11px] font-bold text-amber-500 uppercase tracking-[0.1em] mb-3 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[14px]">swords</span> Concorrentes
                     </h3>
-                    <div id="ca-content" class="text-sm text-zinc-300 leading-relaxed">
+                    <div id="ca-content" class="text-sm text-subtle leading-relaxed overflow-y-auto max-h-48 pr-2">
                         <?php if (!empty($analysis['competitors']) && is_array($analysis['competitors'])): ?>
-                            <ul class="list-disc list-inside space-y-1">
+                            <ul class="list-disc list-inside space-y-1.5">
                                 <?php foreach ($analysis['competitors'] as $comp): ?>
                                     <li><?= e($comp) ?></li>
                                 <?php endforeach; ?>
                             </ul>
                         <?php else: ?>
-                            <span class="text-zinc-500 italic">Insight não gerado.</span>
+                            <span class="text-muted italic">Aguardando geração...</span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -197,12 +212,14 @@ $score     = $lead['priority_score'] ?? 0;
 
         <!-- PageSpeed -->
         <?php if ($ps): ?>
-        <div class="bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5">
-            <h2 class="font-semibold text-white flex items-center gap-2 mb-4">
-                <span class="material-symbols-outlined text-amber-400">speed</span>
-                Performance do Site
+        <div class="bg-surface border border-stroke rounded-cardLg p-7 shadow-soft">
+            <h2 class="text-xl font-bold text-text flex items-center gap-3 mb-6">
+                <div class="size-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-amber-500 text-[20px]">speed</span>
+                </div>
+                Performance Web
             </h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <?php
                 $metrics = [
                     ['label' => 'Performance', 'value' => $ps['performanceScore'] ?? '?', 'unit' => '/100'],
@@ -211,9 +228,9 @@ $score     = $lead['priority_score'] ?? 0;
                     ['label' => 'Acessibil.', 'value' => $ps['accessibilityScore'] ?? '?', 'unit' => '/100'],
                 ];
                 foreach ($metrics as $m): ?>
-                <div class="bg-zinc-800/50 rounded-xl p-3 text-center">
-                    <p class="text-xl font-bold text-white"><?= e($m['value']) ?><span class="text-xs text-zinc-500"><?= e($m['unit']) ?></span></p>
-                    <p class="text-xs text-zinc-500 mt-1"><?= e($m['label']) ?></p>
+                <div class="bg-surface2 flex flex-col justify-center border border-stroke rounded-card p-5 text-center">
+                    <p class="text-[32px] font-bold text-text mb-1"><?= e($m['value']) ?><span class="text-xs text-muted ml-0.5"><?= e($m['unit']) ?></span></p>
+                    <p class="text-xs text-muted font-medium uppercase tracking-[0.05em]"><?= e($m['label']) ?></p>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -221,30 +238,159 @@ $score     = $lead['priority_score'] ?? 0;
         <?php endif; ?>
 
         <!-- SPIN & Scripts shortcut -->
-        <div class="bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5">
-            <h2 class="font-semibold text-white flex items-center gap-2 mb-4">
-                <span class="material-symbols-outlined text-violet-400">forum</span>
+        <div class="bg-surface border border-stroke rounded-cardLg p-7 shadow-soft">
+            <h2 class="text-xl font-bold text-text flex items-center gap-3 mb-6">
+                <div class="size-10 rounded-full bg-surface2 border border-stroke flex items-center justify-center">
+                    <span class="material-symbols-outlined text-text text-[20px]">forum</span>
+                </div>
                 Inteligência de Abordagem
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <a href="/spin?lead_id=<?= e($lead['id']) ?>"
-                   class="flex items-center gap-3 p-3 bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700/50 rounded-xl transition-colors group">
-                    <span class="material-symbols-outlined text-violet-400 text-2xl">psychology_alt</span>
-                    <div>
-                        <p class="text-sm font-medium text-white group-hover:text-violet-400 transition-colors">Perguntas SPIN</p>
-                        <p class="text-xs text-zinc-500">Framework de qualificação</p>
+                   class="flex flex-col gap-4 p-5 bg-surface2 hover:bg-surface3 border border-stroke rounded-card transition-all group">
+                    <div class="flex items-center justify-between">
+                        <span class="material-symbols-outlined text-text text-2xl">psychology_alt</span>
+                        <span class="size-8 rounded-full bg-surface border border-stroke flex items-center justify-center text-muted group-hover:text-text transition-colors"><span class="material-symbols-outlined text-[16px]">chevron_right</span></span>
                     </div>
-                    <span class="material-symbols-outlined text-zinc-600 ml-auto">chevron_right</span>
+                    <div>
+                        <p class="text-sm font-bold text-text mb-1">Perguntas SPIN</p>
+                        <p class="text-xs text-subtle leading-relaxed">Framework estruturado de qualificação para descobrir dores reais.</p>
+                    </div>
                 </a>
                 <a href="/spin?lead_id=<?= e($lead['id']) ?>&tab=scripts"
-                   class="flex items-center gap-3 p-3 bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700/50 rounded-xl transition-colors group">
-                    <span class="material-symbols-outlined text-[#18C29C] text-2xl">edit_note</span>
-                    <div>
-                        <p class="text-sm font-medium text-white group-hover:text-[#18C29C] transition-colors">Scripts de Abordagem</p>
-                        <p class="text-xs text-zinc-500">WhatsApp, LinkedIn, Email</p>
+                   class="flex flex-col gap-4 p-5 bg-surface2 hover:bg-surface3 border border-stroke rounded-card transition-all group">
+                    <div class="flex items-center justify-between">
+                        <span class="material-symbols-outlined text-lime text-2xl">edit_note</span>
+                        <span class="size-8 rounded-full bg-surface border border-stroke flex items-center justify-center text-muted group-hover:text-lime transition-colors"><span class="material-symbols-outlined text-[16px]">chevron_right</span></span>
                     </div>
-                    <span class="material-symbols-outlined text-zinc-600 ml-auto">chevron_right</span>
+                    <div>
+                        <p class="text-sm font-bold text-text mb-1">Scripts de Abordagem</p>
+                        <p class="text-xs text-subtle leading-relaxed">Templates gerados por IA para WhatsApp, LinkedIn e E-mail frio.</p>
+                    </div>
                 </a>
+            </div>
+        </div>
+
+        <!-- Linha do Tempo & Anexos (MOVED HERE) -->
+        <style>
+            @keyframes timelineSlideUp {
+                0% { opacity: 0; transform: translateY(20px); }
+                100% { opacity: 1; transform: translateY(0); }
+            }
+            .timeline-item-enter {
+                opacity: 0;
+                animation: timelineSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+        </style>
+        <div class="bg-surface border border-stroke rounded-cardLg p-7 shadow-soft mt-6">
+            <h2 class="text-xl font-bold text-text flex items-center gap-3 mb-6">
+                <div class="size-10 rounded-full bg-surface2 border border-stroke flex items-center justify-center">
+                    <span class="material-symbols-outlined text-muted text-[20px]">history</span>
+                </div>
+                Linha do Tempo
+            </h2>
+
+            <!-- Add new activity tabs/forms -->
+            <div class="mb-8 bg-surface2 border border-stroke rounded-xl overflow-hidden transition-all duration-300">
+                <div class="flex border-b border-stroke">
+                    <button class="flex-1 py-3 text-sm font-bold text-lime bg-lime/10 border-b-2 border-lime transition-all" id="tab-btn-note" onclick="switchTimelineTab('note'); return false;">Nota Manual</button>
+                    <button class="flex-1 py-3 text-sm font-bold text-muted hover:text-text hover:bg-surface3 border-b-2 border-transparent transition-all" id="tab-btn-file" onclick="switchTimelineTab('file'); return false;">Anexar Arquivo</button>
+                </div>
+
+                <!-- Note Form -->
+                <form method="POST" action="/vault/<?= e($lead['id']) ?>/note" id="form-tab-note" class="p-5 block animate-fade-in">
+                    <?= csrf_field() ?>
+                    <textarea name="note_content" rows="3" required
+                              class="w-full bg-surface border border-stroke rounded-xl p-4 text-sm text-text focus:border-lime/50 focus:shadow-glow outline-none resize-none transition-all placeholder:text-muted mb-4"
+                              placeholder="Escreva detalhes de uma ligação, reunião ou observação..."></textarea>
+                    <div class="flex justify-end">
+                        <button type="submit" class="h-10 px-6 bg-lime text-bg rounded-pill text-sm font-bold shadow-glow hover:brightness-110 hover:-translate-y-0.5 transition-all">
+                            Salvar Nota
+                        </button>
+                    </div>
+                </form>
+
+                <!-- File Form -->
+                <form method="POST" action="/vault/<?= e($lead['id']) ?>/attachment" enctype="multipart/form-data" id="form-tab-file" class="p-5 hidden animate-fade-in">
+                    <?= csrf_field() ?>
+                    <div class="flex items-center justify-center w-full mb-4">
+                        <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-stroke border-dashed rounded-xl cursor-pointer bg-surface hover:bg-surface3 hover:border-lime/50 transition-all group">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <span class="material-symbols-outlined text-muted mb-2 group-hover:text-lime transition-colors text-2xl">cloud_upload</span>
+                                <p class="text-xs text-subtle"><span class="font-bold text-text group-hover:text-lime transition-colors">Clique para enviar</span> ou arraste</p>
+                                <p class="text-[10px] text-muted mt-1">PDF, JPG, PNG, CSV, DOCX (Max 5MB)</p>
+                            </div>
+                            <input type="file" name="attachment" class="hidden" required id="file-upload-input" onchange="updateFileName(this)"/>
+                        </label>
+                    </div>
+                    <p id="file-upload-name" class="text-sm text-lime font-medium text-center mb-4 hidden"></p>
+                    <div class="flex justify-end">
+                        <button type="submit" class="h-10 px-6 bg-white text-bg rounded-pill text-sm font-bold shadow-soft hover:brightness-90 hover:-translate-y-0.5 transition-all">
+                            Anexar Arquivo
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Feed -->
+            <div class="space-y-6 relative before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px before:h-full before:w-[2px] before:bg-gradient-to-b before:from-lime/30 before:via-stroke before:to-transparent">
+                <?php if (empty($activities)): ?>
+                    <p class="text-sm text-muted text-center py-8 relative z-10 italic">Nenhuma atividade registrada.</p>
+                <?php else: ?>
+                    <?php foreach ($activities as $index => $act): 
+                        $isNote = $act['type'] === 'note';
+                        $isAttachment = $act['type'] === 'attachment';
+                        $meta = is_string($act['metadata']) ? json_decode($act['metadata'], true) : [];
+                        $delay = min($index * 100, 1000); // cap delay at 1s
+                    ?>
+                    <div class="relative z-10 flex items-start gap-5 group timeline-item-enter" style="animation-delay: <?= $delay ?>ms;">
+                        <div class="size-11 rounded-full bg-surface2 border-2 <?= $isNote ? 'border-lime/30 text-lime' : ($isAttachment ? 'border-white/30 text-white' : 'border-stroke text-muted') ?> flex items-center justify-center shrink-0 z-10 shadow-soft group-hover:scale-110 group-hover:shadow-glow transition-all duration-300">
+                            <?php if ($isNote): ?>
+                                <span class="material-symbols-outlined text-[20px]">sticky_note_2</span>
+                            <?php elseif ($isAttachment): ?>
+                                <span class="material-symbols-outlined text-[20px]">attach_file</span>
+                            <?php else: ?>
+                                <span class="material-symbols-outlined text-[20px]">update</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="pt-1 flex-1 min-w-0">
+                            <div class="bg-surface2 border border-stroke rounded-cardLg p-5 group-hover:-translate-y-1 group-hover:border-lime/30 group-hover:shadow-soft transition-all duration-300">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                                    <p class="text-sm font-bold text-text truncate"><?= e($act['title']) ?></p>
+                                    <span class="text-xs text-muted whitespace-nowrap flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[14px]">schedule</span>
+                                        <?= e(timeAgo($act['created_at'])) ?>
+                                    </span>
+                                </div>
+                                <div class="text-sm text-subtle leading-relaxed mb-4">
+                                    <?= nl2br(e($act['content'])) ?>
+                                </div>
+                                <?php if ($isAttachment && !empty($meta['url'])): ?>
+                                    <div class="mt-4 flex items-center justify-between p-3 rounded-xl bg-surface border border-stroke group/link hover:border-lime/50 transition-colors">
+                                        <div class="flex items-center gap-3 truncate">
+                                            <div class="size-8 rounded-lg bg-surface2 border border-stroke flex items-center justify-center shrink-0">
+                                                <span class="material-symbols-outlined text-[18px] text-muted group-hover/link:text-lime transition-colors">draft</span>
+                                            </div>
+                                            <span class="text-xs text-text font-bold truncate group-hover/link:text-lime transition-colors"><?= e($meta['filename'] ?? 'Anexo') ?></span>
+                                        </div>
+                                        <a href="<?= e($meta['url']) ?>" target="_blank" class="h-8 px-4 bg-white hover:bg-white/90 rounded-pill text-xs font-bold text-bg flex items-center transition-transform hover:scale-105 shadow-soft shrink-0">
+                                            Abrir
+                                        </a>
+                                    </div>
+                                <?php endif; ?>
+                                <div class="mt-4 pt-4 border-t border-stroke/50 flex items-center gap-2">
+                                    <div class="size-5 rounded-full bg-surface border border-stroke flex items-center justify-center">
+                                        <span class="material-symbols-outlined text-[12px] text-muted">person</span>
+                                    </div>
+                                    <span class="text-[11px] text-muted font-bold uppercase tracking-wider">
+                                        <?= e($act['user_name'] ?? 'Sistema') ?>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -254,56 +400,64 @@ $score     = $lead['priority_score'] ?? 0;
     <div class="space-y-6">
 
         <!-- Contact info -->
-        <div class="bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5">
-            <h2 class="font-semibold text-white flex items-center gap-2 mb-4">
-                <span class="material-symbols-outlined text-zinc-400">contact_page</span>
+        <div class="bg-surface border border-stroke rounded-card p-6 shadow-soft">
+            <h2 class="text-base font-bold text-text flex items-center gap-2 mb-5">
+                <span class="material-symbols-outlined text-muted text-[18px]">contact_page</span>
                 Contato
             </h2>
-            <div class="space-y-3">
+            <div class="space-y-4">
                 <?php if ($lead['phone']): ?>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="material-symbols-outlined text-zinc-500 text-base">call</span>
-                    <span class="text-zinc-300"><?= e($lead['phone']) ?></span>
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="size-8 rounded-full bg-surface2 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-muted text-[14px]">call</span>
+                    </span>
+                    <span class="text-text font-medium"><?= e($lead['phone']) ?></span>
                 </div>
                 <?php endif; ?>
                 <?php if ($lead['email']): ?>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="material-symbols-outlined text-zinc-500 text-base">mail</span>
-                    <span class="text-zinc-300"><?= e($lead['email']) ?></span>
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="size-8 rounded-full bg-surface2 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-muted text-[14px]">mail</span>
+                    </span>
+                    <span class="text-text font-medium truncate"><?= e($lead['email']) ?></span>
                 </div>
                 <?php endif; ?>
                 <?php if ($lead['website']): ?>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="material-symbols-outlined text-zinc-500 text-base">language</span>
-                    <a href="<?= e($lead['website']) ?>" target="_blank" class="text-[#18C29C] hover:underline truncate"><?= e($lead['website']) ?></a>
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="size-8 rounded-full bg-surface2 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-muted text-[14px]">language</span>
+                    </span>
+                    <a href="<?= e($lead['website']) ?>" target="_blank" class="text-lime hover:underline truncate font-medium"><?= e($lead['website']) ?></a>
                 </div>
                 <?php endif; ?>
                 <?php if ($lead['address']): ?>
-                <div class="flex items-start gap-2 text-sm">
-                    <span class="material-symbols-outlined text-zinc-500 text-base mt-0.5">location_on</span>
-                    <span class="text-zinc-300"><?= e($lead['address']) ?></span>
+                <div class="flex items-start gap-3 text-sm">
+                    <span class="size-8 rounded-full bg-surface2 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-muted text-[14px]">location_on</span>
+                    </span>
+                    <span class="text-text font-medium leading-tight mt-1"><?= e($lead['address']) ?></span>
                 </div>
                 <?php endif; ?>
             </div>
 
             <!-- Social presence -->
             <?php if (!empty(array_filter($social))): ?>
-            <div class="mt-4 pt-4 border-t border-zinc-700/50">
-                <p class="text-xs text-zinc-500 mb-2">Redes Sociais</p>
+            <div class="mt-6 pt-5 border-t border-stroke">
+                <p class="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-3">Presença Digital</p>
                 <div class="flex flex-wrap gap-2">
                     <?php if (!empty($social['instagram'])): ?>
-                    <span class="flex items-center gap-1 text-xs bg-pink-500/10 text-pink-400 border border-pink-500/20 rounded px-2 py-1">
-                        <span class="material-symbols-outlined text-xs">photo_camera</span> <?= e($social['instagram']) ?>
+                    <span class="flex items-center gap-1.5 text-xs bg-surface2 border border-stroke text-text rounded-md px-2.5 py-1.5 font-medium">
+                        <span class="material-symbols-outlined text-[14px] text-pink-500">photo_camera</span> <?= e($social['instagram']) ?>
                     </span>
                     <?php endif; ?>
                     <?php if (!empty($social['linkedin'])): ?>
-                    <span class="flex items-center gap-1 text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded px-2 py-1">
-                        <span class="material-symbols-outlined text-xs">work</span> <?= e($social['linkedin']) ?>
+                    <span class="flex items-center gap-1.5 text-xs bg-surface2 border border-stroke text-text rounded-md px-2.5 py-1.5 font-medium">
+                        <span class="material-symbols-outlined text-[14px] text-blue-500">work</span> <?= e($social['linkedin']) ?>
                     </span>
                     <?php endif; ?>
                     <?php if (!empty($social['facebook'])): ?>
-                    <span class="flex items-center gap-1 text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded px-2 py-1">
-                        <span class="material-symbols-outlined text-xs">thumb_up</span> <?= e($social['facebook']) ?>
+                    <span class="flex items-center gap-1.5 text-xs bg-surface2 border border-stroke text-text rounded-md px-2.5 py-1.5 font-medium">
+                        <span class="material-symbols-outlined text-[14px] text-indigo-500">thumb_up</span> <?= e($social['facebook']) ?>
                     </span>
                     <?php endif; ?>
                 </div>
@@ -312,19 +466,19 @@ $score     = $lead['priority_score'] ?? 0;
         </div>
 
         <!-- Pipeline stage -->
-        <div class="bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5">
-            <h2 class="font-semibold text-white flex items-center gap-2 mb-4">
-                <span class="material-symbols-outlined text-zinc-400">view_kanban</span>
-                Pipeline
+        <div class="bg-surface border border-stroke rounded-card p-6 shadow-soft">
+            <h2 class="text-base font-bold text-text flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-muted text-[18px]">view_kanban</span>
+                Estágio do Pipeline
             </h2>
-            <div class="space-y-1" id="stage-selector">
+            <div class="space-y-1.5" id="stage-selector">
                 <?php foreach (Lead::STAGES as $stageKey => $stageLabel): ?>
                 <button onclick="changeStage('<?= e($lead['id']) ?>', '<?= e($stageKey) ?>')"
-                        class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
+                        class="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm transition-all font-medium border
                                <?= $lead['pipeline_status'] === $stageKey
-                                   ? 'bg-[#18C29C]/10 text-[#18C29C] font-medium'
-                                   : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50' ?>">
-                    <span class="w-2 h-2 rounded-full <?= $lead['pipeline_status'] === $stageKey ? 'bg-[#18C29C]' : 'bg-zinc-600' ?>"></span>
+                                   ? 'bg-lime/10 text-lime border-lime/20'
+                                   : 'bg-transparent text-muted hover:text-text hover:bg-surface2 border-transparent' ?>">
+                    <span class="size-2 rounded-full <?= $lead['pipeline_status'] === $stageKey ? 'bg-lime shadow-[0_0_8px_rgba(225,251,21,0.5)]' : 'bg-surface3' ?>"></span>
                     <?= e($stageLabel) ?>
                 </button>
                 <?php endforeach; ?>
@@ -332,37 +486,37 @@ $score     = $lead['priority_score'] ?? 0;
         </div>
 
         <!-- Context (human_context) -->
-        <div class="bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5">
-            <h2 class="font-semibold text-white flex items-center gap-2 mb-4">
-                <span class="material-symbols-outlined text-zinc-400">thermostat</span>
-                Contexto Comercial
+        <div class="bg-surface border border-stroke rounded-card p-6 shadow-soft">
+            <h2 class="text-base font-bold text-text flex items-center gap-2 mb-5">
+                <span class="material-symbols-outlined text-muted text-[18px]">thermostat</span>
+                Termômetro
             </h2>
-            <div class="space-y-3">
+            <div class="space-y-5">
                 <!-- Temperature -->
                 <div>
-                    <p class="text-xs text-zinc-500 mb-1">Temperatura</p>
+                    <p class="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Temperatura</p>
                     <div class="flex gap-2">
-                        <?php foreach (['HOT' => ['text-red-400', '🔥', 'Quente'], 'WARM' => ['text-amber-400', '☀️', 'Morno'], 'COLD' => ['text-blue-400', '❄️', 'Frio']] as $val => [$cls, $icon, $lbl]): ?>
+                        <?php foreach (['HOT' => ['text-red-500', 'Quente'], 'WARM' => ['text-amber-500', 'Morno'], 'COLD' => ['text-[#60A5FA]', 'Frio']] as $val => [$cls, $lbl]): ?>
                         <button onclick="saveContext('<?= e($lead['id']) ?>', 'temperature', '<?= $val ?>')"
-                                class="flex-1 py-1.5 rounded-lg text-xs border transition-colors
+                                class="flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wide border transition-all
                                        <?= ($ctx['temperature'] ?? '') === $val
                                            ? "border-current {$cls} bg-current/10"
-                                           : 'border-zinc-700 text-zinc-500 hover:border-zinc-500' ?>">
-                            <?= $icon ?> <?= $lbl ?>
+                                           : 'border-stroke text-muted hover:bg-surface2' ?>">
+                             <?= $lbl ?>
                         </button>
                         <?php endforeach; ?>
                     </div>
                 </div>
                 <!-- Timing -->
                 <div>
-                    <p class="text-xs text-zinc-500 mb-1">Timing</p>
+                    <p class="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Timing</p>
                     <div class="flex gap-2">
                         <?php foreach (['IMMEDIATE' => 'Imediato', 'SHORT_TERM' => 'Curto', 'LONG_TERM' => 'Longo'] as $val => $lbl): ?>
                         <button onclick="saveContext('<?= e($lead['id']) ?>', 'timingStatus', '<?= $val ?>')"
-                                class="flex-1 py-1.5 rounded-lg text-xs border transition-colors
+                                class="flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wide border transition-all
                                        <?= ($ctx['timingStatus'] ?? '') === $val
-                                           ? 'border-[#18C29C] text-[#18C29C] bg-[#18C29C]/10'
-                                           : 'border-zinc-700 text-zinc-500 hover:border-zinc-500' ?>">
+                                           ? 'border-lime text-lime bg-lime/10'
+                                           : 'border-stroke text-muted hover:bg-surface2' ?>">
                             <?= $lbl ?>
                         </button>
                         <?php endforeach; ?>
@@ -370,130 +524,133 @@ $score     = $lead['priority_score'] ?? 0;
                 </div>
                 <!-- Objection -->
                 <div>
-                    <p class="text-xs text-zinc-500 mb-1">Objeção Principal</p>
+                    <p class="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Objeção Principal</p>
                     <select onchange="saveContext('<?= e($lead['id']) ?>', 'objectionCategory', this.value)"
-                            class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-300 focus:border-[#18C29C] outline-none">
-                        <option value="">Nenhuma</option>
-                        <option value="PRICE" <?= ($ctx['objectionCategory'] ?? '') === 'PRICE' ? 'selected' : '' ?>>Preço</option>
-                        <option value="COMPETITOR" <?= ($ctx['objectionCategory'] ?? '') === 'COMPETITOR' ? 'selected' : '' ?>>Concorrente</option>
-                        <option value="TIMING" <?= ($ctx['objectionCategory'] ?? '') === 'TIMING' ? 'selected' : '' ?>>Timing</option>
-                        <option value="TRUST" <?= ($ctx['objectionCategory'] ?? '') === 'TRUST' ? 'selected' : '' ?>>Confiança</option>
+                            class="w-full h-10 bg-surface2 border border-stroke rounded-lg px-3 text-sm text-text font-medium focus:border-lime/50 outline-none transition-colors appearance-none cursor-pointer">
+                        <option value="">Nenhuma mapeada</option>
+                        <option value="PRICE" <?= ($ctx['objectionCategory'] ?? '') === 'PRICE' ? 'selected' : '' ?>>💰 Preço / Orçamento</option>
+                        <option value="COMPETITOR" <?= ($ctx['objectionCategory'] ?? '') === 'COMPETITOR' ? 'selected' : '' ?>>⚔️ Concorrente</option>
+                        <option value="TIMING" <?= ($ctx['objectionCategory'] ?? '') === 'TIMING' ? 'selected' : '' ?>>⏳ Timing / Agora não</option>
+                        <option value="TRUST" <?= ($ctx['objectionCategory'] ?? '') === 'TRUST' ? 'selected' : '' ?>>🛡️ Confiança / Autoridade</option>
                     </select>
                 </div>
                 <!-- Notes -->
                 <div>
-                    <p class="text-xs text-zinc-500 mb-1">Notas</p>
-                    <textarea id="context-notes" rows="3"
+                    <p class="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Anotações Livres</p>
+                    <textarea id="context-notes" rows="4"
                               onblur="saveContextNotes('<?= e($lead['id']) ?>')"
-                              class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-300 focus:border-[#18C29C] outline-none resize-none"
-                              placeholder="Anotações sobre o lead..."><?= e($ctx['notes'] ?? '') ?></textarea>
+                              class="w-full bg-surface2 border border-stroke rounded-xl p-3 text-sm text-text focus:border-lime/50 outline-none resize-none transition-colors placeholder:text-muted"
+                              placeholder="Detalhes adicionais da negociação..."><?= e($ctx['notes'] ?? '') ?></textarea>
                 </div>
             </div>
         </div>
 
         <!-- Tags -->
-        <div class="bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5">
-            <h2 class="font-semibold text-white flex items-center gap-2 mb-3">
-                <span class="material-symbols-outlined text-zinc-400">label</span>
+        <div class="bg-surface border border-stroke rounded-card p-6 shadow-soft">
+            <h2 class="text-base font-bold text-text flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-muted text-[18px]">label</span>
                 Tags
             </h2>
-            <div class="flex flex-wrap gap-2 mb-3" id="tags-container">
+            <div class="flex flex-wrap gap-2 mb-4" id="tags-container">
                 <?php foreach ($tags as $tag): ?>
-                <span class="inline-flex items-center gap-1 px-2 py-1 bg-zinc-700 text-zinc-300 rounded text-xs">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface2 border border-stroke text-muted rounded-md text-xs font-medium">
                     <?= e($tag) ?>
                     <button onclick="removeTag('<?= e($lead['id']) ?>', '<?= e($tag) ?>')"
-                            class="text-zinc-500 hover:text-red-400">×</button>
+                            class="text-subtle hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
                 </span>
                 <?php endforeach; ?>
             </div>
             <div class="flex gap-2">
-                <input type="text" id="new-tag" placeholder="Nova tag..."
-                       class="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-zinc-300 focus:border-[#18C29C] outline-none"
+                <input type="text" id="new-tag" placeholder="Adicionar tag..."
+                       class="flex-1 h-9 bg-surface2 border border-stroke rounded-pill px-4 text-xs text-text placeholder:text-muted focus:border-lime/50 outline-none transition-colors"
                        onkeydown="if(event.key==='Enter'){addTag('<?= e($lead['id']) ?>');}">
                 <button onclick="addTag('<?= e($lead['id']) ?>')"
-                        class="px-3 py-1.5 bg-[#18C29C]/10 hover:bg-[#18C29C]/20 border border-[#18C29C]/30 text-[#18C29C] rounded-lg text-sm">
-                    +
+                        class="h-9 px-4 bg-surface2 hover:bg-surface3 border border-stroke text-text rounded-pill text-xs font-medium transition-colors">
+                    Adicionar
                 </button>
             </div>
         </div>
 
         <!-- Meta -->
-        <div class="bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5">
-            <h2 class="font-semibold text-white flex items-center gap-2 mb-3">
-                <span class="material-symbols-outlined text-zinc-400">info</span>
+        <div class="bg-surface border border-stroke rounded-card p-6 shadow-soft">
+            <h2 class="text-base font-bold text-text flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-muted text-[18px]">info</span>
                 Metadados
             </h2>
-            <div class="space-y-2 text-xs text-zinc-500">
-                <div class="flex justify-between">
-                    <span>ID</span>
-                    <span class="text-zinc-400 font-mono"><?= e(substr($lead['id'], 0, 8)) ?>...</span>
+            <div class="space-y-3 text-xs text-subtle font-medium">
+                <div class="flex justify-between items-center border-b border-stroke pb-3 last:border-0 last:pb-0">
+                    <span class="text-muted">ID Sistema</span>
+                    <span class="text-text font-mono bg-surface2 px-2 py-0.5 rounded"><?= e(substr($lead['id'], 0, 8)) ?>...</span>
                 </div>
-                <div class="flex justify-between">
-                    <span>Criado</span>
-                    <span class="text-zinc-400"><?= e(timeAgo($lead['created_at'])) ?></span>
+                <div class="flex justify-between items-center border-b border-stroke pb-3 last:border-0 last:pb-0">
+                    <span class="text-muted">Data de Criação</span>
+                    <span class="text-text"><?= e(timeAgo($lead['created_at'])) ?></span>
                 </div>
-                <div class="flex justify-between">
-                    <span>Atualizado</span>
-                    <span class="text-zinc-400"><?= e(timeAgo($lead['updated_at'])) ?></span>
+                <div class="flex justify-between items-center border-b border-stroke pb-3 last:border-0 last:pb-0">
+                    <span class="text-muted">Última Atualização</span>
+                    <span class="text-text"><?= e(timeAgo($lead['updated_at'])) ?></span>
                 </div>
-                <div class="flex justify-between">
-                    <span>Fit Score</span>
-                    <span class="text-zinc-400"><?= e($lead['fit_score'] ?? 0) ?></span>
+                <div class="flex justify-between items-center border-b border-stroke pb-3 last:border-0 last:pb-0">
+                    <span class="text-muted">Fit Score Interno</span>
+                    <span class="text-text bg-surface2 px-2 py-0.5 rounded border border-stroke"><?= e($lead['fit_score'] ?? 0) ?></span>
                 </div>
-            </div>
         </div>
+
+
 
     </div>
 </div>
 
 <!-- Edit Lead Modal -->
 <div id="edit-lead-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal('edit-lead-modal')"></div>
-    <div class="relative bg-[#1A1A1E] border border-zinc-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
-        <div class="flex items-center justify-between mb-5">
-            <h3 class="text-lg font-semibold text-white">Editar Lead</h3>
-            <button onclick="closeModal('edit-lead-modal')" class="text-zinc-400 hover:text-white">
-                <span class="material-symbols-outlined">close</span>
+    <div class="absolute inset-0 bg-bg/80 backdrop-blur-md" onclick="closeModal('edit-lead-modal')"></div>
+    <div class="relative bg-surface border border-stroke rounded-cardLg p-7 w-full max-w-lg shadow-2xl animate-popIn">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-text">Editar Informações</h3>
+            <button onclick="closeModal('edit-lead-modal')" class="size-8 flex items-center justify-center rounded-full bg-surface2 border border-stroke text-muted hover:text-text transition-colors">
+                <span class="material-symbols-outlined text-[18px]">close</span>
             </button>
         </div>
-        <form method="POST" action="/vault/<?= e($lead['id']) ?>/update" class="space-y-4">
+        <form method="POST" action="/vault/<?= e($lead['id']) ?>/update" class="space-y-5">
             <?= csrf_field() ?>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-5">
                 <div class="col-span-2">
-                    <label class="block text-xs text-zinc-400 mb-1">Nome da empresa</label>
+                    <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Nome da empresa *</label>
                     <input type="text" name="name" value="<?= e($lead['name']) ?>" required
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-white text-sm focus:border-[#18C29C] outline-none">
+                           class="w-full bg-surface2 border border-stroke rounded-pill px-5 py-3 text-sm text-text focus:border-lime/50 outline-none transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-zinc-400 mb-1">Segmento</label>
+                    <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Segmento</label>
                     <input type="text" name="segment" value="<?= e($lead['segment']) ?>"
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-white text-sm focus:border-[#18C29C] outline-none">
+                           class="w-full bg-surface2 border border-stroke rounded-pill px-5 py-3 text-sm text-text focus:border-lime/50 outline-none transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-zinc-400 mb-1">Telefone</label>
+                    <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Telefone</label>
                     <input type="text" name="phone" value="<?= e($lead['phone'] ?? '') ?>"
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-white text-sm focus:border-[#18C29C] outline-none">
+                           class="w-full bg-surface2 border border-stroke rounded-pill px-5 py-3 text-sm text-text focus:border-lime/50 outline-none transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-zinc-400 mb-1">Email</label>
+                    <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Email corporativo</label>
                     <input type="email" name="email" value="<?= e($lead['email'] ?? '') ?>"
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-white text-sm focus:border-[#18C29C] outline-none">
+                           class="w-full bg-surface2 border border-stroke rounded-pill px-5 py-3 text-sm text-text focus:border-lime/50 outline-none transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-zinc-400 mb-1">Website</label>
+                    <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Website URL</label>
                     <input type="url" name="website" value="<?= e($lead['website'] ?? '') ?>" placeholder="https://"
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-white text-sm focus:border-[#18C29C] outline-none">
+                           class="w-full bg-surface2 border border-stroke rounded-pill px-5 py-3 text-sm text-text focus:border-lime/50 outline-none transition-colors">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs text-zinc-400 mb-1">Endereço</label>
+                    <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Sede / Endereço</label>
                     <input type="text" name="address" value="<?= e($lead['address'] ?? '') ?>"
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-white text-sm focus:border-[#18C29C] outline-none">
+                           class="w-full bg-surface2 border border-stroke rounded-pill px-5 py-3 text-sm text-text focus:border-lime/50 outline-none transition-colors">
                 </div>
             </div>
-            <button type="submit"
-                    class="w-full py-3 bg-[#18C29C] hover:bg-[#15A882] text-white rounded-xl font-semibold text-sm transition-colors">
-                Salvar Alterações
-            </button>
+            <div class="pt-2">
+                <button type="submit"
+                        class="w-full flex items-center justify-center gap-2 h-12 bg-lime text-bg rounded-pill font-bold shadow-glow hover:brightness-110 transition-all">
+                    Salvar Alterações
+                </button>
+            </div>
         </form>
     </div>
 </div>
@@ -516,18 +673,22 @@ async function changeStage(id, stage) {
         
         // Update UI without reload
         document.querySelectorAll('#stage-selector button').forEach(btn => {
-            btn.className = btn.className.replace(/bg-\[#18C29C\].*?font-medium/, 'text-zinc-400 hover:text-white hover:bg-zinc-700/50');
-            btn.classList.remove('bg-[#18C29C]/10', 'text-[#18C29C]', 'font-medium');
+            btn.className = btn.className.replace(/bg-lime\/10.*?border-lime\/20/, 'bg-transparent text-muted hover:text-text hover:bg-surface2 border-transparent');
             const dot = btn.querySelector('span.rounded-full');
-            if (dot) dot.className = 'w-2 h-2 rounded-full bg-zinc-600';
+            if (dot) {
+               dot.classList.remove('bg-lime', 'shadow-[0_0_8px_rgba(225,251,21,0.5)]'); 
+               dot.classList.add('bg-surface3');
+            }
         });
         
         const active = document.querySelector('#stage-selector button[onclick*="' + stage + '"]');
         if (active) {
-            active.className = active.className.replace(/text-zinc-400 hover:text-white hover:bg-zinc-700\/50/, '');
-            active.classList.add('bg-[#18C29C]/10', 'text-[#18C29C]', 'font-medium');
+            active.className = active.className.replace(/bg-transparent text-muted hover:text-text hover:bg-surface2 border-transparent/, 'bg-lime/10 text-lime border-lime/20');
             const dot = active.querySelector('span.rounded-full');
-            if (dot) { dot.classList.remove('bg-zinc-600'); dot.classList.add('bg-[#18C29C]'); }
+            if (dot) { 
+               dot.classList.remove('bg-surface3'); 
+               dot.classList.add('bg-lime', 'shadow-[0_0_8px_rgba(225,251,21,0.5)]'); 
+            }
         }
     } catch (err) {
         console.error('Error changing stage:', err);
@@ -539,15 +700,29 @@ async function saveContext(id, field, value) {
     console.log('Saving context:', field, value);
     try {
         // Re-render buttons optimistically
-        document.querySelectorAll('[onclick*="saveContext"][onclick*="' + field + '"]').forEach(btn => {
-            btn.classList.remove('border-current', 'border-[#18C29C]', 'text-[#18C29C]', 'bg-current/10', 'bg-[#18C29C]/10', 'text-red-400', 'text-amber-400', 'text-blue-400');
-            btn.classList.add('border-zinc-700', 'text-zinc-500');
+        const btns = document.querySelectorAll('[onclick*="saveContext"][onclick*="' + field + '"]');
+        
+        btns.forEach(btn => {
+            if(field === 'temperature') {
+               btn.className = btn.className.replace(/border-current.*?text-red-500|border-current.*?text-amber-500|border-current.*?text-\[\#60A5FA\]/, 'border-stroke text-muted hover:bg-surface2');
+               btn.classList.add('border-stroke', 'text-muted', 'hover:bg-surface2');
+               btn.classList.remove('bg-current/10');
+            } else if (field === 'timingStatus') {
+               btn.className = btn.className.replace(/border-lime text-lime bg-lime\/10/, 'border-stroke text-muted hover:bg-surface2');
+            }
         });
+        
         const active = document.querySelector('[onclick*="saveContext"][onclick*="' + value + '"]');
         if (active) {
-            active.classList.remove('border-zinc-700', 'text-zinc-500');
-            active.classList.add('border-[#18C29C]', 'text-[#18C29C]', 'bg-[#18C29C]/10');
+            if(field === 'temperature') {
+                active.classList.remove('border-stroke', 'text-muted', 'hover:bg-surface2');
+                active.classList.add('border-current', 'bg-current/10');
+            } else if (field === 'timingStatus') {
+                active.classList.remove('border-stroke', 'text-muted', 'hover:bg-surface2');
+                active.classList.add('border-lime', 'text-lime', 'bg-lime/10');
+            }
         }
+
         await operonFetch('/vault/' + id + '/context', {
             method: 'POST',
             body: JSON.stringify({ field, value })
@@ -567,8 +742,8 @@ async function saveContextNotes(id) {
             body: JSON.stringify({ field: 'notes', value })
         });
         // Visual feedback
-        el.classList.add('border-[#18C29C]');
-        setTimeout(() => el.classList.remove('border-[#18C29C]'), 1000);
+        el.classList.add('border-lime/50');
+        setTimeout(() => el.classList.remove('border-lime/50'), 1000);
     } catch (err) {
         console.error('Error saving notes:', err);
     }
@@ -615,9 +790,9 @@ function renderTags(id, tags) {
     const container = document.getElementById('tags-container');
     if(!container) return;
     container.innerHTML = tags.map(t =>
-        '<span class="inline-flex items-center gap-1 px-2 py-1 bg-zinc-700 text-zinc-300 rounded text-xs">' +
+        '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface2 border border-stroke text-muted rounded-md text-xs font-medium">' +
             escHtml(t) +
-            '<button onclick="removeTag(\'' + id + '\', \'' + t + '\')" class="text-zinc-500 hover:text-red-400">×</button>' +
+            '<button onclick="removeTag(\'' + id + '\', \'' + t + '\')" class="text-subtle hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>' +
         '</span>'
     ).join('');
 }
@@ -643,13 +818,13 @@ function hideAILoading() {
 setTimeout(() => {
     document.querySelectorAll('#btn-analyze, #btn-analyze-empty').forEach(btn => {
         btn.addEventListener('click', async () => {
-            showAILoading(btn.parentElement, 'Analisando com Operon Intelligence...');
+            showAILoading(btn.parentElement, 'Analisando perfil com Inteligência Geral...');
             try {
                 await operonFetch('/vault/' + LEAD_ID + '/analyze', { method: 'POST' });
                 location.reload();
             } catch (e) {
                 hideAILoading();
-                alert('Erro na análise. Verifique o token de IA.');
+                alert('Erro na análise. Verifique o saldo do Nexus Token.');
             }
         });
     });
@@ -660,7 +835,7 @@ setTimeout(() => {
             const container = document.getElementById('operon4d-results');
             if(container) {
                 container.classList.remove('hidden');
-                showAILoading(container, 'Executando Operon 4D Intelligence...');
+                showAILoading(container, 'Consultando malha fractal do Operon 4D...');
             }
             try {
                 const data = await operonFetch('/vault/' + LEAD_ID + '/operon', { method: 'POST' });
@@ -668,7 +843,7 @@ setTimeout(() => {
                 if (data) render4D(data);
             } catch (e) {
                 hideAILoading();
-                alert('Erro no Operon 4D.');
+                alert('Falha na orquestração espacial 4D.');
             }
         });
     }
@@ -677,10 +852,8 @@ setTimeout(() => {
     if (btnDeep) {
         btnDeep.addEventListener('click', async () => {
             const container = document.getElementById('deep-analysis-cards');
-            if(!container) { console.error('Cards container not found!'); return; }
+            if(!container) return;
             
-            // showAILoading can destroy innerHTML which breaks the cards structure.
-            // Let's just change the button text instead for deep insights or put it above.
             const originalText = btnDeep.innerHTML;
             btnDeep.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">refresh</span> Processando...';
             btnDeep.disabled = true;
@@ -690,25 +863,25 @@ setTimeout(() => {
                 
                 if (data && !data.error) {
                     const va = document.getElementById('va-content');
-                    if(va) va.innerHTML = data.valueProposition ? escHtml(data.valueProposition).replace(/\\\\n/g, '<br>') : '<span class="text-zinc-500 italic">N/D</span>';
+                    if(va) va.innerHTML = data.valueProposition ? escHtml(data.valueProposition).replace(/\\\\n/g, '<br>') : '<span class="text-muted italic">Erro no vetor.</span>';
                     
                     const ta = document.getElementById('ta-content');
-                    if(ta) ta.innerHTML = data.targetAudience ? escHtml(data.targetAudience).replace(/\\\\n/g, '<br>') : '<span class="text-zinc-500 italic">N/D</span>';
+                    if(ta) ta.innerHTML = data.targetAudience ? escHtml(data.targetAudience).replace(/\\\\n/g, '<br>') : '<span class="text-muted italic">Erro no vetor.</span>';
                     
                     const ca = document.getElementById('ca-content');
                     if(ca) {
                         if (data.competitors && Array.isArray(data.competitors) && data.competitors.length > 0) {
-                            ca.innerHTML = '<ul class="list-disc list-inside space-y-1">' + data.competitors.map(c => '<li>' + escHtml(c) + '</li>').join('') + '</ul>';
+                            ca.innerHTML = '<ul class="list-disc list-inside space-y-1.5">' + data.competitors.map(c => '<li>' + escHtml(c) + '</li>').join('') + '</ul>';
                         } else {
-                            ca.innerHTML = '<span class="text-zinc-500 italic">N/D</span>';
+                            ca.innerHTML = '<span class="text-muted italic">Sem dados competitivos.</span>';
                         }
                     }
                 } else {
-                    alert(data?.error || 'Erro ao gerar insights.');
+                    alert(data?.error || 'Subrotina de inteligência profunda abortada.');
                 }
             } catch (e) {
                 console.error(e);
-                alert('Erro de conexão ao gerar Insights.');
+                alert('Erro de conexão neural.');
             } finally {
                 btnDeep.innerHTML = originalText;
                 btnDeep.disabled = false;
@@ -723,39 +896,76 @@ function render4D(data) {
     if(!container) return;
     
     if(data.error) {
-         container.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">\${escHtml(data.error)}</div>`;
+         container.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 font-medium text-sm border-l-4">\${escHtml(data.error)}</div>`;
          return;
     }
 
     container.innerHTML = '';
 
     const sections = [
-        { key: 'diagnostico', label: 'Diagnóstico de Perda', icon: 'monitoring', color: 'text-red-400' },
-        { key: 'potencial',   label: 'Potencial Comercial',  icon: 'trending_up', color: 'text-emerald-400' },
-        { key: 'autoridade',  label: 'Autoridade Local',     icon: 'verified',   color: 'text-amber-400' },
-        { key: 'script',      label: 'Script de Abordagem',  icon: 'chat',       color: 'text-violet-400' },
+        { key: 'diagnostico', label: 'Diagnóstico de Perda', icon: 'monitoring', color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/20' },
+        { key: 'potencial',   label: 'Potencial',            icon: 'trending_up', color: 'text-mint', bg: 'bg-mint/10', border: 'border-mint/20' },
+        { key: 'autoridade',  label: 'Autoridade Local',     icon: 'verified',   color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+        { key: 'script',      label: 'Script',               icon: 'chat',       color: 'text-lime', bg: 'bg-lime/10', border: 'border-lime/20' },
     ];
 
-    sections.forEach(({ key, label, icon, color }) => {
+    sections.forEach(({ key, label, icon, color, bg, border }) => {
         const d = data[key];
         if (!d) return;
         const isStr = typeof d === 'string';
         const card = document.createElement('div');
-        card.className = 'bg-zinc-900/60 border border-zinc-700/50 rounded-2xl p-5';
+        card.className = 'bg-surface border border-stroke rounded-card p-6 shadow-soft';
         
         let contentHtml = isStr 
-            ? '<p class="text-zinc-300 text-sm whitespace-pre-line leading-relaxed">' + escHtml(d) + '</p>'
-            : '<pre class="text-xs text-zinc-400 overflow-auto whitespace-pre-wrap">' + escHtml(JSON.stringify(d, null, 2)) + '</pre>';
+            ? '<p class="text-subtle text-sm whitespace-pre-line leading-relaxed">' + escHtml(d) + '</p>'
+            : '<pre class="text-xs text-muted overflow-auto whitespace-pre-wrap p-4 bg-bg rounded-md border border-stroke">' + escHtml(JSON.stringify(d, null, 2)) + '</pre>';
 
         card.innerHTML = 
-            '<h3 class="font-semibold text-white flex items-center gap-2 mb-3">' +
-                '<span class="material-symbols-outlined ' + color + '">' + icon + '</span>' +
+            '<h3 class="font-bold text-text flex items-center gap-2 mb-4">' +
+                '<span class="size-8 rounded-full ' + bg + ' ' + border + ' flex items-center justify-center flex-shrink-0">' +
+                   '<span class="material-symbols-outlined text-[16px] ' + color + '">' + icon + '</span>' +
+                '</span>' +
                 label +
             '</h3>' + 
             contentHtml;
             
         container.appendChild(card);
     });
+}
+
+// ── Timeline Tabs ─────────────────────────────────────────
+function switchTimelineTab(tab) {
+    const btnNote = document.getElementById('tab-btn-note');
+    const btnFile = document.getElementById('tab-btn-file');
+    const formNote = document.getElementById('form-tab-note');
+    const formFile = document.getElementById('form-tab-file');
+
+    if (tab === 'note') {
+        btnNote.className = "flex-1 py-2 text-xs font-bold text-lime bg-lime/10 border-b-2 border-lime transition-colors";
+        btnFile.className = "flex-1 py-2 text-xs font-bold text-muted hover:text-text hover:bg-surface3 border-b-2 border-transparent transition-colors";
+        formNote.classList.remove('hidden');
+        formNote.classList.add('block');
+        formFile.classList.add('hidden');
+        formFile.classList.remove('block');
+    } else {
+        btnFile.className = "flex-1 py-2 text-xs font-bold text-white bg-white/10 border-b-2 border-white transition-colors";
+        btnNote.className = "flex-1 py-2 text-xs font-bold text-muted hover:text-text hover:bg-surface3 border-b-2 border-transparent transition-colors";
+        formFile.classList.remove('hidden');
+        formFile.classList.add('block');
+        formNote.classList.add('hidden');
+        formNote.classList.remove('block');
+    }
+}
+
+function updateFileName(input) {
+    const display = document.getElementById('file-upload-name');
+    if (input.files && input.files.length > 0) {
+        display.textContent = input.files[0].name;
+        display.classList.remove('hidden');
+    } else {
+        display.classList.add('hidden');
+        display.textContent = '';
+    }
 }
 </script>
 JS;

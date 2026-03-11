@@ -10,6 +10,7 @@ use App\Controllers\SpinController;
 use App\Controllers\AdminController;
 use App\Controllers\AuthController;
 use App\Controllers\AgendaController;
+use App\Controllers\UserSettingsController;
 use App\Core\View;
 
 // ── Autenticação ─────────────────────────────────────────────
@@ -27,12 +28,14 @@ $router->post('/vault',             [LeadController::class, 'store']);
 $router->post('/vault/:id/update',  [LeadController::class, 'update']);
 $router->post('/vault/:id/delete',  [LeadController::class, 'destroy']);
 $router->post('/vault/:id/stage',   [LeadController::class, 'updateStage']);
-$router->post('/vault/:id/analyze',  [LeadController::class, 'analyze']);
-$router->post('/vault/:id/deep',     [LeadController::class, 'deepAnalysis']);
-$router->post('/vault/:id/insights', [LeadController::class, 'deepAnalysisInsights']);
-$router->post('/vault/:id/operon',   [LeadController::class, 'operon4D']);
-$router->post('/vault/:id/context',  [LeadController::class, 'updateContext']);
-$router->post('/vault/:id/tags',     [LeadController::class, 'updateTags']);
+$router->post('/vault/:id/analyze', [LeadController::class, 'analyze']);
+$router->post('/vault/:id/deep',    [LeadController::class, 'deepAnalysis']);
+$router->post('/vault/:id/insights',[LeadController::class, 'deepAnalysisInsights']);
+$router->post('/vault/:id/operon',  [LeadController::class, 'operon4D']);
+$router->post('/vault/:id/context', [LeadController::class, 'updateContext']);
+$router->post('/vault/:id/tags',    [LeadController::class, 'updateTags']);
+$router->post('/vault/:id/note',    [LeadController::class, 'addNote']);
+$router->post('/vault/:id/attachment', [LeadController::class, 'uploadAttachment']);
 
 // ── Atlas de Vendas ──────────────────────────────────────────
 $router->get('/atlas', [AtlasController::class, 'index']);
@@ -47,17 +50,38 @@ $router->post('/genesis', [LeadController::class, 'import']);
 
 // ── Agenda ───────────────────────────────────────────────────
 $router->get('/agenda', [AgendaController::class, 'index']);
+$router->post('/agenda/event', [AgendaController::class, 'storeEvent']);
+$router->post('/agenda/event/:id/delete', [AgendaController::class, 'deleteEvent']);
 
 // ── Follow-up ────────────────────────────────────────────────
-$router->get('/follow-up', fn() => View::render('followup/index', ['active' => 'followup']));
+$router->get('/follow-up', [\App\Controllers\FollowupController::class, 'index']);
+$router->post('/follow-up/create', [\App\Controllers\FollowupController::class, 'store']);
+$router->post('/follow-up/format-message', [\App\Controllers\FollowupController::class, 'formatMessage']);
+$router->post('/follow-up/:id/complete', [\App\Controllers\FollowupController::class, 'complete']);
 
 // ── SPIN Hub ─────────────────────────────────────────────────
 $router->get('/spin',  [SpinController::class, 'index']);
 $router->post('/spin', [SpinController::class, 'generate']);
 
 // ── Admin ────────────────────────────────────────────────────
-$router->get('/admin',        [AdminController::class, 'index']);
-$router->post('/admin/save',  [AdminController::class, 'save']);
+$router->get('/admin/login',  [\App\Controllers\AdminAuthController::class, 'showLogin']);
+$router->post('/admin/login', [\App\Controllers\AdminAuthController::class, 'login']);
+
+$router->get('/admin',              [AdminController::class, 'index']);
+$router->post('/admin/save',        [AdminController::class, 'save']);
+$router->get('/admin/users',        [AdminController::class, 'users']);
+$router->post('/admin/users/toggle',[AdminController::class, 'toggleUser']);
+$router->get('/admin/logs',         [AdminController::class, 'logs']);
+$router->get('/admin/ai-config',    [AdminController::class, 'aiConfigs']);
+$router->post('/admin/ai/save',     [AdminController::class, 'saveAiConfigs']);
+
+// ── Configurações do Usuário ────────────────────────────────
+$router->get('/costs',        [UserSettingsController::class, 'costs']);
+$router->get('/profile',      [UserSettingsController::class, 'profile']);
+$router->post('/profile',     [UserSettingsController::class, 'updateProfile']);
+$router->get('/logs',         [UserSettingsController::class, 'logs']);
+$router->get('/settings',     [UserSettingsController::class, 'settings']);
+$router->get('/integrations', [UserSettingsController::class, 'integrations']);
 
 // ── API interna ──────────────────────────────────────────────
 $router->get('/api/tokens',          fn() => (new \App\Controllers\ApiController())->tokens());

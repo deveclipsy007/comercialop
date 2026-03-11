@@ -129,3 +129,17 @@ CREATE INDEX IF NOT EXISTS idx_leads_score  ON leads(tenant_id, priority_score D
 CREATE INDEX IF NOT EXISTS idx_activities_lead ON lead_activities(lead_id);
 CREATE INDEX IF NOT EXISTS idx_token_logs_tenant ON token_logs(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_followups_tenant ON followups(tenant_id, scheduled_at);
+
+-- ─── Agenda Events (Compromissos e Lembretes gerais) ─────────
+CREATE TABLE IF NOT EXISTS agenda_events (
+    id          TEXT PRIMARY KEY,
+    tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id     TEXT NOT NULL REFERENCES users(id),
+    title       TEXT NOT NULL,
+    description TEXT,
+    event_type  TEXT NOT NULL DEFAULT 'reminder', -- reminder | appointment
+    start_time  TEXT NOT NULL,
+    end_time    TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_agenda_events_tenant ON agenda_events(tenant_id, start_time);
