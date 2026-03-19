@@ -218,16 +218,29 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
 
         <!-- Right End Actions -->
         <div class="flex items-center gap-3 md:gap-4 justify-end min-w-[120px]">
-            <!-- Token Indicator -->
+            <!-- Token/Credit Indicator -->
             <?php
+            // Auto-load token balance if not passed by controller
+            if (!isset($tokenBalance) && !empty($userSession['id'])) {
+                $tokenBalance = \App\Models\TokenQuota::getBalance(\App\Core\Session::tenantId());
+            }
             $tb = $tokenBalance ?? null;
             $tbUsed  = $tb['used'] ?? 0;
             $tbLimit = $tb['limit'] ?? 100;
+            $tbRemaining = $tb['remaining'] ?? ($tbLimit - $tbUsed);
+            $tbPercent = $tbLimit > 0 ? round(($tbUsed / $tbLimit) * 100) : 0;
+            $tbColor = $tbPercent >= 90 ? 'text-red-400' : ($tbPercent >= 70 ? 'text-yellow-400' : 'text-lime');
+            $tbBarColor = $tbPercent >= 90 ? 'bg-red-400' : ($tbPercent >= 70 ? 'bg-yellow-400' : 'bg-lime');
             ?>
-            <div class="hidden md:flex items-center h-10 px-4 rounded-pill bg-surface border border-white/5 gap-2">
-                <span class="material-symbols-outlined text-lime text-sm">bolt</span>
-                <span class="text-xs font-bold text-text"><?= $tbUsed ?><span class="text-subtle font-medium ml-1">/ <?= $tbLimit ?></span></span>
-            </div>
+            <a href="/costs" class="hidden md:flex items-center h-10 px-4 rounded-pill bg-surface border border-white/5 gap-2 hover:border-white/10 transition-all group" title="<?= $tbRemaining ?> créditos restantes">
+                <span class="material-symbols-outlined <?= $tbColor ?> text-sm">bolt</span>
+                <div class="flex flex-col gap-0.5">
+                    <span class="text-xs font-bold <?= $tbColor ?>"><?= $tbRemaining ?><span class="text-subtle font-medium ml-1">/ <?= $tbLimit ?></span></span>
+                    <div class="w-16 h-[3px] bg-white/5 rounded-full overflow-hidden">
+                        <div class="h-full <?= $tbBarColor ?> rounded-full transition-all" style="width: <?= min(100, $tbPercent) ?>%"></div>
+                    </div>
+                </div>
+            </a>
 
             <div class="hidden md:block h-6 w-px bg-stroke"></div>
 

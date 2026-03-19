@@ -67,7 +67,8 @@ PROMPT;
         }
 
         if (AIResponseParser::hasError($response)) {
-            error_log('[Hunter] Search Provider falhou: ' . json_encode($response));
+            $errMsg = AIResponseParser::getErrorMessage($response);
+            error_log('[Hunter] Search Provider falhou: ' . $errMsg);
             return [];
         }
 

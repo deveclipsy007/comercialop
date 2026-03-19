@@ -177,9 +177,13 @@ class OpenAIProvider
 
     private function mockResponse(array $options): string
     {
+        error_log("[{$this->providerName}] API key não configurada. Configure pelo painel Admin > Chaves de IA.");
         if ($options['json_mode'] ?? false) {
-            return json_encode(['_mock' => true, 'message' => 'Configure OPENAI_API_KEY no .env']);
+            return json_encode([
+                '_error' => true,
+                '_message' => "Chave de API {$this->providerName} não configurada. Solicite ao administrador que configure pelo painel Admin > Chaves de IA.",
+            ]);
         }
-        return 'Mock OpenAI — configure API key';
+        return '';
     }
 }

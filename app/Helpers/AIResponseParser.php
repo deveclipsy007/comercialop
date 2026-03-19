@@ -65,7 +65,17 @@ class AIResponseParser
      */
     public static function hasError(array $result): bool
     {
-        return isset($result['_parse_error']) && $result['_parse_error'] === true;
+        if (isset($result['_parse_error']) && $result['_parse_error'] === true) return true;
+        if (isset($result['_error']) && $result['_error'] === true) return true;
+        return false;
+    }
+
+    /**
+     * Retorna mensagem de erro se houver.
+     */
+    public static function getErrorMessage(array $result): string
+    {
+        return $result['_message'] ?? $result['raw'] ?? 'Erro desconhecido na resposta da IA.';
     }
 
     /**

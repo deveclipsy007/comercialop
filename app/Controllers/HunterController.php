@@ -72,7 +72,7 @@ class HunterController
         if (!$this->validateCsrf($body)) return;
 
         $tokens = new TokenService();
-        if (!$tokens->hasSufficient('hunter_search', $tenantId)) {
+        if (!$tokens->hasSufficient('hunter', $tenantId)) {
             $this->jsonError('tokens_depleted', 'Tokens diários esgotados.');
             return;
         }
@@ -95,7 +95,8 @@ class HunterController
            'filters' => $body
         ]);
 
-        $tokens->consume('hunter_search', $tenantId);
+        // Token consumption is handled inside GeminiPlacesSearchProvider::search()
+        // via TokenService with real API token tracking
 
         // 2. Perform Search
         $provider = new \App\Services\Hunter\GeminiPlacesSearchProvider();
@@ -149,7 +150,7 @@ class HunterController
 
         // Token check (AI analyzer uses tokens)
         $tokens = new TokenService();
-        if (!$tokens->hasSufficient('hunter_ai_analysis', $tenantId)) {
+        if (!$tokens->hasSufficient('hunter', $tenantId)) {
             $this->jsonError('tokens_depleted', 'Tokens esgotados para análise IA.');
             return;
         }
@@ -163,7 +164,7 @@ class HunterController
         $success = $analyzer->analyze($resultId, $tenantId);
 
         if ($success) {
-            $tokens->consume('hunter_ai_analysis', $tenantId);
+            // Token consumption already handled inside HunterAiAnalyzer + HunterEnrichmentService
             $fullResult = \App\Models\HunterResult::findById($resultId, $tenantId);
             $analysis = \App\Models\HunterResultAnalysis::findByResultId($resultId, $tenantId);
             

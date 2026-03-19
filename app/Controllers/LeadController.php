@@ -292,49 +292,214 @@ class LeadController
     }
 
     // ── CSV Import (Genesis) ─────────────────────────────────
+
+    /**
+     * Normaliza um header de coluna para o nome canônico do campo.
+     * Suporta variações em PT/EN, acentos, case, espaços, underscores.
+     */
+    private function normalizeColumnHeader(string $raw): ?string
+    {
+        $s = mb_strtolower(trim($raw));
+        $s = str_replace(['_', '-', '.'], ' ', $s);
+        // Remove acentos
+        $s = preg_replace('/[àáâãä]/u', 'a', $s);
+        $s = preg_replace('/[èéêë]/u', 'e', $s);
+        $s = preg_replace('/[ìíîï]/u', 'i', $s);
+        $s = preg_replace('/[òóôõö]/u', 'o', $s);
+        $s = preg_replace('/[ùúûü]/u', 'u', $s);
+        $s = preg_replace('/[ç]/u', 'c', $s);
+        $s = preg_replace('/\s+/', ' ', $s);
+
+        $map = [
+            'name' => 'name', 'nome' => 'name', 'empresa' => 'name', 'razao social' => 'name',
+            'razao' => 'name', 'company' => 'name', 'company name' => 'name', 'nome da empresa' => 'name',
+            'nome empresa' => 'name', 'fantasia' => 'name', 'nome fantasia' => 'name',
+
+            'segment' => 'segment', 'segmento' => 'segment', 'nicho' => 'segment', 'setor' => 'segment',
+            'ramo' => 'segment', 'area' => 'segment', 'industry' => 'segment', 'categoria' => 'segment',
+            'tipo' => 'segment', 'atividade' => 'segment',
+
+            'website' => 'website', 'site' => 'website', 'url' => 'website', 'pagina' => 'website',
+            'web' => 'website', 'link' => 'website',
+
+            'phone' => 'phone', 'telefone' => 'phone', 'tel' => 'phone', 'celular' => 'phone',
+            'fone' => 'phone', 'whatsapp' => 'phone', 'contato' => 'phone', 'numero' => 'phone',
+
+            'email' => 'email', 'e mail' => 'email', 'correio' => 'email', 'mail' => 'email',
+
+            'address' => 'address', 'endereco' => 'address', 'logradouro' => 'address',
+            'rua' => 'address', 'cidade' => 'address', 'localizacao' => 'address',
+        ];
+
+        return $map[$s] ?? null;
+    }
+
+    /**
+     * Detecta e converte encoding para UTF-8 se necessário.
+     */
+    private function ensureUtf8(string $filePath): void
+    {
+        $contents = file_get_contents($filePath);
+        if ($contents === false) return;
+
+        // Remove BOM UTF-8
+        $contents = preg_replace('/^\xEF\xBB\xBF/', '', $contents);
+
+        // Detecta encoding
+        $encoding = mb_detect_encoding($contents, ['UTF-8', 'ISO-8859-1', 'Windows-1252'], true);
+        if ($encoding && $encoding !== 'UTF-8') {
+            $contents = mb_convert_encoding($contents, 'UTF-8', $encoding);
+        }
+
+        file_put_contents($filePath, $contents);
+    }
+
     public function import(): void
     {
         Session::requireAuth();
 
         if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
-            Session::flash('error', 'Token inválido.');
+            Session::flash('error', 'Token CSRF inválido. Recarregue a página.');
             View::redirect('/genesis');
+            return;
         }
 
         $tenantId = Session::get('tenant_id');
         $file     = $_FILES['csv'] ?? null;
 
         if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
-            Session::flash('error', 'Arquivo CSV inválido.');
+            $uploadErrors = [
+                UPLOAD_ERR_INI_SIZE   => 'Arquivo excede o tamanho máximo permitido pelo servidor.',
+                UPLOAD_ERR_FORM_SIZE  => 'Arquivo excede o tamanho máximo do formulário.',
+                UPLOAD_ERR_PARTIAL    => 'Upload foi interrompido. Tente novamente.',
+                UPLOAD_ERR_NO_FILE    => 'Nenhum arquivo foi enviado.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Erro interno do servidor (diretório temporário).',
+            ];
+            $errorCode = $file['error'] ?? UPLOAD_ERR_NO_FILE;
+            Session::flash('error', $uploadErrors[$errorCode] ?? 'Arquivo CSV inválido.');
             View::redirect('/genesis');
+            return;
         }
 
-        $handle  = fopen($file['tmp_name'], 'r');
-        $headers = fgetcsv($handle);
+        // Validar tamanho (5MB)
+        if ($file['size'] > 5 * 1024 * 1024) {
+            Session::flash('error', 'Arquivo excede o limite de 5MB.');
+            View::redirect('/genesis');
+            return;
+        }
+
+        // Validar extensão
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['csv', 'txt', 'tsv'])) {
+            Session::flash('error', 'Formato não suportado. Use arquivos .csv');
+            View::redirect('/genesis');
+            return;
+        }
+
+        // Converter encoding para UTF-8
+        $this->ensureUtf8($file['tmp_name']);
+
+        // Detectar delimitador (vírgula, ponto-e-vírgula, tab)
+        $firstLine = fgets(fopen($file['tmp_name'], 'r'));
+        $delimiters = [';' => 0, ',' => 0, "\t" => 0];
+        foreach ($delimiters as $d => &$count) {
+            $count = substr_count($firstLine, $d);
+        }
+        arsort($delimiters);
+        $delimiter = array_key_first($delimiters);
+        if ($delimiters[$delimiter] === 0) $delimiter = ',';
+
+        $handle = fopen($file['tmp_name'], 'r');
+        if (!$handle) {
+            Session::flash('error', 'Erro ao abrir o arquivo CSV.');
+            View::redirect('/genesis');
+            return;
+        }
+
+        $rawHeaders = fgetcsv($handle, 0, $delimiter);
+        if (!$rawHeaders || count($rawHeaders) === 0) {
+            fclose($handle);
+            Session::flash('error', 'CSV vazio ou sem cabeçalho válido.');
+            View::redirect('/genesis');
+            return;
+        }
+
+        // Normalizar headers automaticamente
+        $columnMap = []; // index => canonical field name
+        $unmapped = [];
+        foreach ($rawHeaders as $i => $rawHeader) {
+            $canonical = $this->normalizeColumnHeader($rawHeader);
+            if ($canonical !== null) {
+                $columnMap[$i] = $canonical;
+            } else {
+                $unmapped[] = $rawHeader;
+            }
+        }
+
+        // Verificar campos obrigatórios
+        $mappedFields = array_values($columnMap);
+        if (!in_array('name', $mappedFields)) {
+            fclose($handle);
+            $hint = !empty($unmapped) ? ' Colunas não reconhecidas: ' . implode(', ', array_slice($unmapped, 0, 5)) : '';
+            Session::flash('error', 'Coluna obrigatória "name" (ou "Nome", "Empresa") não encontrada.' . $hint);
+            View::redirect('/genesis');
+            return;
+        }
+
         $imported = 0;
         $errors   = 0;
+        $skipped  = [];
+        $maxRows  = 5000;
 
-        while (($row = fgetcsv($handle)) !== false) {
-            if (count($row) < 2) continue;
-            $data = array_combine(array_slice($headers, 0, count($row)), $row);
-            $name    = trim($data['name'] ?? $data['Nome'] ?? $data['nome'] ?? '');
-            $segment = trim($data['segment'] ?? $data['Segmento'] ?? $data['segmento'] ?? '');
+        while (($row = fgetcsv($handle, 0, $delimiter)) !== false && $imported + $errors < $maxRows) {
+            if (count($row) < 2) { $errors++; continue; }
 
-            if (empty($name) || empty($segment)) { $errors++; continue; }
+            // Montar dados usando mapeamento normalizado
+            $data = [];
+            foreach ($columnMap as $i => $field) {
+                if (isset($row[$i])) {
+                    $data[$field] = trim($row[$i]);
+                }
+            }
+
+            $name    = $data['name'] ?? '';
+            $segment = $data['segment'] ?? '';
+
+            if (empty($name)) {
+                $errors++;
+                if (count($skipped) < 5) $skipped[] = "Linha " . ($imported + $errors + 1) . ": nome vazio";
+                continue;
+            }
+
+            // Se não tem segment, usar "Não classificado" como fallback
+            if (empty($segment)) {
+                $segment = 'Não classificado';
+            }
 
             Lead::create($tenantId, [
                 'name'    => $name,
                 'segment' => $segment,
-                'website' => trim($data['website'] ?? $data['Website'] ?? ''),
-                'phone'   => trim($data['phone'] ?? $data['Telefone'] ?? ''),
-                'email'   => trim($data['email'] ?? $data['Email'] ?? ''),
-                'address' => trim($data['address'] ?? $data['Endereço'] ?? ''),
+                'website' => $data['website'] ?? '',
+                'phone'   => $data['phone'] ?? '',
+                'email'   => $data['email'] ?? '',
+                'address' => $data['address'] ?? '',
             ]);
             $imported++;
         }
         fclose($handle);
 
-        Session::flash('success', "{$imported} leads importados com sucesso!" . ($errors ? " ({$errors} linhas ignoradas)" : ''));
+        if ($imported === 0 && $errors > 0) {
+            $detail = !empty($skipped) ? ' Detalhes: ' . implode('; ', $skipped) : '';
+            Session::flash('error', "Nenhum lead importado. {$errors} linhas com problemas.{$detail}");
+            View::redirect('/genesis');
+            return;
+        }
+
+        $msg = "{$imported} leads importados com sucesso!";
+        if ($errors > 0) $msg .= " ({$errors} linhas ignoradas)";
+        if (!empty($unmapped)) $msg .= " | Colunas ignoradas: " . implode(', ', array_slice($unmapped, 0, 3));
+
+        Session::flash('success', $msg);
         View::redirect('/vault');
     }
 

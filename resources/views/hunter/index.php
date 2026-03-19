@@ -58,11 +58,24 @@ $savedResultsJson = json_encode($savedResults ?? []);
                                class="w-full bg-surface3 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder:text-muted focus:outline-none focus:border-lime/50 transition-all">
                     </div>
 
+                    <div>
+                        <label class="block text-xs font-bold text-muted mb-1.5 ml-1">Estado *</label>
+                        <div class="relative">
+                            <input type="text" id="h_state" placeholder="Ex: São Paulo" required autocomplete="off"
+                                   class="w-full bg-surface3 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder:text-muted focus:outline-none focus:border-lime/50 transition-all">
+                            <input type="hidden" id="h_state_uf" value="">
+                            <div id="h_state_dropdown" class="absolute left-0 right-0 top-full mt-1 bg-surface2 border border-stroke rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto hidden"></div>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-muted mb-1.5 ml-1">Cidade *</label>
-                            <input type="text" id="h_city" placeholder="Ex: São Paulo" required
-                                   class="w-full bg-surface3 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder:text-muted focus:outline-none focus:border-lime/50 transition-all">
+                            <div class="relative">
+                                <input type="text" id="h_city" placeholder="Selecione o estado" required autocomplete="off"
+                                       class="w-full bg-surface3 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder:text-muted focus:outline-none focus:border-lime/50 transition-all disabled:opacity-50" disabled>
+                                <div id="h_city_dropdown" class="absolute left-0 right-0 top-full mt-1 bg-surface2 border border-stroke rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto hidden"></div>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-muted mb-1.5 ml-1">Raio</label>
@@ -364,17 +377,18 @@ function updateCounts() {
 async function runSearch() {
     const btn = document.getElementById('btnHunterSearch');
     const segment = document.getElementById('h_segment').value.trim();
+    const state = document.getElementById('h_state').value.trim();
     const city = document.getElementById('h_city').value.trim();
-    
-    if(!segment || !city) {
-        alert("Preencha segmento e cidade.");
+
+    if(!segment || !city || !state) {
+        alert("Preencha segmento, estado e cidade.");
         return;
     }
 
     const payload = {
         _csrf: csrf,
         segment: segment,
-        city: city,
+        city: city + ', ' + state,
         radius: document.getElementById('h_radius').value
     };
 
@@ -637,4 +651,90 @@ function updateItemInArrays(updatedItem) {
         }
     });
 }
+
+// ── Estado / Cidade Autocomplete (IBGE API) ──
+const ESTADOS_BR = [
+    {uf:"AC",nome:"Acre"},{uf:"AL",nome:"Alagoas"},{uf:"AP",nome:"Amapá"},{uf:"AM",nome:"Amazonas"},
+    {uf:"BA",nome:"Bahia"},{uf:"CE",nome:"Ceará"},{uf:"DF",nome:"Distrito Federal"},{uf:"ES",nome:"Espírito Santo"},
+    {uf:"GO",nome:"Goiás"},{uf:"MA",nome:"Maranhão"},{uf:"MT",nome:"Mato Grosso"},{uf:"MS",nome:"Mato Grosso do Sul"},
+    {uf:"MG",nome:"Minas Gerais"},{uf:"PA",nome:"Pará"},{uf:"PB",nome:"Paraíba"},{uf:"PR",nome:"Paraná"},
+    {uf:"PE",nome:"Pernambuco"},{uf:"PI",nome:"Piauí"},{uf:"RJ",nome:"Rio de Janeiro"},{uf:"RN",nome:"Rio Grande do Norte"},
+    {uf:"RS",nome:"Rio Grande do Sul"},{uf:"RO",nome:"Rondônia"},{uf:"RR",nome:"Roraima"},{uf:"SC",nome:"Santa Catarina"},
+    {uf:"SP",nome:"São Paulo"},{uf:"SE",nome:"Sergipe"},{uf:"TO",nome:"Tocantins"}
+];
+
+let cidadesCache = {};
+
+const stateInput = document.getElementById('h_state');
+const stateUf = document.getElementById('h_state_uf');
+const stateDropdown = document.getElementById('h_state_dropdown');
+const cityInput = document.getElementById('h_city');
+const cityDropdown = document.getElementById('h_city_dropdown');
+
+function normalizeStr(s) {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function showDropdown(dropdown, items, onSelect) {
+    if (items.length === 0) { dropdown.classList.add('hidden'); return; }
+    dropdown.innerHTML = items.map((item, i) =>
+        `<div class="px-4 py-2.5 text-sm text-text hover:bg-lime/10 hover:text-lime cursor-pointer transition-colors ${i === 0 ? 'rounded-t-xl' : ''} ${i === items.length-1 ? 'rounded-b-xl' : ''}" data-value="${item.value}" data-label="${item.label}">${item.label}</div>`
+    ).join('');
+    dropdown.classList.remove('hidden');
+    dropdown.querySelectorAll('div').forEach(el => {
+        el.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            onSelect(el.dataset.value, el.dataset.label);
+            dropdown.classList.add('hidden');
+        });
+    });
+}
+
+// Estado autocomplete
+stateInput.addEventListener('input', () => {
+    const query = normalizeStr(stateInput.value);
+    if (query.length === 0) { stateDropdown.classList.add('hidden'); return; }
+    const matches = ESTADOS_BR.filter(e => normalizeStr(e.nome).includes(query) || normalizeStr(e.uf).includes(query)).slice(0, 10);
+    showDropdown(stateDropdown, matches.map(e => ({value: e.uf, label: `${e.nome} (${e.uf})`})), (uf, label) => {
+        stateInput.value = label;
+        stateUf.value = uf;
+        cityInput.value = '';
+        cityInput.disabled = false;
+        cityInput.placeholder = 'Digite a cidade...';
+        loadCidades(uf);
+    });
+});
+stateInput.addEventListener('blur', () => setTimeout(() => stateDropdown.classList.add('hidden'), 200));
+
+// Carregar cidades do IBGE
+async function loadCidades(uf) {
+    if (cidadesCache[uf]) return;
+    try {
+        const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`);
+        const data = await res.json();
+        cidadesCache[uf] = data.map(c => c.nome);
+    } catch(e) {
+        console.error('Erro ao carregar cidades IBGE:', e);
+        cidadesCache[uf] = [];
+    }
+}
+
+// Cidade autocomplete
+cityInput.addEventListener('input', () => {
+    const uf = stateUf.value;
+    if (!uf || !cidadesCache[uf]) { cityDropdown.classList.add('hidden'); return; }
+    const query = normalizeStr(cityInput.value);
+    if (query.length === 0) { cityDropdown.classList.add('hidden'); return; }
+    const matches = cidadesCache[uf].filter(c => normalizeStr(c).includes(query)).slice(0, 10);
+    showDropdown(cityDropdown, matches.map(c => ({value: c, label: c})), (val) => {
+        cityInput.value = val;
+    });
+});
+cityInput.addEventListener('blur', () => setTimeout(() => cityDropdown.classList.add('hidden'), 200));
+
+// Fechar dropdowns ao clicar fora
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#h_state') && !e.target.closest('#h_state_dropdown')) stateDropdown.classList.add('hidden');
+    if (!e.target.closest('#h_city') && !e.target.closest('#h_city_dropdown')) cityDropdown.classList.add('hidden');
+});
 </script>

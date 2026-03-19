@@ -178,25 +178,17 @@ class GeminiProvider
     }
 
     /**
-     * Mock para quando não há API key configurada (desenvolvimento).
+     * Retorna erro claro quando não há API key configurada.
      */
     private function mockResponse(array $options): string
     {
+        error_log('[Gemini] API key não configurada. Configure pelo painel Admin > Chaves de IA.');
         if ($options['json_mode'] ?? false) {
             return json_encode([
-                'priorityScore'    => 72,
-                'fitScore'         => 68,
-                'digitalMaturity'  => 'Média',
-                'urgencyLevel'     => 'Alta',
-                'summary'          => 'Lead com potencial moderado. Site desatualizado e sem presença digital estruturada.',
-                'diagnosis'        => ['Site lento (>4s)', 'Ausência de pixel de conversão', 'Instagram desatualizado'],
-                'opportunities'    => ['Gestão de tráfego pago', 'SEO local', 'CRM automatizado'],
-                'extractedContact' => ['phone' => null, 'whatsappAvailable' => false, 'address' => '', 'website' => '', 'websiteStatus' => 'NotFound'],
-                'socialPresence'   => ['linkedin' => null, 'instagram' => null, 'facebook' => null],
-                'businessDetails'  => ['timeInMarket' => '3-5 anos', 'operatingHours' => 'Seg-Sex 9h-18h'],
-                '_mock'            => true,
+                '_error' => true,
+                '_message' => 'Chave de API Gemini não configurada. Solicite ao administrador que configure pelo painel Admin > Chaves de IA.',
             ]);
         }
-        return 'Análise mockada — configure GEMINI_API_KEY no .env para resultados reais.';
+        return '';
     }
 }
