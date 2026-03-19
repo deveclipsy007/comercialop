@@ -22,11 +22,13 @@
 *.db-shm
 *.db-wal
 
-# Cache & Logs
+# Cache, Logs & Uploads
 /storage/cache/*
 /storage/logs/*
+/storage/uploads/*
 !/storage/cache/.gitignore
 !/storage/logs/.gitignore
+!/storage/uploads/.gitignore
 
 # IDE & OS Files
 .vscode/
@@ -36,6 +38,7 @@ Thumbs.db
 
 # Redundant directories
 /Users/
+/storage/uploads/
 
 # AI/Assistant Cache
 .claude/

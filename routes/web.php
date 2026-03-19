@@ -52,7 +52,8 @@ $router->post('/hunter/import',  [HunterController::class, 'importCrm']);
 
 // ── Genesis (Importação) ─────────────────────────────────────
 $router->get('/genesis',  fn() => View::render('genesis/index', ['active' => 'genesis']));
-$router->post('/genesis', [LeadController::class, 'import']);
+$router->post('/genesis',         [LeadController::class, 'import']);
+$router->post('/genesis/analyze', [LeadController::class, 'analyzeCSV']);
 
 // ── Agenda ───────────────────────────────────────────────────
 $router->get('/agenda', [AgendaController::class, 'index']);
