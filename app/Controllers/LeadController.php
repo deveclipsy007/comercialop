@@ -8,6 +8,8 @@ use App\Core\View;
 use App\Core\Session;
 use App\Models\Lead;
 use App\Models\TokenQuota;
+use App\Models\WhatsAppLeadLink;
+use App\Models\WhatsAppConversationAnalysis;
 use App\Services\LeadAnalysisService;
 use App\Services\DeepIntelligence\DeepIntelligenceManager;
 
@@ -96,6 +98,19 @@ class LeadController
         $availableIntelligences = $this->deepManager->getAvailableIntelligences();
         $intelligenceHistory = $this->deepManager->getLeadIntelligences((int)$id, $tenantId);
 
+        // Buscar conversas WhatsApp vinculadas a este lead
+        $waConversations = [];
+        try {
+            $waLinks = WhatsAppLeadLink::findAllByLead($tenantId, (string)$id);
+            foreach ($waLinks as $link) {
+                $link['summary']  = WhatsAppConversationAnalysis::latestByType($link['conversation_id'], 'summary');
+                $link['score']    = WhatsAppConversationAnalysis::latestByType($link['conversation_id'], 'interest_score');
+                $waConversations[] = $link;
+            }
+        } catch (\Throwable $e) {
+            // WhatsApp tables may not exist yet — ignore silently
+        }
+
         View::render('vault/show', [
             'active'       => 'vault',
             'lead'         => $lead,
@@ -103,6 +118,7 @@ class LeadController
             'activities'   => $activities,
             'availableIntelligences' => $availableIntelligences,
             'intelligenceHistory' => $intelligenceHistory,
+            'waConversations' => $waConversations,
         ]);
     }
 

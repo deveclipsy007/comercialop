@@ -145,15 +145,26 @@ class UserSettingsController
     public function costs(): void
     {
         $tenantId = Session::get('tenant_id');
-        $tokenBalance = TokenQuota::getBalance($tenantId);
-        $recentEntries = TokenQuota::recentEntries($tenantId, 10);
-        
+        $userId   = Session::get('id');
+        $tokenBalance  = TokenQuota::getBalance($tenantId);
+        $recentEntries = TokenQuota::recentEntries($tenantId, 20, $userId);
+
+        // Custo USD total do usuário nos últimos 30 dias
+        $costSummary = Database::selectFirst(
+            "SELECT COALESCE(SUM(estimated_cost_usd), 0) as total_cost,
+                    COALESCE(SUM(real_tokens_input + real_tokens_output), 0) as total_real_tokens
+             FROM token_logs
+             WHERE tenant_id = ? AND user_id = ? AND created_at >= datetime('now', '-30 days')",
+            [$tenantId, $userId]
+        );
+
         View::render('settings/costs', [
-            'active' => 'settings', 
-            'pageTitle' => 'Controle de Custos', 
+            'active' => 'settings',
+            'pageTitle' => 'Controle de Custos',
             'pageSubtitle' => 'Gerenciamento financeiro e limites de uso',
-            'tokenBalance' => $tokenBalance,
-            'recentEntries' => $recentEntries
+            'tokenBalance'  => $tokenBalance,
+            'recentEntries' => $recentEntries,
+            'costSummary'   => $costSummary,
         ]);
     }
 

@@ -198,6 +198,14 @@ class Lead
         return (int) ($row['c'] ?? 0);
     }
 
+    public static function searchByPhone(string $suffix, string $tenantId, int $limit = 5): array
+    {
+        return array_map([self::class, 'decode'], Database::select(
+            'SELECT * FROM leads WHERE tenant_id = ? AND phone LIKE ? LIMIT ?',
+            [$tenantId, '%' . $suffix, $limit]
+        ));
+    }
+
     // ─── Helpers ───────────────────────────────────────────────────
 
     private static function decode(array $lead): array

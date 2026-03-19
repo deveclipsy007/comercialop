@@ -9,6 +9,7 @@ use App\Helpers\AIResponseParser;
 /**
  * Provider para Google Gemini API.
  * Suporta: generateContent, google-search grounding, JSON mode.
+ * Aceita chave/modelo injetados (para AIProviderFactory) ou lê do config.
  */
 class GeminiProvider
 {
@@ -16,24 +17,37 @@ class GeminiProvider
     private string $model;
     private string $endpoint;
 
-    public function __construct()
+    /** @var array|null Último usageMetadata capturado */
+    private ?array $lastUsage = null;
+
+    public function __construct(?string $apiKey = null, ?string $model = null)
     {
-        $this->apiKey   = config('services.gemini.key', '');
-        $this->model    = config('services.gemini.model', 'gemini-2.0-flash');
+        $this->apiKey   = $apiKey   ?? config('services.gemini.key', '');
+        $this->model    = $model    ?? config('services.gemini.model', 'gemini-2.0-flash');
         $this->endpoint = config('services.gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta/models/');
     }
 
     /**
      * Gera conteúdo via Gemini com system + user prompt.
-     *
-     * @param string $systemPrompt Instruções para a IA
-     * @param string $userPrompt   Conteúdo da requisição
-     * @param array  $options      [json_mode, google_search, temperature, max_tokens]
+     * Backward-compatible: retorna string.
      */
     public function generate(string $systemPrompt, string $userPrompt, array $options = []): string
     {
+        $meta = $this->generateWithMeta($systemPrompt, $userPrompt, $options);
+        return $meta['text'];
+    }
+
+    /**
+     * Gera conteúdo e retorna texto + metadata de tokens reais.
+     *
+     * @return array{text: string, usage: array{input: int, output: int, total: int}}
+     */
+    public function generateWithMeta(string $systemPrompt, string $userPrompt, array $options = []): array
+    {
+        $emptyUsage = ['input' => 0, 'output' => 0, 'total' => 0];
+
         if (empty($this->apiKey)) {
-            return $this->mockResponse($options);
+            return ['text' => $this->mockResponse($options), 'usage' => $emptyUsage];
         }
 
         $url = $this->endpoint . $this->model . ':generateContent?key=' . $this->apiKey;
@@ -67,22 +81,71 @@ class GeminiProvider
 
         $this->logCall('gemini', $this->model, $latencyMs, !empty($response));
 
-        if (empty($response)) {
-            return '';
-        }
+        $text = $response['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
-        // Extrair texto da resposta Gemini
-        return $response['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        // Capturar tokens reais do usageMetadata
+        $usage = $emptyUsage;
+        if (isset($response['usageMetadata'])) {
+            $um = $response['usageMetadata'];
+            $usage = [
+                'input'  => (int)($um['promptTokenCount'] ?? 0),
+                'output' => (int)($um['candidatesTokenCount'] ?? 0),
+                'total'  => (int)($um['totalTokenCount'] ?? 0),
+            ];
+        }
+        $this->lastUsage = $usage;
+
+        return ['text' => $text, 'usage' => $usage];
     }
 
     /**
-     * Gera e parseia JSON diretamente.
+     * Gera e parseia JSON diretamente. Backward-compatible.
      */
     public function generateJson(string $systemPrompt, string $userPrompt, array $options = []): array
     {
         $options['json_mode'] = true;
         $raw = $this->generate($systemPrompt, $userPrompt, $options);
         return AIResponseParser::parse($raw);
+    }
+
+    /**
+     * Gera JSON e retorna resultado parseado + metadata de tokens.
+     *
+     * @return array{parsed: array, text: string, usage: array{input: int, output: int, total: int}}
+     */
+    public function generateJsonWithMeta(string $systemPrompt, string $userPrompt, array $options = []): array
+    {
+        $options['json_mode'] = true;
+        $meta = $this->generateWithMeta($systemPrompt, $userPrompt, $options);
+        return [
+            'parsed' => AIResponseParser::parse($meta['text']),
+            'text'   => $meta['text'],
+            'usage'  => $meta['usage'],
+        ];
+    }
+
+    /**
+     * Retorna o último usageMetadata capturado (útil após generate()).
+     */
+    public function getLastUsage(): array
+    {
+        return $this->lastUsage ?? ['input' => 0, 'output' => 0, 'total' => 0];
+    }
+
+    /**
+     * Retorna o modelo atual.
+     */
+    public function getModel(): string
+    {
+        return $this->model;
+    }
+
+    /**
+     * Retorna o nome do provedor.
+     */
+    public function getProviderName(): string
+    {
+        return 'gemini';
     }
 
     private function httpPost(string $url, array $body): array

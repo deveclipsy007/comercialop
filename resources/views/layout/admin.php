@@ -108,10 +108,13 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
         <nav class="hidden flex-1 lg:flex items-center justify-center gap-2 overflow-x-auto hide-scrollbar px-4">
             <?php
             $navItems = [
-                ['label' => 'Configuração Base', 'path' => '/admin',       'key' => 'admin_config'],
-                ['label' => 'Gestão de I.A', 'path' => '/admin/ai-config', 'key' => 'admin_ai'],
-                ['label' => 'Equipe',      'path' => '/admin/users', 'key' => 'admin_users'],
-                ['label' => 'Logs Globais',  'path' => '/admin/logs',  'key' => 'admin_logs'],
+                ['label' => 'Configuração Base', 'path' => '/admin',              'key' => 'admin_config'],
+                ['label' => 'Gestão de I.A',     'path' => '/admin/ai-config',    'key' => 'admin_ai'],
+                ['label' => 'Chaves API',        'path' => '/admin/ai-keys',      'key' => 'admin_keys'],
+                ['label' => 'Provedores',        'path' => '/admin/providers',    'key' => 'admin_providers'],
+                ['label' => 'Consumo',           'path' => '/admin/consumption',  'key' => 'admin_consumption'],
+                ['label' => 'Equipe',            'path' => '/admin/users',        'key' => 'admin_users'],
+                ['label' => 'Logs Globais',      'path' => '/admin/logs',         'key' => 'admin_logs'],
             ];
             $active = $active ?? '';
             foreach ($navItems as $item): 

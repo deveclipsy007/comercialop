@@ -4,20 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services\Hunter;
 
-use App\Services\AI\GeminiProvider;
+use App\Core\Session;
+use App\Services\AI\AIProviderFactory;
+use App\Services\TokenService;
 use App\Helpers\AIResponseParser;
 
 class GeminiPlacesSearchProvider implements HunterSearchProviderInterface
 {
-    private GeminiProvider $gemini;
-
-    public function __construct()
-    {
-        $this->gemini = new GeminiProvider();
-    }
-
     public function search(string $segment, string $location, array $filters = []): array
     {
+        $tenantId = $filters['tenant_id'] ?? (Session::get('tenant_id') ?: '');
         $radius = $filters['radius'] ?? 5;
         $maxResults = $filters['max_results'] ?? 10;
         
@@ -56,10 +52,22 @@ Retorne um JSON estritamente válido e NADA MAIS, usando a seguinte estrutura:
 Não inclua textos explicativos, formatadores markdown (como ```json) ou qualquer outra coisa fora o JSON cru.
 PROMPT;
 
-        $response = $this->gemini->generateJson($systemPrompt, $userPrompt, ['google_search' => true]);
+        $provider = AIProviderFactory::make('hunter', $tenantId);
+        $meta = $provider->generateJsonWithMeta($systemPrompt, $userPrompt, ['google_search' => true]);
+        $response = $meta['parsed'] ?? [];
+        $usage = $meta['usage'] ?? ['input' => 0, 'output' => 0];
+
+        if (!empty($tenantId)) {
+            $tokens = new TokenService();
+            $tokens->consume(
+                'hunter', $tenantId, Session::get('id'),
+                $provider->getProviderName(), $provider->getModel(),
+                $usage['input'], $usage['output']
+            );
+        }
 
         if (AIResponseParser::hasError($response)) {
-            error_log('[Hunter] Gemini Search Provider falhou: ' . json_encode($response));
+            error_log('[Hunter] Search Provider falhou: ' . json_encode($response));
             return [];
         }
 

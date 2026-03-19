@@ -86,27 +86,60 @@ class TokenQuota
         ];
     }
 
+    /**
+     * Registra entrada no log de consumo com dados expandidos.
+     */
     public static function logEntry(string $tenantId, string $operation, int $cost, array $meta = []): void
     {
         $id = bin2hex(random_bytes(8));
         Database::execute(
-            'INSERT INTO token_logs (id, tenant_id, operation, tokens_used, lead_id, created_at)
-             VALUES (?, ?, ?, ?, ?, datetime("now"))',
+            'INSERT INTO token_logs (id, tenant_id, user_id, operation, tokens_used, provider, model,
+             real_tokens_input, real_tokens_output, estimated_cost_usd, lead_id, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime("now"))',
             [
                 $id,
                 $tenantId,
+                $meta['user_id'] ?? null,
                 $operation,
                 $cost,
+                $meta['provider'] ?? null,
+                $meta['model'] ?? null,
+                (int)($meta['real_tokens_input'] ?? 0),
+                (int)($meta['real_tokens_output'] ?? 0),
+                (float)($meta['estimated_cost_usd'] ?? 0.0),
                 $meta['lead_id'] ?? null,
             ]
         );
     }
 
-    public static function recentEntries(string $tenantId, int $limit = 20): array
+    public static function recentEntries(string $tenantId, int $limit = 20, ?string $userId = null): array
     {
-        return Database::select(
-            'SELECT * FROM token_logs WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?',
-            [$tenantId, $limit]
+        $sql = 'SELECT * FROM token_logs WHERE tenant_id = ?';
+        $params = [$tenantId];
+
+        if ($userId !== null) {
+            $sql .= ' AND user_id = ?';
+            $params[] = $userId;
+        }
+
+        $sql .= ' ORDER BY created_at DESC LIMIT ?';
+        $params[] = $limit;
+
+        return Database::select($sql, $params);
+    }
+
+    /**
+     * Atualiza tier e limite de um tenant.
+     */
+    public static function updateTier(string $tenantId, string $tier): void
+    {
+        $limits = config('operon.token_limits');
+        $newLimit = $limits[$tier] ?? 100;
+
+        $quota = self::getOrCreate($tenantId);
+        Database::execute(
+            'UPDATE token_quotas SET tier = ?, tokens_limit = ? WHERE tenant_id = ?',
+            [$tier, $newLimit, $tenantId]
         );
     }
 }

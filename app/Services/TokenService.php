@@ -5,16 +5,32 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\TokenQuota;
+use App\Services\AI\CostCalculator;
 
 class TokenService
 {
     /**
      * Consome tokens para uma operação. Lança exceção se saldo insuficiente.
      *
-     * @throws \RuntimeException se saldo insuficiente
+     * @param string      $operation         Nome da operação (config/operon.php)
+     * @param string      $tenantId          Tenant que consome
+     * @param string|null $userId            Usuário que disparou (para tracking)
+     * @param string|null $provider          Provedor usado (gemini, openai, grok)
+     * @param string|null $model             Modelo usado (gemini-2.0-flash, gpt-4o, etc)
+     * @param int         $realInputTokens   Tokens reais de input (da API)
+     * @param int         $realOutputTokens  Tokens reais de output (da API)
+     *
+     * @throws \RuntimeException se saldo insuficiente ou rate limit
      */
-    public function consume(string $operation, string $tenantId): int
-    {
+    public function consume(
+        string  $operation,
+        string  $tenantId,
+        ?string $userId = null,
+        ?string $provider = null,
+        ?string $model = null,
+        int     $realInputTokens = 0,
+        int     $realOutputTokens = 0
+    ): int {
         $weights = config('operon.token_weights');
         $weight  = $weights[$operation] ?? $weights['default'];
         $cost    = $weight['total'];
@@ -38,8 +54,21 @@ class TokenService
         // Registrar rate limit
         file_put_contents($ratePath, time());
 
-        // Log da operação
-        TokenQuota::logEntry($tenantId, $operation, $cost);
+        // Calcular custo estimado em USD
+        $estimatedCost = 0.0;
+        if ($model && ($realInputTokens > 0 || $realOutputTokens > 0)) {
+            $estimatedCost = CostCalculator::estimate($model, $realInputTokens, $realOutputTokens);
+        }
+
+        // Log da operação com dados expandidos
+        TokenQuota::logEntry($tenantId, $operation, $cost, [
+            'user_id'            => $userId,
+            'provider'           => $provider,
+            'model'              => $model,
+            'real_tokens_input'  => $realInputTokens,
+            'real_tokens_output' => $realOutputTokens,
+            'estimated_cost_usd' => $estimatedCost,
+        ]);
 
         return $cost;
     }

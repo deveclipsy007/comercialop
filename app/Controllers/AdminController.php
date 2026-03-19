@@ -329,8 +329,6 @@ class AdminController
             'tokenLogs'  => $logs,
             'activities' => $activities
         ], 'layout.admin');
-        Session::flash('success', 'Distribuição de modelos (LLM Routing) e Configurações de Token atualizados.');
-        View::redirect('/admin/ai-config');
     }
 
     public function aiConfigs(): void
@@ -386,7 +384,317 @@ class AdminController
             json_encode($currentSettings), $tenantId
         ]);
 
+        // Atualizar tier/limite de tokens se enviado
+        $tier = trim($_POST['token_tier'] ?? '');
+        if (in_array($tier, ['starter', 'pro', 'elite'], true)) {
+            TokenQuota::updateTier($tenantId, $tier);
+        }
+
         Session::flash('success', 'Distribuição de I.A e Roteamento de LLM atualizados.');
         View::redirect('/admin/ai-config');
+    }
+
+    // ─── Gestão de Chaves de API ─────────────────────────────────────
+
+    public function aiKeys(): void
+    {
+        if (!Session::get('admin_auth')) {
+            View::redirect('/admin/login');
+            return;
+        }
+
+        $tenantId = Session::adminTenantId();
+        $keys = \App\Models\AiApiKey::listAll($tenantId);
+
+        // Verificar quais provedores têm chave no .env como fallback
+        $envStatus = [
+            'gemini' => !empty($_ENV['GEMINI_API_KEY'] ?? getenv('GEMINI_API_KEY')),
+            'openai' => !empty($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY')),
+            'grok'   => !empty($_ENV['GROK_API_KEY'] ?? getenv('GROK_API_KEY')),
+        ];
+
+        View::render('admin/ai_keys', [
+            'active'    => 'admin_keys',
+            'keys'      => $keys,
+            'envStatus' => $envStatus,
+        ], 'layout.admin');
+    }
+
+    public function saveAiKey(): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403);
+            return;
+        }
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token CSRF inválido.');
+            View::redirect('/admin/ai-keys');
+            return;
+        }
+
+        $tenantId = Session::adminTenantId();
+        $provider = trim($_POST['provider'] ?? '');
+        $plainKey = trim($_POST['api_key'] ?? '');
+        $label    = trim($_POST['label'] ?? '');
+
+        if (!in_array($provider, ['gemini', 'openai', 'grok'], true)) {
+            Session::flash('error', 'Provedor inválido.');
+            View::redirect('/admin/ai-keys');
+            return;
+        }
+
+        if (empty($plainKey)) {
+            Session::flash('error', 'A chave de API não pode estar vazia.');
+            View::redirect('/admin/ai-keys');
+            return;
+        }
+
+        try {
+            \App\Models\AiApiKey::upsert($provider, $plainKey, $tenantId, $label);
+            Session::flash('success', 'Chave de API para ' . strtoupper($provider) . ' salva com sucesso.');
+        } catch (\Throwable $e) {
+            error_log('[AdminController] Erro ao salvar chave: ' . $e->getMessage());
+            Session::flash('error', 'Erro ao salvar chave: ' . $e->getMessage());
+        }
+
+        View::redirect('/admin/ai-keys');
+    }
+
+    public function deleteAiKey(): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403);
+            return;
+        }
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token CSRF inválido.');
+            View::redirect('/admin/ai-keys');
+            return;
+        }
+
+        $id = trim($_POST['key_id'] ?? '');
+        if (empty($id)) {
+            Session::flash('error', 'ID da chave não informado.');
+            View::redirect('/admin/ai-keys');
+            return;
+        }
+
+        try {
+            \App\Models\AiApiKey::delete($id);
+            Session::flash('success', 'Chave de API removida.');
+        } catch (\Throwable $e) {
+            Session::flash('error', 'Erro ao remover chave.');
+        }
+
+        View::redirect('/admin/ai-keys');
+    }
+
+    public function testAiKey(): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Não autorizado']);
+            return;
+        }
+
+        header('Content-Type: application/json');
+
+        $provider = trim($_POST['provider'] ?? '');
+        $tenantId = Session::adminTenantId();
+
+        if (!in_array($provider, ['gemini', 'openai', 'grok'], true)) {
+            echo json_encode(['success' => false, 'message' => 'Provedor inválido.']);
+            return;
+        }
+
+        try {
+            $ai = \App\Services\AI\AIProviderFactory::make('test_connection', $tenantId);
+            $result = $ai->generate('Responda apenas: OK', 'Diga OK.');
+
+            if (!empty($result)) {
+                echo json_encode([
+                    'success'  => true,
+                    'message'  => 'Conexão bem-sucedida! Provider: ' . $ai->getProviderName() . ' | Model: ' . $ai->getModel(),
+                    'provider' => $ai->getProviderName(),
+                    'model'    => $ai->getModel(),
+                ]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Resposta vazia do provedor.']);
+            }
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => 'Erro: ' . $e->getMessage()]);
+        }
+    }
+
+    // ─── Configuração de Provedores por Operação ─────────────────────
+
+    public function providerConfigs(): void
+    {
+        if (!Session::get('admin_auth')) {
+            View::redirect('/admin/login');
+            return;
+        }
+
+        $tenantId = Session::adminTenantId();
+        $configs = \App\Models\AiProviderConfig::listAll($tenantId);
+        $operonConfig = require __DIR__ . '/../../config/operon.php';
+        $operations = array_keys($operonConfig['token_weights'] ?? []);
+
+        View::render('admin/provider_configs', [
+            'active'     => 'admin_providers',
+            'configs'    => $configs,
+            'operations' => $operations,
+        ], 'layout.admin');
+    }
+
+    public function saveProviderConfig(): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403);
+            return;
+        }
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token CSRF inválido.');
+            View::redirect('/admin/providers');
+            return;
+        }
+
+        $tenantId  = Session::adminTenantId();
+        $operation = trim($_POST['operation'] ?? '');
+        $provider  = trim($_POST['provider'] ?? '');
+        $model     = trim($_POST['model'] ?? '');
+        $priority  = (int) ($_POST['priority'] ?? 0);
+        $isActive  = !empty($_POST['is_active']) ? 1 : 0;
+
+        if (empty($operation) || empty($provider) || empty($model)) {
+            Session::flash('error', 'Operação, provedor e modelo são obrigatórios.');
+            View::redirect('/admin/providers');
+            return;
+        }
+
+        try {
+            \App\Models\AiProviderConfig::upsert([
+                'tenant_id' => $tenantId,
+                'operation' => $operation,
+                'provider'  => $provider,
+                'model'     => $model,
+                'priority'  => $priority,
+                'is_active' => $isActive,
+            ]);
+            Session::flash('success', 'Configuração do provedor para "' . $operation . '" salva.');
+        } catch (\Throwable $e) {
+            Session::flash('error', 'Erro ao salvar configuração: ' . $e->getMessage());
+        }
+
+        View::redirect('/admin/providers');
+    }
+
+    public function deleteProviderConfig(): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403);
+            return;
+        }
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token CSRF inválido.');
+            View::redirect('/admin/providers');
+            return;
+        }
+
+        $id = trim($_POST['config_id'] ?? '');
+        if (!empty($id)) {
+            Database::execute('DELETE FROM ai_provider_configs WHERE id = ?', [$id]);
+            Session::flash('success', 'Configuração removida (revertido ao default).');
+        }
+
+        View::redirect('/admin/providers');
+    }
+
+    // ─── Dashboard de Consumo ────────────────────────────────────────
+
+    public function consumption(): void
+    {
+        if (!Session::get('admin_auth')) {
+            View::redirect('/admin/login');
+            return;
+        }
+
+        $tenantId = Session::adminTenantId();
+        $period = $_GET['period'] ?? '30';
+        $daysAgo = max(1, min(365, (int) $period));
+        $since = date('Y-m-d H:i:s', strtotime("-{$daysAgo} days"));
+
+        // Resumo geral
+        $summary = Database::selectFirst("
+            SELECT COUNT(*) as total_ops,
+                   COALESCE(SUM(tokens_used), 0) as total_credits,
+                   COALESCE(SUM(real_tokens_input + real_tokens_output), 0) as total_real_tokens,
+                   COALESCE(SUM(estimated_cost_usd), 0) as total_cost_usd
+            FROM token_logs WHERE tenant_id = ? AND created_at >= ?
+        ", [$tenantId, $since]);
+
+        // Per-user
+        $perUser = Database::select("
+            SELECT tl.user_id, u.name, COUNT(*) as ops,
+                   SUM(tl.tokens_used) as credits,
+                   SUM(tl.real_tokens_input + tl.real_tokens_output) as real_tokens,
+                   SUM(tl.estimated_cost_usd) as cost_usd
+            FROM token_logs tl
+            LEFT JOIN users u ON tl.user_id = u.id
+            WHERE tl.tenant_id = ? AND tl.created_at >= ?
+            GROUP BY tl.user_id
+            ORDER BY cost_usd DESC
+        ", [$tenantId, $since]);
+
+        // Per-operation
+        $perOperation = Database::select("
+            SELECT operation, provider, model, COUNT(*) as calls,
+                   SUM(real_tokens_input) as input_tokens,
+                   SUM(real_tokens_output) as output_tokens,
+                   SUM(estimated_cost_usd) as cost,
+                   AVG(estimated_cost_usd) as avg_cost
+            FROM token_logs WHERE tenant_id = ? AND created_at >= ?
+            GROUP BY operation, provider, model
+            ORDER BY cost DESC
+        ", [$tenantId, $since]);
+
+        View::render('admin/consumption', [
+            'active'       => 'admin_consumption',
+            'summary'      => $summary,
+            'perUser'      => $perUser,
+            'perOperation' => $perOperation,
+            'period'       => $daysAgo,
+        ], 'layout.admin');
+    }
+
+    public function consumptionApi(): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Não autorizado']);
+            return;
+        }
+
+        header('Content-Type: application/json');
+
+        $tenantId = Session::adminTenantId();
+        $days = max(1, min(365, (int) ($_GET['days'] ?? 30)));
+
+        $trend = Database::select("
+            SELECT DATE(created_at) as day,
+                   SUM(estimated_cost_usd) as cost,
+                   COUNT(*) as ops,
+                   SUM(real_tokens_input + real_tokens_output) as tokens
+            FROM token_logs
+            WHERE tenant_id = ? AND created_at >= date('now', '-' || ? || ' days')
+            GROUP BY DATE(created_at)
+            ORDER BY day ASC
+        ", [$tenantId, $days]);
+
+        echo json_encode(['trend' => $trend]);
     }
 }

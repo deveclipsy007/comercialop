@@ -7,17 +7,13 @@ namespace App\Services\Hunter;
 use App\Models\CompanyProfile;
 use App\Models\HunterResult;
 use App\Models\HunterResultAnalysis;
-use App\Services\AI\GeminiProvider;
+use App\Core\Session;
+use App\Services\AI\AIProviderFactory;
+use App\Services\TokenService;
 use App\Helpers\AIResponseParser;
 
 class HunterAiAnalyzer
 {
-    private GeminiProvider $gemini;
-
-    public function __construct()
-    {
-        $this->gemini = new GeminiProvider();
-    }
 
     /**
      * @param string $resultId The HunterResult ID
@@ -84,7 +80,18 @@ Importante:
 - priority_score vai de 0 a 100.
 PROMPT;
 
-        $response = $this->gemini->generateJson($systemPrompt, $userPrompt, []);
+        $provider = AIProviderFactory::make('hunter', $tenantId);
+        $meta = $provider->generateJsonWithMeta($systemPrompt, $userPrompt, []);
+        $response = $meta['parsed'] ?? [];
+        $usage = $meta['usage'] ?? ['input' => 0, 'output' => 0];
+
+        // Registrar consumo de tokens
+        $tokens = new TokenService();
+        $tokens->consume(
+            'hunter', $tenantId, Session::get('id'),
+            $provider->getProviderName(), $provider->getModel(),
+            $usage['input'], $usage['output']
+        );
 
         if (AIResponseParser::hasError($response)) {
             error_log('[HunterAiAnalyzer] Falhou ao analisar lead ' . $resultId . ': ' . json_encode($response));

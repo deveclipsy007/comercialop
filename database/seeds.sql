@@ -17,7 +17,7 @@ INSERT OR IGNORE INTO users (id, tenant_id, name, email, password, role) VALUES 
     'tenant_demo_001',
     'Admin Operon',
     'admin@operon.ai',
-    '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TgxwchLwWwvhqXkiJJWPrfJnS9TS',
+    '$2y$12$aG1Y7oUjEWL/jfz/52RHnu3IjaChf0NuF4rRNdKjjhFcwGVp5tPjK',
     'admin'
 );
 

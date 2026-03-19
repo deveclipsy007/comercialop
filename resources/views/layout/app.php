@@ -141,44 +141,78 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
             <img src="<?= e($wlLogo) ?>" alt="Operon Intelligence" class="h-12 lg:h-[52px] w-auto object-contain relative -left-2 transition-transform hover:scale-105">
         </a>
 
-        <!-- Primary Navigation (Pills) -->
-        <nav class="hidden flex-1 lg:flex items-center justify-center gap-2 overflow-x-auto hide-scrollbar px-4">
+        <!-- Primary Navigation (Grouped Dropdowns) -->
+        <nav class="hidden flex-1 lg:flex items-center justify-center gap-4 px-4 h-full">
             <?php
-            $navItems = [
-                ['label' => 'Overview',  'path' => '/',          'key' => 'dashboard', 'icon' => 'grid_view'],
-                ['label' => 'Vault',     'path' => '/vault',     'key' => 'vault',     'icon' => 'contacts'],
-                ['label' => 'Atlas',     'path' => '/atlas',     'key' => 'atlas',     'icon' => 'map'],
-                ['label' => 'Hunter',    'path' => '/hunter',    'key' => 'hunter',    'icon' => 'travel_explore'],
-                ['label' => 'Genesis',   'path' => '/genesis',   'key' => 'genesis',   'icon' => 'upload_file'],
-                ['label' => 'Agenda',    'path' => '/agenda',    'key' => 'agenda',    'icon' => 'calendar_today'],
-                ['label' => 'Follow-up', 'path' => '/follow-up', 'key' => 'agenda',    'icon' => 'notifications_active'],
-                ['label' => 'SPIN Hub',  'path' => '/spin',      'key' => 'spin',      'icon' => 'psychology_alt'],
-                ['label' => 'Knowledge', 'path' => '/knowledge', 'key' => 'knowledge', 'icon' => 'neurology'],
+            $navGroups = [
+                'Inteligência' => [
+                    'icon' => 'psychology',
+                    'items' => [
+                        ['label' => 'Overview',  'path' => '/',          'key' => 'dashboard', 'icon' => 'grid_view'],
+                        ['label' => 'SPIN Hub',  'path' => '/spin',      'key' => 'spin',      'icon' => 'psychology_alt'],
+                        ['label' => 'Knowledge', 'path' => '/knowledge', 'key' => 'knowledge', 'icon' => 'neurology'],
+                    ]
+                ],
+                'Exploração' => [
+                    'icon' => 'explore',
+                    'items' => [
+                        ['label' => 'Hunter',    'path' => '/hunter',    'key' => 'hunter',    'icon' => 'travel_explore'],
+                        ['label' => 'Atlas',     'path' => '/atlas',     'key' => 'atlas',     'icon' => 'map'],
+                        ['label' => 'Genesis',   'path' => '/genesis',   'key' => 'genesis',   'icon' => 'upload_file'],
+                    ]
+                ],
+                'Interação' => [
+                    'icon' => 'forum',
+                    'items' => [
+                        ['label' => 'WhatsApp',  'path' => '/whatsapp',  'key' => 'whatsapp',  'icon' => 'chat'],
+                        ['label' => 'Follow-up', 'path' => '/follow-up', 'key' => 'agenda',    'icon' => 'notifications_active'],
+                    ]
+                ],
+                'Organização' => [
+                    'icon' => 'inventory_2',
+                    'items' => [
+                        ['label' => 'Vault',     'path' => '/vault',     'key' => 'vault',     'icon' => 'contacts'],
+                        ['label' => 'Agenda',    'path' => '/agenda',    'key' => 'agenda',    'icon' => 'calendar_today'],
+                    ]
+                ],
             ];
 
-            // Filter nav items based on WL features
-            $filteredNav = [];
-            foreach ($navItems as $item) {
-                if (is_array($wlFeatures) && !in_array($item['key'], $wlFeatures)) {
-                    continue;
-                }
-                $filteredNav[] = $item;
-            }
-
             $active = $active ?? '';
-            foreach ($filteredNav as $item): 
-                $isActive = $active === $item['key'];
+            foreach ($navGroups as $groupLabel => $group): 
+                $groupActive = false;
+                foreach ($group['items'] as $item) {
+                    if ($active === $item['key']) {
+                        $groupActive = true;
+                        break;
+                    }
+                }
             ?>
-            <a href="<?= $item['path'] ?>"
-               class="flex items-center gap-1.5 h-[40px] px-4 rounded-pill text-sm transition-all duration-200 whitespace-nowrap
-                      <?= $isActive
-                          ? 'bg-lime text-bg font-medium shadow-glow'
-                          : 'bg-surface border border-white/5 text-muted hover:text-text hover:bg-surface2' ?>">
-                <?php if (!empty($item['icon'])): ?>
-                <span class="material-symbols-outlined" style="font-size:15px;font-variation-settings:'FILL' 1,'wght' 400"><?= $item['icon'] ?></span>
-                <?php endif; ?>
-                <?= $item['label'] ?>
-            </a>
+            <div class="relative group/nav-dropdown h-full flex items-center">
+                <button class="flex items-center gap-2 h-11 px-4 rounded-pill text-sm transition-all duration-200 whitespace-nowrap border
+                               <?= $groupActive
+                                   ? 'bg-lime/10 border-lime/40 text-lime shadow-glow-sm'
+                                   : 'bg-surface border-white/5 text-muted hover:text-text hover:bg-surface2 hover:border-white/10' ?>">
+                    <span class="material-symbols-outlined text-[18px]"><?= $group['icon'] ?></span>
+                    <span class="font-bold"><?= $groupLabel ?></span>
+                    <span class="material-symbols-outlined text-xs transition-transform duration-200 group-hover/nav-dropdown:rotate-180">expand_more</span>
+                </button>
+
+                <!-- Dropdown Content -->
+                <div class="absolute top-[80%] left-1/2 -translate-x-1/2 pt-4 opacity-0 pointer-events-none group-hover/nav-dropdown:opacity-100 group-hover/nav-dropdown:pointer-events-auto transition-all duration-200 z-50">
+                    <div class="bg-surface2 border border-stroke rounded-[24px] shadow-soft p-2 min-w-[220px] backdrop-blur-xl">
+                        <?php foreach ($group['items'] as $item): 
+                            $isActive = $active === $item['key'];
+                        ?>
+                        <a href="<?= $item['path'] ?>" 
+                           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all
+                                  <?= $isActive ? 'bg-lime text-bg font-bold' : 'text-muted hover:text-text hover:bg-surface3' ?>">
+                            <span class="material-symbols-outlined text-[18px]"><?= $item['icon'] ?></span>
+                            <span class="text-sm"><?= $item['label'] ?></span>
+                        </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
             <?php endforeach; ?>
         </nav>
 

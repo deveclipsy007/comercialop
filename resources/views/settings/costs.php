@@ -18,14 +18,23 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-5 mb-8">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
                     <div class="bg-surface2 border border-stroke rounded-card p-6">
-                        <p class="text-[11px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Uso Atual (Tokens)</p>
+                        <p class="text-[11px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Uso Atual (Créditos)</p>
                         <p class="text-3xl font-bold text-text tracking-tight"><?= number_format($tokenBalance['used'] ?? 0, 0, ',', '.') ?></p>
                     </div>
                     <div class="bg-surface2 border border-stroke rounded-card p-6">
                         <p class="text-[11px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Limite Mensal</p>
                         <p class="text-3xl font-bold text-text tracking-tight"><?= number_format($tokenBalance['limit'] ?? 0, 0, ',', '.') ?></p>
+                    </div>
+                    <div class="bg-surface2 border border-stroke rounded-card p-6">
+                        <p class="text-[11px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Tokens Reais (30d)</p>
+                        <p class="text-3xl font-bold text-text tracking-tight"><?= number_format($costSummary['total_real_tokens'] ?? 0, 0, ',', '.') ?></p>
+                    </div>
+                    <div class="bg-surface2 border border-stroke rounded-card p-6 relative overflow-hidden">
+                        <div class="absolute -right-3 -top-3 size-14 bg-lime/5 rounded-full blur-xl pointer-events-none"></div>
+                        <p class="text-[11px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Custo Est. (30d)</p>
+                        <p class="text-3xl font-bold text-lime tracking-tight">$<?= number_format($costSummary['total_cost'] ?? 0, 4, '.', ',') ?></p>
                     </div>
                 </div>
 
@@ -64,12 +73,23 @@
                 <div class="space-y-3">
                     <?php foreach($recentEntries as $entry): ?>
                     <div class="flex items-center justify-between p-4 bg-surface2 border border-stroke rounded-card hover:bg-surface3 transition-colors">
-                        <div>
+                        <div class="min-w-0 flex-1">
                             <p class="text-sm font-bold text-text mb-0.5"><?= e($entry['operation'] ?? 'Operação IA') ?></p>
-                            <p class="text-[11px] font-medium text-muted"><?= (new DateTime($entry['created_at']))->format('d/m/Y H:i') ?></p>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <p class="text-[11px] font-medium text-muted"><?= (new DateTime($entry['created_at']))->format('d/m/Y H:i') ?></p>
+                                <?php if (!empty($entry['provider'])): ?>
+                                <span class="text-[10px] font-bold text-subtle bg-surface border border-stroke rounded-full px-2 py-0.5"><?= e(ucfirst($entry['provider'])) ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($entry['model'])): ?>
+                                <span class="text-[10px] font-mono text-subtle"><?= e($entry['model']) ?></span>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            <p class="text-sm font-bold text-lime tracking-wide">-<?= e((string)($entry['tokens_consumed'] ?? $entry['tokens_used'] ?? 0)) ?> tk</p>
+                        <div class="text-right flex-shrink-0 ml-4">
+                            <p class="text-sm font-bold text-lime tracking-wide">-<?= e((string)($entry['tokens_consumed'] ?? $entry['tokens_used'] ?? 0)) ?> cr</p>
+                            <?php if (!empty($entry['estimated_cost_usd'])): ?>
+                            <p class="text-[10px] font-bold text-muted">$<?= number_format((float)$entry['estimated_cost_usd'], 4, '.', ',') ?></p>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <?php endforeach; ?>

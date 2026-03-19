@@ -41,13 +41,15 @@ class WhatsAppController
     private ConnectionService          $connection;
     private SyncService                $sync;
     private ConversationAnalysisService $analysis;
+    private \App\Services\WhatsApp\WhatsAppIntelligenceService $intelligence;
 
     public function __construct()
     {
         $this->ensureTablesExist();
-        $this->connection = new ConnectionService();
-        $this->sync       = new SyncService();
-        $this->analysis   = new ConversationAnalysisService();
+        $this->connection   = new ConnectionService();
+        $this->sync         = new SyncService();
+        $this->analysis     = new ConversationAnalysisService();
+        $this->intelligence = new \App\Services\WhatsApp\WhatsAppIntelligenceService();
     }
 
     // ─── Auto-migration ──────────────────────────────────────────────────────
@@ -60,26 +62,73 @@ class WhatsAppController
                 []
             );
 
-            if ($exists) return;
+            $basePath = defined('ROOT_PATH') ? ROOT_PATH : dirname(__DIR__, 2);
 
-            $sqlPath = defined('ROOT_PATH')
-                ? ROOT_PATH . '/database/migrations/005_whatsapp_module.sql'
-                : dirname(__DIR__, 2) . '/database/migrations/005_whatsapp_module.sql';
+            if (!$exists) {
+                $candidates = [
+                    $basePath . '/database/migrations/008_whatsapp_full.sql',
+                    $basePath . '/database/migrations/005_whatsapp_module.sql',
+                ];
 
-            if (!file_exists($sqlPath)) {
-                error_log('[WhatsAppController] Migration file not found: ' . $sqlPath);
-                return;
+                $sqlPath = null;
+                foreach ($candidates as $candidate) {
+                    if (file_exists($candidate)) {
+                        $sqlPath = $candidate;
+                        break;
+                    }
+                }
+
+                if (!$sqlPath) {
+                    error_log('[WhatsAppController] Migration file not found. Tried: ' . implode(', ', $candidates));
+                    return;
+                }
+
+                $this->executeSqlFile($sqlPath);
+                error_log('[WhatsAppController] WhatsApp migration applied from: ' . basename($sqlPath));
             }
 
-            $sql   = file_get_contents($sqlPath);
-            $clean = preg_replace('/--[^\n]*/', '', $sql);
-            foreach (array_filter(array_map('trim', explode(';', $clean))) as $stmt) {
-                Database::execute($stmt, []);
-            }
+            // Migration 009: Intelligence Hub (1:N links + analysis columns)
+            $this->ensureIntelligenceMigration($basePath);
 
-            error_log('[WhatsAppController] Migration 005_whatsapp_module aplicada automaticamente.');
         } catch (\Throwable $e) {
             error_log('[WhatsAppController] ensureTablesExist() falhou: ' . $e->getMessage());
+        }
+    }
+
+    private function ensureIntelligenceMigration(string $basePath): void
+    {
+        // Check if 1:N migration already applied by looking at the UNIQUE constraint
+        $schema = Database::selectFirst(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='whatsapp_lead_links'", []
+        );
+        $needsRebuild = $schema && str_contains($schema['sql'] ?? '', 'UNIQUE(tenant_id, conversation_id)')
+                      && !str_contains($schema['sql'] ?? '', 'UNIQUE(tenant_id, conversation_id, lead_id)');
+
+        if ($needsRebuild) {
+            $sqlPath = $basePath . '/database/migrations/009_whatsapp_intelligence.sql';
+            if (file_exists($sqlPath)) {
+                $this->executeSqlFile($sqlPath);
+                error_log('[WhatsAppController] Intelligence migration (1:N links) applied.');
+            }
+        }
+
+        // Add missing columns to whatsapp_conversation_analyses (safe: catches duplicate column errors)
+        $columns = ['tenant_id TEXT DEFAULT ""', 'analysis_type TEXT DEFAULT "full"', 'interest_score INTEGER DEFAULT NULL'];
+        foreach ($columns as $col) {
+            try {
+                Database::execute("ALTER TABLE whatsapp_conversation_analyses ADD COLUMN {$col}", []);
+            } catch (\Throwable $e) {
+                // Column already exists — ignore
+            }
+        }
+    }
+
+    private function executeSqlFile(string $path): void
+    {
+        $sql   = file_get_contents($path);
+        $clean = preg_replace('/--[^\n]*/', '', $sql);
+        foreach (array_filter(array_map('trim', explode(';', $clean))) as $stmt) {
+            Database::execute($stmt, []);
         }
     }
 
@@ -125,27 +174,26 @@ class WhatsAppController
             $this->jsonError('Token CSRF inválido');
         }
 
-        $baseUrl      = trim($_POST['base_url']      ?? '');
-        $apiKey       = trim($_POST['api_key']       ?? '');
         $instanceName = trim($_POST['instance_name'] ?? '');
+        // Sanitize: remove spaces and special characters for a safe URL slug
+        $instanceName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $instanceName);
 
-        if (!$baseUrl || !$apiKey || !$instanceName) {
-            $this->jsonError('Preencha todos os campos obrigatórios.');
+        if (!$instanceName) {
+            $this->jsonError('Informe um nome para a instância.');
         }
 
-        $result = $this->connection->setupIntegration($tenantId, [
-            'base_url'      => $baseUrl,
-            'api_key'       => $apiKey,
-            'instance_name' => $instanceName,
-        ]);
+        // Usar config do servidor (base_url e api_key vêm de config/services.php)
+        $result = $this->connection->setupAndConnect($tenantId, $instanceName);
 
         if (!$result['success']) {
             $this->jsonError($result['error'] ?? 'Falha ao configurar integração.');
         }
 
         $this->jsonSuccess([
-            'message'     => 'Integração configurada. Gerando QR Code…',
+            'message'     => 'Instância criada com sucesso.',
             'integration' => $result['integration'],
+            'qr_code'     => $result['qr_code'] ?? null,
+            'qr_status'   => $result['qr_status'] ?? 'unknown',
         ]);
     }
 
@@ -230,13 +278,19 @@ class WhatsAppController
             $this->jsonError('Token CSRF inválido');
         }
 
-        $result = $this->connection->disconnect($tenantId);
-
-        if (!$result['success']) {
-            $this->jsonError($result['error'] ?? 'Falha ao desconectar.');
+        try {
+            $this->connection->disconnect($tenantId);
+        } catch (\Exception $e) {
+            // Se falhar na API, ainda assim tentamos limpar localmente se o usuário quiser resetar
+            error_log("[WhatsApp] API Logout failed: " . $e->getMessage());
         }
 
-        $this->jsonSuccess(['message' => 'WhatsApp desconectado com sucesso.']);
+        $integration = WhatsAppIntegration::findByTenant($tenantId);
+        if ($integration) {
+            WhatsAppIntegration::delete($integration['id']);
+        }
+
+        $this->jsonSuccess(['message' => 'WhatsApp desconectado e registros limpos.']);
     }
 
     // ─── GET /whatsapp/conversations ─────────────────────────────────────────
@@ -292,18 +346,26 @@ class WhatsAppController
         $messages = WhatsAppMessage::findByConversation($id, $limit, $offset);
         $total    = WhatsAppMessage::countByConversation($id);
 
-        $leadLink       = WhatsAppLeadLink::findByConversation($tenantId, $id);
-        $lead           = null;
-        if ($leadLink) {
-            $lead = Lead::findByTenant($leadLink['lead_id'], $tenantId);
+        // 1:N Lead Links
+        $leadLinks  = WhatsAppLeadLink::findAllByConversation($tenantId, $id);
+        $leads      = [];
+        foreach ($leadLinks as $link) {
+            $l = Lead::findByTenant($link['lead_id'], $tenantId);
+            if ($l) $leads[] = $l;
         }
+        // Backward compat
+        $leadLink = !empty($leadLinks) ? $leadLinks[0] : null;
+        $lead     = !empty($leads)     ? $leads[0]     : null;
 
-        $latestAnalysis = WhatsAppConversationAnalysis::latestByConversation($id);
-        $allAnalyses    = WhatsAppConversationAnalysis::allByConversation($id);
+        // Análises por tipo
+        $summaryAnalysis   = WhatsAppConversationAnalysis::latestByType($id, 'summary');
+        $strategicAnalysis = WhatsAppConversationAnalysis::latestByType($id, 'strategic');
+        $scoreAnalysis     = WhatsAppConversationAnalysis::latestByType($id, 'interest_score');
+        $latestAnalysis    = WhatsAppConversationAnalysis::latestByConversation($id);
 
-        // Sugestão de link por telefone
+        // Sugestão de link por telefone (apenas se não tem nenhum lead vinculado)
         $suggestedLeads = [];
-        if (!$leadLink && !empty($conversation['phone'])) {
+        if (empty($leadLinks) && !empty($conversation['phone'])) {
             $phone = preg_replace('/\D/', '', $conversation['phone']);
             if (strlen($phone) >= 8) {
                 $suffix = substr($phone, -9);
@@ -312,18 +374,49 @@ class WhatsAppController
         }
 
         View::render('whatsapp/conversation', [
-            'active'          => 'whatsapp',
-            'conversation'    => $conversation,
-            'messages'        => $messages,
-            'total'           => $total,
-            'page'            => $page,
-            'pages'           => (int) ceil($total / $limit),
-            'leadLink'        => $leadLink,
-            'lead'            => $lead,
-            'latestAnalysis'  => $latestAnalysis,
-            'allAnalyses'     => $allAnalyses,
-            'suggestedLeads'  => $suggestedLeads,
-            'csrf'            => Session::csrf(),
+            'active'             => 'whatsapp',
+            'conversation'       => $conversation,
+            'messages'           => $messages,
+            'total'              => $total,
+            'page'               => $page,
+            'pages'              => (int) ceil($total / $limit),
+            'leadLinks'          => $leadLinks,
+            'leads'              => $leads,
+            'leadLink'           => $leadLink,
+            'lead'               => $lead,
+            'summaryAnalysis'    => $summaryAnalysis,
+            'strategicAnalysis'  => $strategicAnalysis,
+            'scoreAnalysis'      => $scoreAnalysis,
+            'latestAnalysis'     => $latestAnalysis,
+            'suggestedLeads'     => $suggestedLeads,
+            'csrf'               => Session::csrf(),
+        ]);
+    }
+
+    // ─── GET /whatsapp/conversation/:id/messages ─────────────────────────────
+
+    public function conversationMessages(string $id): void
+    {
+        Session::requireAuth();
+        $tenantId = Session::get('tenant_id');
+
+        $conversation = WhatsAppConversation::findByIdAndTenant($id, $tenantId);
+        if (!$conversation) {
+            $this->jsonError('Conversa não encontrada.', 404);
+        }
+
+        $page   = max(1, (int) ($_GET['page'] ?? 1));
+        $limit  = 50;
+        $offset = ($page - 1) * $limit;
+
+        $messages = WhatsAppMessage::findByConversation($id, $limit, $offset);
+        $total    = WhatsAppMessage::countByConversation($id);
+
+        $this->jsonSuccess([
+            'messages' => $messages,
+            'total'    => $total,
+            'page'     => $page,
+            'pages'    => (int) ceil($total / $limit),
         ]);
     }
 
@@ -380,7 +473,14 @@ class WhatsAppController
             $this->jsonError('Conversa não encontrada.', 404);
         }
 
-        WhatsAppLeadLink::unlink($tenantId, $id);
+        $leadId = trim($_POST['lead_id'] ?? '');
+        if ($leadId) {
+            // Remove link específico (1:N)
+            WhatsAppLeadLink::unlinkOne($tenantId, $id, $leadId);
+        } else {
+            // Remove todos os links (backward compat)
+            WhatsAppLeadLink::unlink($tenantId, $id);
+        }
 
         $this->jsonSuccess(['message' => 'Vínculo removido.']);
     }
@@ -410,6 +510,118 @@ class WhatsAppController
                 ? 'Análise já está atualizada (sem novas mensagens).'
                 : 'Análise de IA concluída.',
         ]);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INTELLIGENCE HUB — 4 novos endpoints de IA
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ─── POST /whatsapp/conversation/:id/summary ──────────────────────────────
+
+    public function summary(string $id): void
+    {
+        Session::requireAuth();
+        $tenantId = Session::get('tenant_id');
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            $this->jsonError('Token CSRF inválido');
+        }
+
+        $conversation = WhatsAppConversation::findByIdAndTenant($id, $tenantId);
+        if (!$conversation) {
+            $this->jsonError('Conversa não encontrada.', 404);
+        }
+
+        try {
+            $result = $this->intelligence->generateSummary($id, $tenantId);
+            if (!$result['success']) {
+                $this->jsonError($result['error'] ?? 'Falha ao gerar resumo.');
+            }
+            $this->jsonSuccess($result);
+        } catch (\RuntimeException $e) {
+            $this->jsonError($e->getMessage());
+        }
+    }
+
+    // ─── POST /whatsapp/conversation/:id/next-message ─────────────────────────
+
+    public function nextMessage(string $id): void
+    {
+        Session::requireAuth();
+        $tenantId = Session::get('tenant_id');
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            $this->jsonError('Token CSRF inválido');
+        }
+
+        $conversation = WhatsAppConversation::findByIdAndTenant($id, $tenantId);
+        if (!$conversation) {
+            $this->jsonError('Conversa não encontrada.', 404);
+        }
+
+        try {
+            $result = $this->intelligence->generateNextMessage($id, $tenantId);
+            if (!$result['success']) {
+                $this->jsonError($result['error'] ?? 'Falha ao gerar mensagem.');
+            }
+            $this->jsonSuccess($result);
+        } catch (\RuntimeException $e) {
+            $this->jsonError($e->getMessage());
+        }
+    }
+
+    // ─── POST /whatsapp/conversation/:id/strategic ────────────────────────────
+
+    public function strategicAnalysis(string $id): void
+    {
+        Session::requireAuth();
+        $tenantId = Session::get('tenant_id');
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            $this->jsonError('Token CSRF inválido');
+        }
+
+        $conversation = WhatsAppConversation::findByIdAndTenant($id, $tenantId);
+        if (!$conversation) {
+            $this->jsonError('Conversa não encontrada.', 404);
+        }
+
+        try {
+            $result = $this->intelligence->runStrategicAnalysis($id, $tenantId);
+            if (!$result['success']) {
+                $this->jsonError($result['error'] ?? 'Falha na análise estratégica.');
+            }
+            $this->jsonSuccess($result);
+        } catch (\RuntimeException $e) {
+            $this->jsonError($e->getMessage());
+        }
+    }
+
+    // ─── POST /whatsapp/conversation/:id/interest-score ───────────────────────
+
+    public function interestScore(string $id): void
+    {
+        Session::requireAuth();
+        $tenantId = Session::get('tenant_id');
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            $this->jsonError('Token CSRF inválido');
+        }
+
+        $conversation = WhatsAppConversation::findByIdAndTenant($id, $tenantId);
+        if (!$conversation) {
+            $this->jsonError('Conversa não encontrada.', 404);
+        }
+
+        try {
+            $result = $this->intelligence->calculateInterestScore($id, $tenantId);
+            if (!$result['success']) {
+                $this->jsonError($result['error'] ?? 'Falha ao calcular score.');
+            }
+            $this->jsonSuccess($result);
+        } catch (\RuntimeException $e) {
+            $this->jsonError($e->getMessage());
+        }
     }
 
     // ─── GET /whatsapp/webhook ───────────────────────────────────────────────
@@ -528,6 +740,8 @@ class WhatsAppController
 
     private function jsonSuccess(array $data, int $code = 200): never
     {
+        // Limpar qualquer output buffered (warnings PHP, etc.) que possa corromper o JSON
+        while (ob_get_level()) ob_end_clean();
         http_response_code($code);
         header('Content-Type: application/json');
         echo json_encode(['success' => true, ...$data]);
@@ -536,6 +750,7 @@ class WhatsAppController
 
     private function jsonError(string $message, int $code = 400): never
     {
+        while (ob_get_level()) ob_end_clean();
         http_response_code($code);
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'error' => $message]);

@@ -32,6 +32,11 @@ return [
         // RAG / Knowledge operations
         'knowledge_index'                 => ['input' => 0,  'output' => 0,  'total' => 2],  // por chunk indexado
         'embedding_query'                 => ['input' => 0,  'output' => 0,  'total' => 1],  // por query de retrieval
+        // WhatsApp Intelligence Hub
+        'wa_summary'                      => ['input' => 2,  'output' => 5,  'total' => 7],
+        'wa_next_message'                 => ['input' => 1,  'output' => 4,  'total' => 5],
+        'wa_strategic'                    => ['input' => 4,  'output' => 8,  'total' => 12],
+        'wa_interest_score'               => ['input' => 3,  'output' => 5,  'total' => 8],
         'default'                         => ['input' => 1,  'output' => 2,  'total' => 3],
     ],
 
@@ -53,6 +58,18 @@ return [
         'no_interest'            => ['label' => 'Sem interesse',          'delta' => -20],
         'no_response'            => ['label' => 'Sem resposta',           'delta' => -5],
         'competitor_chosen'      => ['label' => 'Escolheu concorrente',   'delta' => -15],
+    ],
+
+    // ── AI Pricing (USD por 1M tokens) ─────────────────────────────
+    'ai_pricing' => [
+        'gemini-2.0-flash'       => ['input_per_mtok' => 0.10,  'output_per_mtok' => 0.40],
+        'gemini-2.0-flash-lite'  => ['input_per_mtok' => 0.075, 'output_per_mtok' => 0.30],
+        'gemini-1.5-pro'         => ['input_per_mtok' => 1.25,  'output_per_mtok' => 5.00],
+        'gemini-1.5-flash'       => ['input_per_mtok' => 0.075, 'output_per_mtok' => 0.30],
+        'gpt-4o'                 => ['input_per_mtok' => 2.50,  'output_per_mtok' => 10.00],
+        'gpt-4o-mini'            => ['input_per_mtok' => 0.15,  'output_per_mtok' => 0.60],
+        'grok-2'                 => ['input_per_mtok' => 2.00,  'output_per_mtok' => 10.00],
+        'grok-3-mini'            => ['input_per_mtok' => 0.30,  'output_per_mtok' => 0.50],
     ],
 
     // ── AI Safety ─────────────────────────────────────────────────

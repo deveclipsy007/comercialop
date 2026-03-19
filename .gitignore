@@ -1,0 +1,38 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Environment
+.env
+.env.backup
+.env.production
+.env.staging
+
+# Databases
+/storage/*.sqlite
+/storage/*.sqlite.bak
+/database/*.sqlite
+/database/*.sqlite-shm
+/database/*.sqlite-wal
+/database/*.db-shm
+/database/*.db-wal
+
+# Cache & Logs
+/storage/cache/*
+/storage/logs/*
+!/storage/cache/.gitignore
+!/storage/logs/.gitignore
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Redundant directories
+/Users/
+
+# AI/Assistant Cache
+.claude/
+.gemini/
+.antigravity/

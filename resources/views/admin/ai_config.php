@@ -66,28 +66,21 @@ $distOpenAI = $aiDistribution['openai'] ?? 20;
                     </div>
                 </div>
 
-                <!-- API Keys Setup -->
+                <!-- API Keys Link -->
                 <div class="bg-surface border border-stroke rounded-cardLg p-6 shadow-soft">
-                    <h3 class="text-sm font-bold text-text mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-lime text-base">key</span>
-                        Chaves de API (Overrides Locais)
-                    </h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex items-center justify-between">
                         <div>
-                            <label class="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">Google Gemini API Key</label>
-                            <input type="password" name="api_key_gemini" value="" placeholder="••••••••••••••••"
-                                   class="w-full bg-surface2 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder-subtle focus:outline-none focus:border-lime/50 transition-all">
+                            <h3 class="text-sm font-bold text-text mb-1 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-lime text-base">key</span>
+                                Chaves de API
+                            </h3>
+                            <p class="text-xs text-subtle">Gerencie as credenciais dos provedores de IA com armazenamento encriptado (AES-256).</p>
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">OpenAI API Key</label>
-                            <input type="password" name="api_key_openai" value="" placeholder="sk-••••••••••••••••"
-                                   class="w-full bg-surface2 border border-stroke rounded-xl px-4 py-2.5 text-sm text-text placeholder-subtle focus:outline-none focus:border-lime/50 transition-all">
-                        </div>
-                        <div class="col-span-1 md:col-span-2 text-[10px] text-subtle flex items-start gap-1 mt-1">
-                            <span class="material-symbols-outlined text-[14px] text-mint">info</span>
-                            <p>Deixar em branco fará o sistema utilizar as variáveis ambiente globais configuradas no `.env` do servidor (Recomendado para segurança corporativa).</p>
-                        </div>
+                        <a href="/admin/ai-keys" class="flex items-center gap-2 px-5 py-2.5 bg-surface2 border border-stroke rounded-pill text-sm font-bold text-text hover:bg-surface3 hover:border-lime/30 transition-all">
+                            <span class="material-symbols-outlined text-[16px] text-lime">lock</span>
+                            Gerenciar Chaves
+                            <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                        </a>
                     </div>
                 </div>
 

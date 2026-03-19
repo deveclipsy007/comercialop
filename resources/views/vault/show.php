@@ -235,6 +235,119 @@ $score     = $lead['priority_score'] ?? 0;
             </div>
         </div>
 
+        <!-- WhatsApp Conversations Linked -->
+        <?php $waConversations = $waConversations ?? []; ?>
+        <?php if (!empty($waConversations)): ?>
+        <div class="bg-surface border border-mint/20 rounded-cardLg p-7 shadow-soft">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-text flex items-center gap-3">
+                    <div class="size-10 rounded-full bg-mint/10 border border-mint/20 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-mint text-[20px]">chat</span>
+                    </div>
+                    Conversas WhatsApp
+                    <span class="text-xs font-bold bg-mint/10 text-mint px-2.5 py-1 rounded-pill border border-mint/20"><?= count($waConversations) ?></span>
+                </h2>
+            </div>
+
+            <div class="space-y-4">
+                <?php foreach ($waConversations as $wac):
+                    $convId = $wac['conversation_id'] ?? '';
+                    $displayName = $wac['display_name'] ?? $wac['phone'] ?? $wac['remote_jid'] ?? '—';
+                    $phone = $wac['phone'] ?? $wac['remote_jid'] ?? '';
+                    $lastMsg = $wac['last_message_at'] ?? null;
+                    $unread = (int)($wac['unread_count'] ?? 0);
+
+                    // Score data
+                    $scoreData = ($wac['score'] ?? null) ? ($wac['score']['analysis_data'] ?? []) : [];
+                    $interestScore = $scoreData['interest_score'] ?? null;
+
+                    // Summary data
+                    $summaryData = ($wac['summary'] ?? null) ? ($wac['summary']['analysis_data'] ?? []) : [];
+                    $summaryText = $summaryData['summary'] ?? null;
+                    $pains = $summaryData['pains'] ?? [];
+                    $interestLevel = $summaryData['interest_level'] ?? null;
+                ?>
+                <div class="bg-surface2 border border-stroke rounded-card p-5 hover:border-mint/30 transition-colors" id="wa-card-<?= e($convId) ?>">
+                    <!-- Header row -->
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="size-10 rounded-full bg-mint/10 border border-mint/20 flex items-center justify-center text-mint font-bold text-sm flex-shrink-0">
+                            <?= mb_substr($displayName, 0, 1, 'UTF-8') ?>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-text text-sm truncate"><?= e($displayName) ?></span>
+                                <?php if ($unread > 0): ?>
+                                <span class="text-[10px] font-bold bg-mint text-bg px-1.5 py-0.5 rounded-full"><?= $unread ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <p class="text-[11px] text-muted font-mono truncate"><?= e($phone) ?></p>
+                        </div>
+                        <?php if ($interestScore !== null): ?>
+                        <div class="flex flex-col items-center gap-0.5" id="wa-score-badge-<?= e($convId) ?>">
+                            <span class="text-[10px] font-bold text-muted uppercase tracking-wider">Score</span>
+                            <span class="text-lg font-black <?= $interestScore >= 70 ? 'text-lime' : ($interestScore >= 40 ? 'text-amber-400' : 'text-red-400') ?>"><?= $interestScore ?></span>
+                        </div>
+                        <?php else: ?>
+                        <div id="wa-score-badge-<?= e($convId) ?>"></div>
+                        <?php endif; ?>
+                        <a href="/whatsapp/conversation/<?= e($convId) ?>"
+                           class="h-8 px-3 rounded-pill bg-mint/10 text-mint hover:bg-mint/20 border border-mint/20 text-[11px] font-bold flex items-center gap-1.5 transition-all flex-shrink-0">
+                            <span class="material-symbols-outlined text-[14px]">open_in_new</span> Abrir
+                        </a>
+                    </div>
+
+                    <!-- Summary snippet (if exists) -->
+                    <?php if ($summaryText): ?>
+                    <div class="mb-3 text-xs text-subtle leading-relaxed line-clamp-2 pl-14" id="wa-summary-text-<?= e($convId) ?>">
+                        <?= e(mb_substr($summaryText, 0, 200, 'UTF-8')) ?><?= mb_strlen($summaryText, 'UTF-8') > 200 ? '...' : '' ?>
+                    </div>
+                    <?php else: ?>
+                    <div class="mb-3 pl-14" id="wa-summary-text-<?= e($convId) ?>"></div>
+                    <?php endif; ?>
+
+                    <!-- Tags row -->
+                    <?php if (!empty($pains) || $interestLevel): ?>
+                    <div class="flex flex-wrap gap-1.5 mb-3 pl-14">
+                        <?php if ($interestLevel): ?>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-pill bg-lime/10 text-lime border border-lime/20"><?= e($interestLevel) ?></span>
+                        <?php endif; ?>
+                        <?php foreach (array_slice($pains, 0, 3) as $pain): ?>
+                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-pill bg-red-400/10 text-red-400 border border-red-400/20"><?= e($pain) ?></span>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Action buttons -->
+                    <div class="flex items-center gap-2 pl-14">
+                        <button onclick="waIntel('<?= e($convId) ?>', 'summary', this)"
+                                class="h-7 px-3 rounded-pill bg-surface border border-stroke hover:bg-surface2 text-[10px] font-bold text-muted hover:text-text transition-all flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[13px]">summarize</span> Resumo
+                        </button>
+                        <button onclick="waIntel('<?= e($convId) ?>', 'strategic', this)"
+                                class="h-7 px-3 rounded-pill bg-surface border border-stroke hover:bg-surface2 text-[10px] font-bold text-muted hover:text-text transition-all flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[13px]">strategy</span> Estratégia
+                        </button>
+                        <button onclick="waIntel('<?= e($convId) ?>', 'interest-score', this)"
+                                class="h-7 px-3 rounded-pill bg-surface border border-stroke hover:bg-surface2 text-[10px] font-bold text-muted hover:text-text transition-all flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[13px]">speed</span> Score
+                        </button>
+                        <button onclick="waIntel('<?= e($convId) ?>', 'next-message', this)"
+                                class="h-7 px-3 rounded-pill bg-surface border border-stroke hover:bg-surface2 text-[10px] font-bold text-muted hover:text-text transition-all flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[13px]">auto_fix_high</span> Mensagem
+                        </button>
+                        <?php if ($lastMsg): ?>
+                        <span class="ml-auto text-[10px] text-muted"><?= timeAgo($lastMsg) ?></span>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Inline result container -->
+                    <div class="hidden mt-3 pl-14" id="wa-result-<?= e($convId) ?>"></div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Call Recordings & Transcriptions -->
         <div class="bg-surface border border-stroke rounded-cardLg p-7 shadow-soft">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1401,6 +1514,75 @@ function updateFileName(input) {
         display.classList.add('hidden');
         display.textContent = '';
     }
+}
+
+// ── WhatsApp Intelligence from Lead page ───────────────────
+async function waIntel(convId, endpoint, btn) {
+    const origHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>';
+
+    const resultDiv = document.getElementById('wa-result-' + convId);
+
+    try {
+        const res = await fetch('/whatsapp/conversation/' + convId + '/' + endpoint, {
+            method: 'POST',
+            body: new URLSearchParams({ '_csrf': getCsrfToken() })
+        });
+        const text = await res.text();
+        const j = text.indexOf('{');
+        const data = JSON.parse(j > 0 ? text.substring(j) : text);
+
+        if (!data.success) {
+            showWaResult(resultDiv, '<span class="text-red-400">' + (data.error || 'Erro na análise.') + '</span>');
+        } else if (endpoint === 'summary') {
+            const s = data.summary || data.analysis || {};
+            let html = '<p class="text-xs text-text font-medium mb-2">' + (s.summary || 'Resumo gerado.') + '</p>';
+            if (s.pains && s.pains.length) {
+                html += '<div class="flex flex-wrap gap-1 mt-1">';
+                s.pains.forEach(p => html += '<span class="text-[10px] px-2 py-0.5 rounded-pill bg-red-400/10 text-red-400 border border-red-400/20">' + p + '</span>');
+                html += '</div>';
+            }
+            showWaResult(resultDiv, html);
+            // Update summary text
+            const summaryEl = document.getElementById('wa-summary-text-' + convId);
+            if (summaryEl && s.summary) summaryEl.textContent = s.summary.substring(0, 200);
+        } else if (endpoint === 'interest-score') {
+            const s = data.interest_score || data.analysis || {};
+            const score = s.interest_score ?? s.score ?? '?';
+            const cls = score >= 70 ? 'text-lime' : (score >= 40 ? 'text-amber-400' : 'text-red-400');
+            showWaResult(resultDiv, '<span class="text-sm font-bold ' + cls + '">Score: ' + score + '/100</span> <span class="text-xs text-muted ml-2">' + (s.score_explanation || '') + '</span>');
+            // Update score badge
+            const badge = document.getElementById('wa-score-badge-' + convId);
+            if (badge) badge.innerHTML = '<span class="text-[10px] font-bold text-muted uppercase tracking-wider">Score</span><span class="text-lg font-black ' + cls + '">' + score + '</span>';
+        } else if (endpoint === 'strategic') {
+            const s = data.strategic || data.analysis || {};
+            let html = '<p class="text-xs font-bold text-text mb-1">Análise Estratégica</p>';
+            if (s.loss_risk) html += '<span class="text-[10px] px-2 py-0.5 rounded-pill bg-red-400/10 text-red-400 border border-red-400/20 mr-1">Risco: ' + (s.loss_risk.level || '?') + '</span>';
+            if (s.interest_level) html += '<span class="text-[10px] px-2 py-0.5 rounded-pill bg-lime/10 text-lime border border-lime/20">Interesse: ' + s.interest_level + '</span>';
+            if (s.recommended_actions && s.recommended_actions.length) {
+                html += '<ul class="mt-2 space-y-1">';
+                s.recommended_actions.slice(0, 3).forEach(a => html += '<li class="text-[11px] text-subtle flex items-start gap-1"><span class="material-symbols-outlined text-[12px] text-lime mt-0.5">arrow_right</span>' + a + '</li>');
+                html += '</ul>';
+            }
+            showWaResult(resultDiv, html);
+        } else if (endpoint === 'next-message') {
+            const s = data.next_message || data.analysis || {};
+            const msg = s.message || 'Mensagem gerada.';
+            showWaResult(resultDiv, '<div class="bg-surface border border-stroke rounded-lg p-3"><p class="text-xs text-text whitespace-pre-wrap">' + msg.replace(/</g, '&lt;') + '</p><button onclick="navigator.clipboard.writeText(this.dataset.msg);this.textContent=\'Copiado!\';setTimeout(()=>this.textContent=\'Copiar\',1500)" data-msg="' + msg.replace(/"/g, '&quot;') + '" class="mt-2 text-[10px] font-bold text-mint hover:underline">Copiar</button></div>');
+        }
+    } catch (err) {
+        showWaResult(resultDiv, '<span class="text-red-400 text-xs">Erro: ' + err.message + '</span>');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+    }
+}
+
+function showWaResult(el, html) {
+    if (!el) return;
+    el.innerHTML = html;
+    el.classList.remove('hidden');
 }
 </script>
 JS;

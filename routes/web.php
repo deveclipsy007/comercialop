@@ -12,6 +12,8 @@ use App\Controllers\AuthController;
 use App\Controllers\AgendaController;
 use App\Controllers\KnowledgeController;
 use App\Controllers\UserSettingsController;
+use App\Controllers\WhatsAppController;
+use App\Controllers\ApiController;
 use App\Core\View;
 
 // ── Autenticação ─────────────────────────────────────────────
@@ -94,6 +96,22 @@ $router->post('/admin/users/:id/whitelabel', [AdminController::class, 'updateUse
 $router->get('/admin/logs',         [AdminController::class, 'logs']);
 $router->get('/admin/ai-config',    [AdminController::class, 'aiConfigs']);
 $router->post('/admin/ai/save',     [AdminController::class, 'saveAiConfigs']);
+
+// Gestão de Chaves de API
+$router->get('/admin/ai-keys',          [AdminController::class, 'aiKeys']);
+$router->post('/admin/ai-keys/save',    [AdminController::class, 'saveAiKey']);
+$router->post('/admin/ai-keys/delete',  [AdminController::class, 'deleteAiKey']);
+$router->post('/admin/ai-keys/test',    [AdminController::class, 'testAiKey']);
+
+// Configuração de Provedores por Operação
+$router->get('/admin/providers',        [AdminController::class, 'providerConfigs']);
+$router->post('/admin/providers/save',  [AdminController::class, 'saveProviderConfig']);
+$router->post('/admin/providers/delete',[AdminController::class, 'deleteProviderConfig']);
+
+// Dashboard de Consumo
+$router->get('/admin/consumption',      [AdminController::class, 'consumption']);
+$router->get('/admin/consumption/api',  [AdminController::class, 'consumptionApi']);
+
 $router->post('/admin/users/:id/link-tenant',   [AdminController::class, 'linkTenant']);
 $router->post('/admin/users/:id/unlink-tenant', [AdminController::class, 'unlinkTenant']);
 
@@ -110,7 +128,28 @@ $router->get('/logs',               [UserSettingsController::class, 'logs']);
 $router->get('/settings',           [UserSettingsController::class, 'settings']);
 $router->get('/integrations',       [UserSettingsController::class, 'integrations']);
 
+// ── WhatsApp ────────────────────────────────────────────────
+$router->get('/whatsapp',                        [WhatsAppController::class, 'index']);
+$router->post('/whatsapp/setup',                 [WhatsAppController::class, 'setup']);
+$router->post('/whatsapp/connect',               [WhatsAppController::class, 'connect']);
+$router->get('/whatsapp/status',                 [WhatsAppController::class, 'getStatus']);
+$router->post('/whatsapp/sync',                  [WhatsAppController::class, 'sync']);
+$router->post('/whatsapp/disconnect',            [WhatsAppController::class, 'disconnect']);
+$router->get('/whatsapp/conversations',          [WhatsAppController::class, 'conversations']);
+$router->get('/whatsapp/conversation/:id',          [WhatsAppController::class, 'conversation']);
+$router->get('/whatsapp/conversation/:id/messages', [WhatsAppController::class, 'conversationMessages']);
+$router->post('/whatsapp/conversation/:id/link',    [WhatsAppController::class, 'linkLead']);
+$router->post('/whatsapp/conversation/:id/unlink',[WhatsAppController::class, 'unlinkLead']);
+$router->post('/whatsapp/conversation/:id/analyze',[WhatsAppController::class, 'analyze']);
+// Intelligence Hub
+$router->post('/whatsapp/conversation/:id/summary',       [WhatsAppController::class, 'summary']);
+$router->post('/whatsapp/conversation/:id/next-message',   [WhatsAppController::class, 'nextMessage']);
+$router->post('/whatsapp/conversation/:id/strategic',      [WhatsAppController::class, 'strategicAnalysis']);
+$router->post('/whatsapp/conversation/:id/interest-score', [WhatsAppController::class, 'interestScore']);
+$router->get('/whatsapp/webhook',                [WhatsAppController::class, 'webhookHandler']);
+$router->post('/whatsapp/webhook',               [WhatsAppController::class, 'webhookHandler']);
+
 // ── API interna ──────────────────────────────────────────────
-$router->get('/api/tokens',          fn() => (new \App\Controllers\ApiController())->tokens());
-$router->get('/api/leads',           fn() => (new \App\Controllers\ApiController())->leads());
-$router->post('/api/copilot',        fn() => (new \App\Controllers\ApiController())->copilot());
+$router->get('/api/tokens',          [ApiController::class, 'tokens']);
+$router->get('/api/leads',           [ApiController::class, 'leads']);
+$router->post('/api/copilot',        [ApiController::class, 'copilot']);

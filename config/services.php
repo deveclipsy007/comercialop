@@ -47,4 +47,11 @@ return [
         'gemini_endpoint'  => 'https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent',
         'openai_endpoint'  => 'https://api.openai.com/v1/embeddings',
     ],
+
+    // WhatsApp Evolution API
+    'evolution' => [
+        'base_url'   => env('EVOLUTION_BASE_URL', 'https://evolution-api-tjz9.srv1483958.hstgr.cloud'),
+        'api_key'    => env('EVOLUTION_API_KEY', 'd27XLzQwOrjicQKQCVWQoipRoWKDnhpF'),
+        'manager_url'=> 'https://evolution-api-tjz9.srv1483958.hstgr.cloud/manager',
+    ],
 ];

@@ -4,7 +4,8 @@ namespace App\Services\Transcription;
 
 use App\Models\Call;
 use App\Models\Lead;
-use App\Services\AI\GeminiProvider;
+use App\Core\Session;
+use App\Services\AI\AIProviderFactory;
 use App\Services\SmartContextService;
 use App\Services\Transcription\Providers\OpenAIWhisperProvider;
 use App\Services\TokenService;
@@ -13,15 +14,12 @@ use Exception;
 class CallAnalyticsService
 {
     private TranscriptionProviderInterface $transcriptionProvider;
-    private GeminiProvider $aiProvider;
     private SmartContextService $contextService;
     private TokenService $tokenService;
 
     public function __construct()
     {
-        // Em um sistema robusto injetaríamos via DI Container (Inversão de Controle)
         $this->transcriptionProvider = new OpenAIWhisperProvider();
-        $this->aiProvider = new GeminiProvider();
         $this->contextService = new SmartContextService();
         $this->tokenService = new TokenService();
     }
@@ -71,15 +69,13 @@ class CallAnalyticsService
             $lead = Lead::findByTenant($call['lead_id'], $tenantId);
             $context = $this->contextService->buildCompanyContext($tenantId) . "\n" . $this->contextService->buildLeadContext($call['lead_id'], $tenantId);
 
-            $analysisData = $this->analyzeTranscript($transcriptClean, $context, $lead);
+            $analysisResult = $this->analyzeTranscript($transcriptClean, $context, $lead, $tenantId);
+            $analysisData = $analysisResult['data'];
 
             Call::update($callId, [
                 'analysis_data' => json_encode($analysisData),
                 'status' => Call::STATUS_COMPLETED
             ]);
-
-            // Desconta tokens da análise text based
-            // $this->tokenService->consume('gemini_analysis', $tenantId, 1500);
 
         } catch (Exception $e) {
             Call::update($callId, [
@@ -90,11 +86,11 @@ class CallAnalyticsService
         }
     }
 
-    private function analyzeTranscript(string $transcript, string $companyContext, ?array $lead): array
+    private function analyzeTranscript(string $transcript, string $companyContext, ?array $lead, string $tenantId = ''): array
     {
         $systemPrompt = "
         Você é um Diretor de Vendas Sênior e Estrategista Comercial.
-        O usuário enviará a transcrição de uma ligação comercial (Call). 
+        O usuário enviará a transcrição de uma ligação comercial (Call).
         Sua missão é extrair inteligência estruturada desta call.
 
         Use o contexto da empresa para basear suas respostas:
@@ -120,6 +116,16 @@ class CallAnalyticsService
         }
         ";
 
-        return $this->aiProvider->generateJson($systemPrompt, $transcript);
+        $provider = AIProviderFactory::make('audio_strategy', $tenantId);
+        $meta = $provider->generateJsonWithMeta($systemPrompt, $transcript);
+        $usage = $meta['usage'] ?? ['input' => 0, 'output' => 0];
+
+        $this->tokenService->consume(
+            'audio_strategy', $tenantId, Session::get('id'),
+            $provider->getProviderName(), $provider->getModel(),
+            $usage['input'], $usage['output']
+        );
+
+        return ['data' => $meta['parsed'] ?? [], 'usage' => $usage];
     }
 }
