@@ -129,52 +129,71 @@ PROMPT;
 
     public function analyzeLeadWithAI(array $lead, string $tenantId): array
     {
-        $systemPrompt = $this->baseSystemPrompt() . "\n\n" . $this->smartContext->buildLeadContext($lead);
-        $ragMeta      = $this->smartContext->getLastRetrievalMeta();
+        // Usa contexto COMPLETO com dados enriquecidos (rating, reviews, social, horários, etc.)
+        $enrichedContext = $this->smartContext->buildDeepIntelligenceContext($lead);
+        $ragMeta         = $this->smartContext->getLastRetrievalMeta();
+
+        $leadName = $lead['name'] ?? 'Lead';
+
+        $systemPrompt = <<<PROMPT
+Você é um Consultor de Inteligência Comercial Sênior da Operon, especializado em qualificar leads B2B e gerar diagnósticos que apoiam decisões de venda reais.
+
+REGRAS ABSOLUTAS:
+1. O FOCO é o lead "{$leadName}" como PROSPECT da Operon. Analise ELE, não apenas o negócio genérico.
+2. USE TODOS os dados fornecidos: avaliações, reviews de clientes, redes sociais, horários, endereço, maturidade digital.
+3. TRIANGULE sempre: Lead (quem é) + Empresa do Lead (contexto) + Operon (o que pode vender).
+4. Seja PRAGMÁTICO e DIRETO. Cada insight deve ser útil para uma decisão de abordagem.
+5. NÃO invente dados. Se algo não está disponível, infira com base no que existe e sinalize.
+6. NÃO infle o score. Se o lead tem presença digital fraca, isso é OPORTUNIDADE para a Operon vender serviços.
+
+CRITÉRIOS DE SCORE (seja rigoroso e realista):
+- 80-100: Presença digital forte (site profissional, redes ativas, boas avaliações). Lead com alto fit mas MENOS necessidade imediata dos serviços Operon.
+- 50-79: Presença digital parcial. Tem elementos mas com gaps claros. MELHOR faixa para abordagem — precisa da Operon.
+- 20-49: Presença digital fraca ou inexistente. ALTA oportunidade de venda, mas pode ter resistência. Score de prioridade ajustado pela oportunidade.
+- 0-19: Dados insuficientes ou lead claramente fora do ICP.
+
+LÓGICA DO fitScore (aderência ao ICP da Operon):
+- Score alto = lead se encaixa perfeitamente no perfil de cliente ideal da Operon.
+- Score baixo = lead tem características que dificultam a venda ou fora do perfil.
+PROMPT;
 
         $userPrompt = <<<PROMPT
-Analise esta empresa para qualificação de lead B2B.
-Nome: {$lead['name']}
-Segmento: {$lead['segment']}
-Site Fornecido: {$lead['website']}
+{$enrichedContext}
 
-IMPORTANTE: Use o Google Search para encontrar dados OFICIAIS:
-1. O endereço real completo.
-2. Telefone ou WhatsApp de contato.
-3. A URL OFICIAL do Website.
-4. Redes sociais (Instagram, LinkedIn).
-5. Tempo estimado de mercado.
+Com base em TODOS os dados acima, gere um diagnóstico comercial profundo do lead "{$leadName}".
 
-CRITÉRIOS RIGOROSOS DE SCORE (Seja realista):
-- Score > 80: Apenas se tiver Site Profissional, Instagram Ativo, LinkedIn e bons reviews.
-- Score < 40: Se não tiver site ou presença digital quase nula.
-- NÃO infle a nota. Queremos vender serviços digitais, então precisamos identificar as FALHAS.
-
-Retorne APENAS um JSON válido (sem markdown) com a seguinte estrutura:
+Retorne APENAS um JSON válido (sem markdown, sem comentários) com esta estrutura EXATA:
 {
-  "priorityScore": number (0-100, seja rigoroso),
-  "scoreExplanation": "Uma frase direta explicando o porquê da nota",
+  "priorityScore": number (0-100, score geral de prioridade comercial),
+  "fitScore": number (0-100, aderência ao ICP da Operon),
+  "scoreExplanation": "Frase direta e específica sobre este lead explicando o porquê do score",
   "digitalMaturity": "Baixa" | "Média" | "Alta",
-  "diagnosis": ["problema crítico 1", "problema crítico 2", "problema crítico 3"],
-  "opportunities": ["oportunidade 1", "oportunidade 2"],
   "urgencyLevel": "Baixa" | "Média" | "Alta",
-  "fitScore": number (0-100),
-  "summary": string,
+  "summary": "Parágrafo de 2-3 frases com visão geral do lead: quem é, onde está, qual o potencial. Menção ao nome do lead obrigatória.",
+  "diagnosis": [
+    "Problema crítico real e específico deste lead (não genérico)",
+    "Segundo problema com evidência concreta dos dados",
+    "Terceiro problema ou risco identificado"
+  ],
+  "opportunities": [
+    "Oportunidade concreta de venda para a Operon com justificativa",
+    "Segunda oportunidade com base nos dados do lead",
+    "Terceira oportunidade (se aplicável)"
+  ],
+  "recommendations": [
+    "Ação prática e específica para a equipe comercial da Operon",
+    "Segunda recomendação de abordagem"
+  ],
+  "operonFit": "Parágrafo curto explicando como a Operon se encaixa neste lead: quais serviços fazem sentido, por que este lead precisa da Operon, qual o valor estimado do deal.",
   "extractedContact": {
-    "phone": string,
-    "whatsappAvailable": boolean,
-    "address": string,
-    "website": string,
-    "websiteStatus": "Active" | "Inactive" | "NotFound"
+    "phone": "telefone se disponível nos dados ou vazio",
+    "address": "endereço se disponível nos dados ou vazio",
+    "website": "site se disponível nos dados ou vazio"
   },
   "socialPresence": {
-    "linkedin": string,
-    "instagram": string,
-    "facebook": string
-  },
-  "businessDetails": {
-    "timeInMarket": string,
-    "operatingHours": string
+    "instagram": "handle ou URL se disponível ou vazio",
+    "facebook": "handle ou URL se disponível ou vazio",
+    "linkedin": "handle ou URL se disponível ou vazio"
   }
 }
 PROMPT;
@@ -182,12 +201,70 @@ PROMPT;
         $result = $this->executeJsonAI(
             'lead_analysis', $tenantId,
             $systemPrompt, $userPrompt,
-            $lead['id'], $ragMeta,
-            ['google_search' => true]
+            $lead['id'], $ragMeta
         );
 
         if (!AIResponseParser::hasError($result)) {
+            // Validação de qualidade mínima
+            $result = $this->validateAndEnrich($result, $lead);
             Lead::saveAnalysis($lead['id'], $tenantId, $result);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Valida qualidade da resposta e preenche gaps com defaults inteligentes.
+     */
+    private function validateAndEnrich(array $result, array $lead): array
+    {
+        // Garantir score mínimo válido
+        if (!isset($result['priorityScore']) || $result['priorityScore'] < 1) {
+            $result['priorityScore'] = 25; // Default baixo, não zero
+            $result['scoreExplanation'] = ($result['scoreExplanation'] ?? '') ?: 'Score atribuído automaticamente — dados insuficientes para avaliação precisa.';
+        }
+
+        if (!isset($result['fitScore']) || $result['fitScore'] < 1) {
+            $result['fitScore'] = $result['priorityScore'];
+        }
+
+        // Garantir digitalMaturity
+        if (empty($result['digitalMaturity']) || !in_array($result['digitalMaturity'], ['Baixa', 'Média', 'Alta'])) {
+            $result['digitalMaturity'] = 'Baixa';
+        }
+
+        // Garantir urgencyLevel
+        if (empty($result['urgencyLevel']) || !in_array($result['urgencyLevel'], ['Baixa', 'Média', 'Alta'])) {
+            $result['urgencyLevel'] = 'Média';
+        }
+
+        // Garantir que diagnosis e opportunities não sejam vazios
+        if (empty($result['diagnosis']) || !is_array($result['diagnosis'])) {
+            $result['diagnosis'] = ['Presença digital não avaliada com profundidade — recomendável análise manual complementar.'];
+        }
+
+        if (empty($result['opportunities']) || !is_array($result['opportunities'])) {
+            $leadName = $lead['name'] ?? 'Este lead';
+            $result['opportunities'] = ["{$leadName} pode se beneficiar de uma consultoria inicial da Operon para mapear gaps digitais."];
+        }
+
+        // Garantir summary não vazio
+        if (empty($result['summary'])) {
+            $result['summary'] = sprintf(
+                'Lead "%s" do segmento %s. Análise gerada com dados disponíveis limitados — recomenda-se enriquecimento adicional.',
+                $lead['name'] ?? 'N/D',
+                $lead['segment'] ?? 'não informado'
+            );
+        }
+
+        // Garantir recommendations
+        if (empty($result['recommendations']) || !is_array($result['recommendations'])) {
+            $result['recommendations'] = ['Agendar um primeiro contato consultivo para entender melhor as necessidades do lead.'];
+        }
+
+        // Garantir operonFit
+        if (empty($result['operonFit'])) {
+            $result['operonFit'] = 'Lead dentro do perfil de atuação da Operon. Recomenda-se abordagem consultiva para mapear oportunidades.';
         }
 
         return $result;
@@ -311,15 +388,33 @@ PROMPT;
 
     public function generateSpin(array $lead, string $tenantId): array
     {
-        $maturity     = $lead['analysis']['digitalMaturity'] ?? 'Média';
-        $systemPrompt = "Você é um consultor de vendas high-ticket especialista no framework SPIN.";
+        $maturity = $lead['analysis']['digitalMaturity'] ?? 'Média';
+        $agency   = $this->smartContext->loadCompanyProfile($tenantId);
+
+        $services = implode(', ', $agency['offer_services'] ?? []);
+        $diffs    = implode(', ', $agency['differentials'] ?? []);
+        $icpPains = implode(', ', $agency['icp_pain_points'] ?? []);
+
+        $systemPrompt = <<<PROMPT
+Você é um consultor de vendas high-ticket especialista no framework SPIN, trabalhando DENTRO da empresa "{$agency['name']}".
+
+CONTEXTO DA EMPRESA:
+- Oferta: {$agency['offer_title']}
+- Serviços: {$services}
+- Diferenciais: {$diffs}
+- Proposta de valor: {$agency['unique_proposal']}
+- Dores típicas do ICP: {$icpPains}
+
+Suas perguntas SPIN devem ser construídas para VENDER os serviços desta empresa. As implicações devem levar o lead a perceber que precisa dos serviços acima.
+PROMPT;
+
         $userPrompt   = <<<PROMPT
 LEAD: {$lead['name']}
 SEGMENTO: {$lead['segment']}
-MATURIDADE: {$maturity}
+MATURIDADE DIGITAL: {$maturity}
 
 Crie 3 perguntas para cada fase do SPIN (Situação, Problema, Implicação, Necessidade de Solução).
-As perguntas devem ser específicas para o nicho de {$lead['segment']}.
+As perguntas devem ser específicas para o nicho de {$lead['segment']} e direcionadas para vender os serviços de "{$agency['name']}".
 
 Retorne JSON estrito:
 {"s":["Pergunta 1","Pergunta 2","Pergunta 3"],"p":["..."],"i":["..."],"n":["..."]}
@@ -334,8 +429,24 @@ PROMPT;
     {
         $score    = $lead['analysis']['priorityScore'] ?? 50;
         $maturity = $lead['analysis']['digitalMaturity'] ?? 'Média';
+        $agency   = $this->smartContext->loadCompanyProfile($tenantId);
 
-        $systemPrompt = $this->baseSystemPrompt();
+        $services = implode(', ', $agency['offer_services'] ?? []);
+
+        $systemPrompt = $this->baseSystemPrompt() . <<<PROMPT
+
+
+CONTEXTO DA SUA EMPRESA:
+Empresa: {$agency['name']}
+Oferta: {$agency['offer_title']}
+Preço: {$agency['offer_base_price']}
+Serviços: {$services}
+Proposta única: {$agency['unique_proposal']}
+Garantias: {$agency['guarantees']}
+
+REGRA: Todos os scripts devem vender os serviços DESTA empresa, usando os diferenciais e proposta de valor acima. O tom deve refletir o posicionamento da empresa.
+PROMPT;
+
         $userPrompt   = <<<PROMPT
 Crie variações de script de abordagem para este lead:
 Nome: {$lead['name']}
@@ -343,7 +454,7 @@ Segmento: {$lead['segment']}
 Score: {$score}
 Maturidade Digital: {$maturity}
 
-Para cada canal, crie um script curto e persuasivo (máx 80 palavras):
+Para cada canal, crie um script curto e persuasivo (máx 80 palavras) que venda os serviços de "{$agency['name']}":
 Retorne JSON: {"whatsapp":"string","linkedin":"string","email":"string","coldCall":"string"}
 PROMPT;
 
@@ -354,7 +465,25 @@ PROMPT;
 
     public function generateFollowupMessage(array $followup, string $tenantId): string
     {
-        $systemPrompt = $this->baseSystemPrompt();
+        $agency = $this->smartContext->loadCompanyProfile($tenantId);
+
+        $services = implode(', ', $agency['offer_services'] ?? []);
+        $diffs    = implode('; ', $agency['differentials'] ?? []);
+
+        $systemPrompt = $this->baseSystemPrompt() . <<<PROMPT
+
+
+CONTEXTO DA SUA EMPRESA:
+Empresa: {$agency['name']}
+Oferta: {$agency['offer_title']}
+Preço: {$agency['offer_base_price']}
+Serviços: {$services}
+Proposta única: {$agency['unique_proposal']}
+Diferenciais: {$diffs}
+
+REGRA: O follow-up deve refletir o posicionamento e a linguagem desta empresa. Use os diferenciais e a proposta de valor como argumentos naturais na mensagem.
+PROMPT;
+
         $userPrompt   = <<<PROMPT
 Crie um roteiro de mensagem de follow-up pronto para ser enviado (WhatsApp ou E-mail) para o lead abaixo.
 
@@ -370,7 +499,7 @@ O roteiro deve ser persuasivo, direto, consultivo e adaptado ao contexto do lead
 Inclua um call to action (CTA) claro focado em avançar a negociação.
 Não exiba campos de placeholder gigantes, use quebras de linha e emojis contextuais se aplicável. Apenas o texto da mensagem.
 
-Seja premium, direto e "neon obsidian" (estilo elegante e agressivo).
+Seja premium, direto e elegante.
 PROMPT;
 
         return $this->executeTextAI('followup_message', $tenantId, $systemPrompt, $userPrompt, $followup['lead_id'] ?? null);

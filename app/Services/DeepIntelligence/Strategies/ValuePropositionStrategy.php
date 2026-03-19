@@ -18,12 +18,12 @@ class ValuePropositionStrategy implements IntelligenceStrategyInterface
 
     public function getName(): string
     {
-        return 'O que vende / Proposta de Valor';
+        return 'Perfil & Oportunidade';
     }
 
     public function getDescription(): string
     {
-        return 'Descreve de forma clara os principais serviços, produtos e a proposta de valor do lead.';
+        return 'Análise do lead como prospect: quem é, o que faz, qual o encaixe com a Operon.';
     }
 
     public function getIcon(): string
@@ -43,10 +43,33 @@ class ValuePropositionStrategy implements IntelligenceStrategyInterface
 
     public function execute(array $lead, string $tenantId): array
     {
-        $context = (new SmartContextService())->buildLeadContext($lead);
+        $context = (new SmartContextService())->buildDeepIntelligenceContext($lead);
 
-        $systemPrompt = "Você é um Consultor de Vendas B2B experiente.\nSeja extremamente pragmático e direto.\nResponda APENAS com um JSON simples: {\"summary\":\"Texto explicativo até 500 caracteres\"}";
-        $userPrompt = "Baseado nos dados desta empresa:\n" . $context . "\n\nDescreva em 1 parágrafo claro o que essa empresa vende e qual sua proposta de valor principal. Não use jargões difíceis, seja fácil de ler.";
+        $leadName = $lead['name'] ?? 'este lead';
+
+        $systemPrompt = <<<PROMPT
+Você é um Consultor de Inteligência Comercial B2B da Operon.
+Sua especialidade é analisar leads para identificar oportunidades reais de venda.
+
+REGRAS:
+- O FOCO PRINCIPAL é o lead "{$leadName}" como prospect da Operon.
+- Use os dados da empresa/negócio do lead apenas como apoio para entender o contexto.
+- Correlacione SEMPRE: quem é o lead → o que ele faz → o que a Operon pode vender para ele.
+- Seja pragmático, direto e comercialmente útil.
+- Responda APENAS com JSON válido: {"summary":"Texto de 2-3 parágrafos, até 800 caracteres"}
+PROMPT;
+
+        $userPrompt = <<<PROMPT
+{$context}
+
+Com base nos dados acima, responda sobre o lead "{$leadName}":
+
+1. QUEM É esse lead? (perfil público, tipo de negócio, público que ele atende, porte estimado)
+2. O QUE TEM DE INTERESSANTE nesse lead para a Operon? (sinais de oportunidade, gaps digitais, potencial de crescimento)
+3. COMO A OPERON SE ENCAIXA? (quais serviços fariam sentido, por que esse lead precisa da Operon)
+
+Gere uma análise que responda à pergunta: "O que existe de oportunidade nesse lead específico e como a Operon pode se encaixar nele?"
+PROMPT;
 
         $provider = AIProviderFactory::make('lead_offerings_analysis', $tenantId);
         $meta = $provider->generateJsonWithMeta($systemPrompt, $userPrompt);

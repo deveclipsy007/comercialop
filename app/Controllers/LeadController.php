@@ -96,7 +96,7 @@ class LeadController
 
         // Buscar Inteligências Profundas
         $availableIntelligences = $this->deepManager->getAvailableIntelligences();
-        $intelligenceHistory = $this->deepManager->getLeadIntelligences((int)$id, $tenantId);
+        $intelligenceHistory = $this->deepManager->getLeadIntelligences((string)$id, $tenantId);
 
         // Buscar conversas WhatsApp vinculadas a este lead
         $waConversations = [];
@@ -427,25 +427,26 @@ class LeadController
                 'stats' => $analysis['stats'],
             ]);
 
-        // Labels para exibição
-        $fieldLabels = [
-            'name' => 'Nome / Empresa', 'email' => 'Email', 'phone' => 'Telefone',
-            'website' => 'Website', 'segment' => 'Segmento', 'address' => 'Endereço',
-            'city' => 'Cidade', 'state' => 'Estado', 'position' => 'Cargo', 'notes' => 'Observações',
-        ];
+            // Usar o registry centralizado do CsvColumnDetector
+            $fieldLabels  = \App\Services\CsvColumnDetector::getFieldLabels();
+            $fieldIcons   = \App\Services\CsvColumnDetector::getFieldIcons();
+            $fieldsByGroup = \App\Services\CsvColumnDetector::getFieldsByGroup();
 
-        ob_end_clean();
+            ob_end_clean();
             echo json_encode([
-                'success' => true,
-                'file_token' => $fileToken,
-                'mapping' => $analysis['mapping'],
-                'confidence' => $analysis['confidence'],
-                'headers' => $analysis['headers'],
-                'sample_rows' => $analysis['sample_rows'],
-                'preview' => $analysis['preview'],
-                'stats' => $analysis['stats'],
-                'field_labels' => $fieldLabels,
+                'success'          => true,
+                'file_token'       => $fileToken,
+                'mapping'          => $analysis['mapping'],
+                'confidence'       => $analysis['confidence'],
+                'headers'          => $analysis['headers'],
+                'sample_rows'      => $analysis['sample_rows'],
+                'preview'          => $analysis['preview'],
+                'stats'            => $analysis['stats'],
+                'field_labels'     => $fieldLabels,
+                'field_icons'      => $fieldIcons,
                 'available_fields' => array_keys($fieldLabels),
+                'fields_by_group'  => $fieldsByGroup,
+                'field_groups'     => \App\Services\CsvColumnDetector::FIELD_GROUPS,
             ]);
         } catch (\Throwable $e) {
             $phpOutput = ob_get_clean();
@@ -544,14 +545,30 @@ class LeadController
         // Importar leads
         $imported = 0;
         foreach ($leads as $leadData) {
-            Lead::create($tenantId, [
-                'name'    => $leadData['name'],
-                'segment' => $leadData['segment'],
-                'website' => $leadData['website'],
-                'phone'   => $leadData['phone'],
-                'email'   => $leadData['email'],
-                'address' => $leadData['address'],
-            ]);
+            // Merge social_presence se houver dados sociais
+            $socialPresence = $leadData['social_presence'] ?? null;
+
+            $createData = [
+                'name'            => $leadData['name'],
+                'segment'         => $leadData['segment'],
+                'website'         => $leadData['website'],
+                'phone'           => $leadData['phone'],
+                'email'           => $leadData['email'],
+                'address'         => $leadData['address'],
+                'google_maps_url' => $leadData['google_maps_url'] ?? null,
+                'rating'          => $leadData['rating'] ?? null,
+                'review_count'    => $leadData['review_count'] ?? null,
+                'reviews'         => $leadData['reviews'] ?? null,
+                'opening_hours'   => $leadData['opening_hours'] ?? null,
+                'closing_hours'   => $leadData['closing_hours'] ?? null,
+                'category'        => $leadData['category'] ?? null,
+            ];
+
+            if ($socialPresence) {
+                $createData['social_presence'] = $socialPresence;
+            }
+
+            Lead::create($tenantId, $createData);
             $imported++;
         }
 

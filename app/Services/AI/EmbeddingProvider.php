@@ -23,12 +23,55 @@ class EmbeddingProvider
     private string $provider;
     private string $geminiKey;
     private string $openaiKey;
+    private ?string $tenantId;
 
-    public function __construct()
+    public function __construct(?string $tenantId = null)
     {
-        $this->provider  = config('services.embedding.provider', 'gemini');
-        $this->geminiKey = config('services.gemini.key', '');
-        $this->openaiKey = config('services.openai.key', '');
+        $this->tenantId = $tenantId;
+        $preferred = config('services.embedding.provider', 'gemini');
+
+        // Resolve keys from DB (AiApiKey) first, then fall back to config/.env
+        $this->geminiKey = $this->resolveKey('gemini');
+        $this->openaiKey = $this->resolveKey('openai');
+
+        // Use preferred provider if it has a key, otherwise auto-detect
+        if ($preferred === 'openai' && !empty($this->openaiKey)) {
+            $this->provider = 'openai';
+        } elseif ($preferred === 'gemini' && !empty($this->geminiKey)) {
+            $this->provider = 'gemini';
+        } elseif (!empty($this->geminiKey)) {
+            $this->provider = 'gemini';
+        } elseif (!empty($this->openaiKey)) {
+            $this->provider = 'openai';
+        } else {
+            $this->provider = $preferred; // will fail gracefully with empty key
+        }
+
+        error_log(sprintf('[EmbeddingProvider] provider=%s tenant=%s hasGemini=%s hasOpenAI=%s',
+            $this->provider, $tenantId ?? 'null',
+            empty($this->geminiKey) ? 'no' : 'yes',
+            empty($this->openaiKey) ? 'no' : 'yes'
+        ));
+    }
+
+    /**
+     * Resolve API key: DB (tenant → global) → .env fallback.
+     */
+    private function resolveKey(string $provider): string
+    {
+        // Try DB resolution via AiApiKey model
+        try {
+            $key = \App\Models\AiApiKey::getDecryptedKey($provider, $this->tenantId);
+            if (!empty($key)) {
+                return $key;
+            }
+        } catch (\Throwable $e) {
+            error_log('[EmbeddingProvider] AiApiKey lookup failed for ' . $provider . ': ' . $e->getMessage());
+        }
+
+        // Fallback to config/.env
+        $configKey = config("services.{$provider}.key", '');
+        return is_string($configKey) ? $configKey : '';
     }
 
     /**
@@ -201,8 +244,13 @@ class EmbeddingProvider
 
     private function httpPost(string $url, array $headers, array $body): array
     {
-        // Header padrão sempre presente; headers extras são mesclados
-        $allHeaders = array_merge(['Content-Type: application/json'], $headers);
+        // Deduplicate headers: extras override defaults
+        $headerMap = ['content-type' => 'Content-Type: application/json'];
+        foreach ($headers as $h) {
+            $name = strtolower(explode(':', $h, 2)[0]);
+            $headerMap[$name] = $h;
+        }
+        $allHeaders = array_values($headerMap);
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -214,10 +262,23 @@ class EmbeddingProvider
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
 
-        $raw  = curl_exec($ch);
+        $raw  = @curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err  = curl_error($ch);
-        curl_close($ch);
+
+        // Retry without SSL verify if certificate error (macOS/Homebrew OpenSSL)
+        if ($raw === false && (str_contains($err, 'certificate') || str_contains($err, 'trust anchors') || str_contains($err, 'SSL'))) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            $raw  = @curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $err  = curl_error($ch);
+        }
+
+        // curl_close deprecated in PHP 8.5
+        if (PHP_VERSION_ID < 80500) {
+            curl_close($ch);
+        }
 
         if ($raw === false) {
             error_log('[EmbeddingProvider] cURL error: ' . $err);

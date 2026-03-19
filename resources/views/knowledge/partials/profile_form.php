@@ -14,6 +14,347 @@ $pJson = function(string $key, string $sep = "\n") use ($profile): string {
 };
 ?>
 
+<!-- ── UPLOAD DE DOCUMENTO ── -->
+<div class="bg-surface border border-dashed border-lime/30 rounded-xl p-6 mb-6">
+    <div class="flex items-start gap-4">
+        <div class="size-12 rounded-xl bg-lime/10 flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-lime text-2xl">upload_file</span>
+        </div>
+        <div class="flex-1">
+            <div class="flex items-center justify-between gap-4 mb-1">
+                <h2 class="text-sm font-semibold text-lime uppercase tracking-widest">Preenchimento Automático por Documento</h2>
+                <button type="button" id="clear-all-fields" class="flex items-center gap-1.5 px-3 py-1.5 bg-red-400/10 hover:bg-red-400/20 text-red-400 text-[10px] uppercase tracking-wider font-bold rounded-lg transition-all border border-red-400/20">
+                    <span class="material-symbols-outlined text-[14px]">delete_sweep</span>
+                    Limpar Tudo
+                </button>
+            </div>
+            <p class="text-xs text-muted mb-4">Envie um documento estratégico da empresa (proposta comercial, playbook, apresentação) e a IA irá extrair automaticamente as informações para preencher o formulário. Você poderá revisar antes de salvar.</p>
+
+            <div id="doc-upload-zone" class="relative">
+                <input type="file" id="doc-file-input" accept=".txt,.md,.csv,.pdf,.docx"
+                       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                <div id="doc-upload-label" class="flex items-center gap-3 bg-surface2 border border-stroke rounded-lg px-4 py-3 cursor-pointer hover:border-lime/40 transition-all">
+                    <span class="material-symbols-outlined text-muted text-lg">description</span>
+                    <span class="text-sm text-muted">Selecione um arquivo (.txt, .md, .csv, .pdf, .docx) — máx 5MB</span>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div id="doc-upload-status" class="hidden mt-3">
+                <div id="doc-upload-processing" class="hidden flex items-center gap-2 text-xs text-lime">
+                    <span class="material-symbols-outlined text-[14px] animate-spin">refresh</span>
+                    <span>Analisando documento com IA...</span>
+                </div>
+                <div id="doc-upload-success" class="hidden flex items-center gap-2 text-xs text-mint">
+                    <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                    <span id="doc-upload-success-msg"></span>
+                </div>
+                <div id="doc-upload-error" class="hidden flex items-center gap-2 text-xs text-red-400">
+                    <span class="material-symbols-outlined text-[14px]">error</span>
+                    <span id="doc-upload-error-msg"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const fileInput = document.getElementById('doc-file-input');
+    const statusDiv = document.getElementById('doc-upload-status');
+    const processingDiv = document.getElementById('doc-upload-processing');
+    const successDiv = document.getElementById('doc-upload-success');
+    const errorDiv = document.getElementById('doc-upload-error');
+    const labelDiv = document.getElementById('doc-upload-label');
+
+    if (!fileInput) return;
+
+    fileInput.addEventListener('change', async function() {
+        const file = this.files[0];
+        if (!file) return;
+
+        // Show processing
+        statusDiv.classList.remove('hidden');
+        processingDiv.classList.remove('hidden');
+        successDiv.classList.add('hidden');
+        errorDiv.classList.add('hidden');
+        labelDiv.querySelector('span:last-child').textContent = file.name;
+
+        const formData = new FormData();
+        formData.append('document', file);
+
+        try {
+            const res = await fetch('/knowledge/extract-document', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await res.json();
+
+            processingDiv.classList.add('hidden');
+
+            if (data.success && data.extracted) {
+                const filled = fillFormFromExtraction(data.extracted);
+                successDiv.classList.remove('hidden');
+                document.getElementById('doc-upload-success-msg').textContent =
+                    `${filled} campos preenchidos a partir de "${data.filename}". Revise e clique em Salvar.`;
+            } else {
+                errorDiv.classList.remove('hidden');
+                document.getElementById('doc-upload-error-msg').textContent = data.error || 'Erro desconhecido.';
+            }
+        } catch (e) {
+            processingDiv.classList.add('hidden');
+            errorDiv.classList.remove('hidden');
+            document.getElementById('doc-upload-error-msg').textContent = 'Erro de conexão: ' + e.message;
+        }
+
+        // Reset file input
+        this.value = '';
+    });
+
+    const clearBtn = document.getElementById('clear-all-fields');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (!confirm('Deseja realmente limpar todos os campos do formulário?')) return;
+
+            const form = document.getElementById('knowledge-profile-form');
+            if (!form) return;
+
+            // Simple text/url/textarea fields
+            form.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach(el => {
+                el.value = '';
+                el.classList.remove('border-lime/40');
+                el.classList.remove('border-stroke');
+                el.classList.add('border-stroke');
+            });
+
+            // Selects
+            form.querySelectorAll('select').forEach(el => {
+                el.selectedIndex = 0;
+            });
+
+            // Reset dynamic lists - Back to 1 empty row state
+            const dynamicLists = [
+                {
+                    id: 'services-list',
+                    html: `<div class="flex gap-2 items-start service-row"><div class="flex-1 grid grid-cols-3 gap-2"><input type="text" name="services[0][name]" placeholder="Nome do serviço" class="bg-surface2 border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"><input type="text" name="services[0][description]" placeholder="Descrição breve" class="bg-surface2 border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"><input type="text" name="services[0][price_range]" placeholder="Preço" class="bg-surface2 border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"></div></div>`
+                },
+                {
+                    id: 'cases-list',
+                    html: `<div class="bg-surface2 border border-stroke rounded-xl p-4 space-y-4 case-row"><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><input type="text" name="cases[0][client]" placeholder="Nome do Cliente/Caso" class="bg-surface border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"><input type="text" name="cases[0][result]" placeholder="Resultado alcançado" class="bg-surface border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"><input type="text" name="cases[0][niche]" placeholder="Nicho do cliente" class="bg-surface border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"><input type="text" name="cases[0][timeframe]" placeholder="Prazo do projeto" class="bg-surface border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"></div></div>`
+                },
+                {
+                    id: 'objections-list',
+                    html: `<div class="flex gap-2 objection-row"><div class="flex-1 grid grid-cols-2 gap-2"><input type="text" name="objection_responses[0][objection]" placeholder="Ex: Está caro demais..." class="bg-surface2 border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"><input type="text" name="objection_responses[0][response]" placeholder="Ex: Nossa qualidade justifica..." class="bg-surface2 border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"></div></div>`
+                },
+                {
+                    id: 'competitors-list',
+                    html: `<div class="flex gap-2 competitor-row"><div class="flex-1 grid grid-cols-3 gap-2"><input type="text" name="competitors[0][name]" placeholder="Nome do concorrente" class="bg-surface2 border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"><input type="text" name="competitors[0][weakness]" placeholder="Pontos fracos dele" class="bg-surface2 border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"><input type="text" name="competitors[0][how_to_win]" placeholder="Como vencer" class="bg-surface2 border border-stroke rounded-lg px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"></div></div>`
+                }
+            ];
+
+            dynamicLists.forEach(cfg => {
+                const el = document.getElementById(cfg.id);
+                if (el) el.innerHTML = cfg.html;
+            });
+
+            // Hide upload status
+            if (statusDiv) statusDiv.classList.add('hidden');
+            labelDiv.querySelector('span:last-child').textContent = 'Selecione um arquivo (.txt, .md, .csv, .pdf, .docx) — máx 5MB';
+        });
+    }
+
+    function fillFormFromExtraction(data) {
+        let filled = 0;
+        const form = document.getElementById('knowledge-profile-form');
+        if (!form) return 0;
+
+        // Simple text fields
+        const simpleFields = {
+            'agency_name': data.agency_name,
+            'agency_niche': data.agency_niche,
+            'agency_city': data.agency_city,
+            'agency_state': data.agency_state,
+            'offer_summary': data.offer_summary,
+            'offer_price_range': data.offer_price_range,
+            'unique_value_prop': data.unique_value_prop,
+            'guarantees': data.guarantees,
+            'delivery_timeline': data.delivery_timeline,
+            'icp_profile': data.icp_profile,
+            'icp_company_size': data.icp_company_size,
+            'icp_ticket_range': data.icp_ticket_range,
+            'pricing_justification': data.pricing_justification,
+            'custom_context': data.custom_context,
+            'awards_recognition': data.awards_recognition,
+        };
+
+        for (const [name, value] of Object.entries(simpleFields)) {
+            if (value) {
+                const el = form.querySelector(`[name="${name}"]`);
+                if (el && !el.value.trim()) {
+                    el.value = value;
+                    el.classList.add('border-lime/40');
+                    setTimeout(() => el.classList.remove('border-lime/40'), 3000);
+                    filled++;
+                }
+            }
+        }
+
+        // Textarea array fields (one per line)
+        const textareaArrays = {
+            'differentials': data.differentials,
+            'icp_segment': data.icp_segment,
+            'icp_pain_points': data.icp_pain_points,
+        };
+
+        for (const [name, arr] of Object.entries(textareaArrays)) {
+            if (arr && Array.isArray(arr) && arr.length > 0) {
+                const el = form.querySelector(`[name="${name}"]`);
+                if (el && !el.value.trim()) {
+                    el.value = arr.join('\n');
+                    el.classList.add('border-lime/40');
+                    setTimeout(() => el.classList.remove('border-lime/40'), 3000);
+                    filled++;
+                }
+            }
+        }
+
+        // Dynamic services
+        if (data.services && Array.isArray(data.services) && data.services.length > 0) {
+            const list = document.getElementById('services-list');
+            if (list) {
+                // Check if current services are empty
+                const existing = list.querySelectorAll('.service-row');
+                const firstEmpty = existing.length === 1 &&
+                    !list.querySelector('input[name*="[name]"]')?.value?.trim();
+                if (firstEmpty) list.innerHTML = '';
+
+                data.services.forEach((svc, i) => {
+                    const idx = existing.length > 1 ? existing.length + i : i;
+                    list.insertAdjacentHTML('beforeend', `
+                        <div class="flex gap-2 items-start service-row" style="border-left: 2px solid var(--lime); padding-left: 6px;">
+                            <div class="flex-1 grid grid-cols-3 gap-2">
+                                <input type="text" name="services[${idx}][name]" value="${escAttr(svc.name || '')}"
+                                       class="bg-surface2 border border-lime/40 rounded-lg px-3 py-2 text-sm text-text">
+                                <input type="text" name="services[${idx}][description]" value="${escAttr(svc.description || '')}"
+                                       class="bg-surface2 border border-lime/40 rounded-lg px-3 py-2 text-sm text-text">
+                                <input type="text" name="services[${idx}][price_range]" value="${escAttr(svc.price_range || '')}"
+                                       class="bg-surface2 border border-lime/40 rounded-lg px-3 py-2 text-sm text-text">
+                            </div>
+                            <button type="button" onclick="this.closest('.service-row').remove()"
+                                    class="text-muted hover:text-red-400 transition-colors mt-2">
+                                <span class="material-symbols-outlined text-lg">close</span>
+                            </button>
+                        </div>`);
+                    filled++;
+                });
+            }
+        }
+
+        // Dynamic cases
+        if (data.cases && Array.isArray(data.cases) && data.cases.length > 0) {
+            const list = document.getElementById('cases-list');
+            if (list) {
+                const existing = list.querySelectorAll('.case-row');
+                const firstEmpty = existing.length === 1 &&
+                    !list.querySelector('input[name*="[client]"]')?.value?.trim();
+                if (firstEmpty) list.innerHTML = '';
+
+                data.cases.forEach((c, i) => {
+                    const idx = existing.length > 1 ? existing.length + i : i;
+                    list.insertAdjacentHTML('beforeend', `
+                        <div class="bg-surface2 border border-lime/40 rounded-lg p-3 space-y-2 case-row">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <input type="text" name="cases[${idx}][client]" value="${escAttr(c.client || '')}"
+                                       class="bg-surface border border-stroke rounded-lg px-3 py-2 text-sm text-text">
+                                <input type="text" name="cases[${idx}][result]" value="${escAttr(c.result || '')}"
+                                       class="bg-surface border border-stroke rounded-lg px-3 py-2 text-sm text-text">
+                                <input type="text" name="cases[${idx}][niche]" value="${escAttr(c.niche || '')}"
+                                       class="bg-surface border border-stroke rounded-lg px-3 py-2 text-sm text-text">
+                                <div class="flex gap-2">
+                                    <input type="text" name="cases[${idx}][timeframe]" value="${escAttr(c.timeframe || '')}"
+                                           class="flex-1 bg-surface border border-stroke rounded-lg px-3 py-2 text-sm text-text">
+                                    <button type="button" onclick="this.closest('.case-row').remove()"
+                                            class="text-muted hover:text-red-400 transition-colors">
+                                        <span class="material-symbols-outlined text-lg">close</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`);
+                    filled++;
+                });
+            }
+        }
+
+        // Dynamic objections
+        if (data.objection_responses && Array.isArray(data.objection_responses) && data.objection_responses.length > 0) {
+            const list = document.getElementById('objections-list');
+            if (list) {
+                const existing = list.querySelectorAll('.objection-row');
+                const firstEmpty = existing.length === 1 &&
+                    !list.querySelector('input[name*="[objection]"]')?.value?.trim();
+                if (firstEmpty) list.innerHTML = '';
+
+                data.objection_responses.forEach((o, i) => {
+                    const idx = existing.length > 1 ? existing.length + i : i;
+                    list.insertAdjacentHTML('beforeend', `
+                        <div class="flex gap-2 objection-row">
+                            <div class="flex-1 grid grid-cols-2 gap-2">
+                                <input type="text" name="objection_responses[${idx}][objection]" value="${escAttr(o.objection || '')}"
+                                       class="bg-surface2 border border-lime/40 rounded-lg px-3 py-2 text-sm text-text">
+                                <input type="text" name="objection_responses[${idx}][response]" value="${escAttr(o.response || '')}"
+                                       class="bg-surface2 border border-lime/40 rounded-lg px-3 py-2 text-sm text-text">
+                            </div>
+                            <button type="button" onclick="this.closest('.objection-row').remove()"
+                                    class="text-muted hover:text-red-400 transition-colors mt-2">
+                                <span class="material-symbols-outlined text-lg">close</span>
+                            </button>
+                        </div>`);
+                    filled++;
+                });
+            }
+        }
+
+        // Dynamic competitors
+        if (data.competitors && Array.isArray(data.competitors) && data.competitors.length > 0) {
+            const list = document.getElementById('competitors-list');
+            if (list) {
+                const existing = list.querySelectorAll('.competitor-row');
+                const firstEmpty = existing.length === 1 &&
+                    !list.querySelector('input[name*="[name]"]')?.value?.trim();
+                if (firstEmpty) list.innerHTML = '';
+
+                data.competitors.forEach((comp, i) => {
+                    const idx = existing.length > 1 ? existing.length + i : i;
+                    list.insertAdjacentHTML('beforeend', `
+                        <div class="flex gap-2 competitor-row">
+                            <div class="flex-1 grid grid-cols-3 gap-2">
+                                <input type="text" name="competitors[${idx}][name]" value="${escAttr(comp.name || '')}"
+                                       class="bg-surface2 border border-lime/40 rounded-lg px-3 py-2 text-sm text-text">
+                                <input type="text" name="competitors[${idx}][weakness]" value="${escAttr(comp.weakness || '')}"
+                                       class="bg-surface2 border border-lime/40 rounded-lg px-3 py-2 text-sm text-text">
+                                <input type="text" name="competitors[${idx}][how_to_win]" value="${escAttr(comp.how_to_win || '')}"
+                                       class="bg-surface2 border border-lime/40 rounded-lg px-3 py-2 text-sm text-text">
+                            </div>
+                            <button type="button" onclick="this.closest('.competitor-row').remove()"
+                                    class="text-muted hover:text-red-400 transition-colors mt-2">
+                                <span class="material-symbols-outlined text-lg">close</span>
+                            </button>
+                        </div>`);
+                    filled++;
+                });
+            }
+        }
+
+        return filled;
+    }
+
+    function escAttr(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+}());
+</script>
+
 <form id="knowledge-profile-form" class="space-y-6">
     <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
 

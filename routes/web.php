@@ -73,6 +73,7 @@ $router->post('/knowledge/profile',                 [KnowledgeController::class,
 $router->post('/knowledge/reindex',                 [KnowledgeController::class, 'reindex']);
 $router->get('/knowledge/status',                   [KnowledgeController::class, 'getStatus']);
 $router->post('/knowledge/document/:id/delete',     [KnowledgeController::class, 'deleteDocument']);
+$router->post('/knowledge/extract-document',        [KnowledgeController::class, 'extractDocument']);
 
 // ── Deep Intelligence ────────────────────────────────────────
 $router->post('/intelligence/run', [\App\Controllers\DeepIntelligenceController::class, 'runIntelligence']);
@@ -155,6 +156,27 @@ $router->post('/whatsapp/conversation/:id/interest-score', [WhatsAppController::
 $router->post('/whatsapp/conversation/:id/prepare-send',  [WhatsAppController::class, 'prepareSend']);
 $router->get('/whatsapp/webhook',                [WhatsAppController::class, 'webhookHandler']);
 $router->post('/whatsapp/webhook',               [WhatsAppController::class, 'webhookHandler']);
+
+// ── Copilot (Full Page) ─────────────────────────────────────
+$router->get('/copilot', function() {
+    \App\Core\Session::requireAuth();
+    $tenantId = \App\Core\Session::get('tenant_id');
+    $leads = \App\Core\Database::select(
+        "SELECT id, name, segment, phone, email, pipeline_status, priority_score, human_context
+         FROM leads WHERE tenant_id = ? ORDER BY updated_at DESC LIMIT 200",
+        [$tenantId]
+    );
+    // Pipeline stats for funnel
+    $funnelStats = \App\Core\Database::select(
+        "SELECT pipeline_status, COUNT(*) as count FROM leads WHERE tenant_id = ? GROUP BY pipeline_status",
+        [$tenantId]
+    );
+    \App\Core\View::render('copilot/index', [
+        'active' => 'copilot',
+        'leads' => $leads,
+        'funnelStats' => $funnelStats,
+    ]);
+});
 
 // ── API interna ──────────────────────────────────────────────
 $router->get('/api/tokens',          [ApiController::class, 'tokens']);

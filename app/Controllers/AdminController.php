@@ -451,7 +451,9 @@ class AdminController
         }
 
         try {
+            // Salvar como chave do tenant E como chave global (disponível para todos os tenants)
             \App\Models\AiApiKey::upsert($provider, $plainKey, $tenantId, $label);
+            \App\Models\AiApiKey::upsert($provider, $plainKey, null, $label ?: 'Global');
             Session::flash('success', 'Chave de API para ' . strtoupper($provider) . ' salva com sucesso.');
         } catch (\Throwable $e) {
             error_log('[AdminController] Erro ao salvar chave: ' . $e->getMessage());
@@ -493,38 +495,68 @@ class AdminController
 
     public function testAiKey(): void
     {
+        // Limpar qualquer output anterior (warnings, notices, etc.)
+        if (ob_get_level()) ob_end_clean();
+        ob_start();
+
+        header('Content-Type: application/json; charset=utf-8');
+
         if (!Session::get('admin_auth')) {
+            ob_end_clean();
             http_response_code(403);
             echo json_encode(['success' => false, 'message' => 'Não autorizado']);
             return;
         }
 
-        header('Content-Type: application/json');
-
         $provider = trim($_POST['provider'] ?? '');
         $tenantId = Session::adminTenantId();
 
         if (!in_array($provider, ['gemini', 'openai', 'grok'], true)) {
+            ob_end_clean();
             echo json_encode(['success' => false, 'message' => 'Provedor inválido.']);
             return;
         }
 
         try {
-            $ai = \App\Services\AI\AIProviderFactory::make('test_connection', $tenantId);
+            // Buscar a chave do provider ESPECÍFICO solicitado
+            $key = \App\Models\AiApiKey::getDecryptedKey($provider, $tenantId);
+
+            if (empty($key)) {
+                ob_end_clean();
+                echo json_encode(['success' => false, 'message' => "Nenhuma chave encontrada para {$provider}. Salve a chave antes de testar."]);
+                return;
+            }
+
+            // Criar o provider ESPECÍFICO com a chave encontrada
+            if ($provider === 'gemini') {
+                $model = config('services.gemini.model', 'gemini-2.0-flash');
+                $ai = new \App\Services\AI\GeminiProvider($key, $model);
+            } else {
+                $model = $provider === 'grok'
+                    ? config('services.grok.model', 'grok-2')
+                    : config('services.openai.model', 'gpt-4o');
+                $ai = new \App\Services\AI\OpenAIProvider($provider, $key, $model);
+            }
+
             $result = $ai->generate('Responda apenas: OK', 'Diga OK.');
 
-            if (!empty($result)) {
+            // Descartar qualquer output do provider (warnings etc.)
+            ob_end_clean();
+
+            if (!empty(trim($result))) {
                 echo json_encode([
                     'success'  => true,
-                    'message'  => 'Conexão bem-sucedida! Provider: ' . $ai->getProviderName() . ' | Model: ' . $ai->getModel(),
+                    'message'  => 'Conexão OK! Provider: ' . $ai->getProviderName() . ' | Modelo: ' . $ai->getModel() . ' | Resposta: ' . substr(trim($result), 0, 50),
                     'provider' => $ai->getProviderName(),
                     'model'    => $ai->getModel(),
                 ]);
             } else {
-                echo json_encode(['success' => false, 'message' => 'Resposta vazia do provedor.']);
+                echo json_encode(['success' => false, 'message' => "O provedor {$provider} retornou resposta vazia. Verifique se a chave tem permissões e se o modelo está disponível."]);
             }
         } catch (\Throwable $e) {
-            echo json_encode(['success' => false, 'message' => 'Erro: ' . $e->getMessage()]);
+            ob_end_clean();
+            error_log("[testAiKey] Erro: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Erro ao testar ' . $provider . ': ' . $e->getMessage()]);
         }
     }
 

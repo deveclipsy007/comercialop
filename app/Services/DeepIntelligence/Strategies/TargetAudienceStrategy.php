@@ -18,12 +18,12 @@ class TargetAudienceStrategy implements IntelligenceStrategyInterface
 
     public function getName(): string
     {
-        return 'Público-Alvo Ideal';
+        return 'Público-Alvo & Encaixe';
     }
 
     public function getDescription(): string
     {
-        return 'Análise detalhada de quem são os potenciais compradores deste negócio.';
+        return 'Quem esse lead atende, qual público consome dele, e como a Operon pode explorar isso.';
     }
 
     public function getIcon(): string
@@ -43,10 +43,33 @@ class TargetAudienceStrategy implements IntelligenceStrategyInterface
 
     public function execute(array $lead, string $tenantId): array
     {
-        $context = (new SmartContextService())->buildLeadContext($lead);
+        $context = (new SmartContextService())->buildDeepIntelligenceContext($lead);
 
-        $systemPrompt = "Você é um Consultor de Vendas B2B experiente.\nSeja extremamente pragmático e direto.\nResponda APENAS com um JSON simples: {\"summary\":\"Texto de 1 a 2 parágrafos\"}";
-        $userPrompt = "Baseado nos dados desta empresa:\n" . $context . "\n\nDescreva detalhadamente quem é o público-alvo ou perfil de comprador ideal deste lead. Quem costuma comprar os serviços ou produtos deles?";
+        $leadName = $lead['name'] ?? 'este lead';
+
+        $systemPrompt = <<<PROMPT
+Você é um Analista de Mercado especializado em inteligência comercial B2B na Operon.
+Seu papel é analisar o LEAD como prospect, entendendo quem é o público dele para identificar oportunidades de venda.
+
+REGRAS:
+- Analise "{$leadName}" como LEAD/PROSPECT, não como empresa genérica.
+- O público do lead importa porque ajuda a Operon a entender como posicionar sua oferta.
+- Correlacione: público do lead → necessidades de marketing → serviços Operon que se encaixam.
+- Use avaliações, reviews e presença digital como sinais reais de perfil de público.
+- Responda APENAS com JSON válido: {"summary":"Texto de 2-3 parágrafos, até 800 caracteres"}
+PROMPT;
+
+        $userPrompt = <<<PROMPT
+{$context}
+
+Com base nos dados acima, analise o lead "{$leadName}" e responda:
+
+1. PÚBLICO DO LEAD: Quem são os clientes/consumidores desse lead? Qual perfil compra dele? (use reviews, avaliações e segmento como sinais)
+2. PERFIL DE MERCADO: É um negócio local, regional ou digital? Qual o tamanho estimado do mercado que ele atende?
+3. OPORTUNIDADE PARA A OPERON: Dado o público que esse lead atende, quais serviços da Operon seriam mais estratégicos para ele? Como a Operon poderia ajudá-lo a captar mais desse público?
+
+Foco: Como a Operon pode usar o entendimento do público desse lead para construir uma proposta irrecusável.
+PROMPT;
 
         $provider = AIProviderFactory::make('lead_clients_analysis', $tenantId);
         $meta = $provider->generateJsonWithMeta($systemPrompt, $userPrompt);

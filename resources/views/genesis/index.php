@@ -64,7 +64,7 @@
                         </div>
                         <div class="flex gap-3 items-start">
                             <span class="flex-shrink-0 size-6 rounded-full bg-lime/10 border border-lime/20 flex items-center justify-center text-lime text-[10px] font-black">2</span>
-                            <p>O motor de deteccao identifica automaticamente: emails, telefones, nomes, sites, cidades, estados, cargos e mais — com base nos <b class="text-white">dados reais</b>.</p>
+                            <p>O motor de deteccao identifica automaticamente: nomes, telefones, emails, sites, avaliacoes, horarios, links do Google Maps e muito mais.</p>
                         </div>
                         <div class="flex gap-3 items-start">
                             <span class="flex-shrink-0 size-6 rounded-full bg-lime/10 border border-lime/20 flex items-center justify-center text-lime text-[10px] font-black">3</span>
@@ -75,34 +75,55 @@
 
                 <div class="border-t border-white/5 pt-4">
                     <h4 class="text-xs font-bold text-white mb-3">Campos detectados automaticamente</h4>
-                    <div class="grid grid-cols-2 gap-1.5 text-[11px]">
-                        <?php
-                        $fields = [
+                    <?php
+                    $fieldGroups = [
+                        ['title' => 'Dados Básicos', 'color' => '#a3e635', 'fields' => [
                             ['icon' => 'person', 'label' => 'Nome / Empresa'],
                             ['icon' => 'mail', 'label' => 'Email'],
                             ['icon' => 'phone', 'label' => 'Telefone'],
                             ['icon' => 'language', 'label' => 'Website'],
                             ['icon' => 'category', 'label' => 'Segmento'],
-                            ['icon' => 'location_on', 'label' => 'Endereco'],
+                            ['icon' => 'badge', 'label' => 'Cargo'],
+                        ]],
+                        ['title' => 'Localização', 'color' => '#38bdf8', 'fields' => [
+                            ['icon' => 'location_on', 'label' => 'Endereço'],
                             ['icon' => 'location_city', 'label' => 'Cidade'],
                             ['icon' => 'map', 'label' => 'Estado/UF'],
-                            ['icon' => 'badge', 'label' => 'Cargo'],
-                            ['icon' => 'notes', 'label' => 'Observacoes'],
-                        ];
-                        foreach ($fields as $f): ?>
-                        <span class="flex items-center gap-1.5 text-muted">
-                            <span class="material-symbols-outlined text-[13px] text-lime"><?= $f['icon'] ?></span>
-                            <?= $f['label'] ?>
-                        </span>
-                        <?php endforeach; ?>
+                            ['icon' => 'pin_drop', 'label' => 'Link Google Maps'],
+                        ]],
+                        ['title' => 'Negócio & Avaliações', 'color' => '#f59e0b', 'fields' => [
+                            ['icon' => 'storefront', 'label' => 'Categoria'],
+                            ['icon' => 'star', 'label' => 'Avaliação'],
+                            ['icon' => 'reviews', 'label' => 'Qtd. Avaliações'],
+                            ['icon' => 'rate_review', 'label' => 'Reviews'],
+                            ['icon' => 'schedule', 'label' => 'Horários'],
+                        ]],
+                        ['title' => 'Redes Sociais', 'color' => '#a78bfa', 'fields' => [
+                            ['icon' => 'photo_camera', 'label' => 'Instagram'],
+                            ['icon' => 'thumb_up', 'label' => 'Facebook'],
+                            ['icon' => 'work', 'label' => 'LinkedIn'],
+                        ]],
+                    ];
+                    foreach ($fieldGroups as $group): ?>
+                    <div class="mb-3">
+                        <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5" style="color: <?= $group['color'] ?>"><?= $group['title'] ?></p>
+                        <div class="grid grid-cols-2 gap-1 text-[11px]">
+                            <?php foreach ($group['fields'] as $f): ?>
+                            <span class="flex items-center gap-1.5 text-muted">
+                                <span class="material-symbols-outlined text-[13px]" style="color: <?= $group['color'] ?>"><?= $f['icon'] ?></span>
+                                <?= $f['label'] ?>
+                            </span>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
+                    <?php endforeach; ?>
                 </div>
 
                 <div class="bg-lime/5 border border-lime/10 rounded-xl p-3 text-xs text-slate-400">
                     <p class="font-bold text-lime mb-1 flex items-center gap-1">
-                        <span class="material-symbols-outlined text-sm">psychology</span> Deteccao Inteligente
+                        <span class="material-symbols-outlined text-sm">psychology</span> Deteccao Inteligente V2
                     </p>
-                    <p>O sistema analisa o <b class="text-white">conteudo real</b> de cada coluna, nao apenas o titulo. Mesmo planilhas sem cabecalho ou com nomes estranhos sao reconhecidas.</p>
+                    <p>O sistema analisa o <b class="text-white">conteudo real</b> de cada coluna. Detecta automaticamente <b class="text-white">22 tipos de campos</b> incluindo dados do Google Maps, avaliacoes, horarios e redes sociais.</p>
                 </div>
             </div>
         </div>
@@ -134,6 +155,10 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Detected Groups Summary -->
+                <div id="groupSummary" class="mt-4 flex flex-wrap gap-2"></div>
+
                 <div id="headerDataWarning" class="hidden mt-3 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-300 flex items-center gap-2">
                     <span class="material-symbols-outlined text-sm">warning</span>
                     <span>Cabecalhos nao detectados. A primeira linha foi tratada como dado. Mapeamento feito 100% por analise de conteudo.</span>
@@ -166,6 +191,15 @@
                 </div>
             </div>
 
+            <!-- Enriched Data Summary -->
+            <div id="enrichedSummary" class="hidden bg-brand-surface border border-white/8 rounded-2xl p-6">
+                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-400 text-lg">auto_awesome</span>
+                    Dados Enriquecidos Detectados
+                </h3>
+                <div id="enrichedCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+            </div>
+
             <!-- Import Button -->
             <form method="POST" action="/genesis" id="importForm">
                 <?= csrf_field() ?>
@@ -191,11 +225,16 @@ const Genesis = {
     stats: {},
     availableFields: [],
     fieldLabels: {},
+    fieldIcons: {},
+    fieldsByGroup: {},
+    fieldGroups: {},
 
-    fieldIcons: {
-        name:'person', email:'mail', phone:'phone', website:'language',
-        segment:'category', address:'location_on', city:'location_city',
-        state:'map', position:'badge', notes:'notes',
+    // Cores por grupo
+    groupColors: {
+        basic: '#a3e635',
+        location: '#38bdf8',
+        business: '#f59e0b',
+        social: '#a78bfa',
     },
 
     init() {
@@ -237,6 +276,7 @@ const Genesis = {
         btn.disabled = true;
         btnText.textContent = 'Analisando...';
         btnIcon.textContent = 'hourglass_empty';
+        btnIcon.classList.add('animate-spin');
 
         const formData = new FormData();
         formData.append('csv', csvInput.files[0]);
@@ -251,6 +291,7 @@ const Genesis = {
                 btn.disabled = false;
                 btnText.textContent = 'Analisar Planilha';
                 btnIcon.textContent = 'search';
+                btnIcon.classList.remove('animate-spin');
                 return;
             }
 
@@ -261,7 +302,10 @@ const Genesis = {
             this.sampleRows = data.sample_rows;
             this.stats = data.stats;
             this.fieldLabels = data.field_labels;
+            this.fieldIcons = data.field_icons || {};
             this.availableFields = data.available_fields;
+            this.fieldsByGroup = data.fields_by_group || {};
+            this.fieldGroups = data.field_groups || {};
 
             this.showPreview();
         } catch (err) {
@@ -272,6 +316,20 @@ const Genesis = {
         btn.disabled = false;
         btnText.textContent = 'Analisar Planilha';
         btnIcon.textContent = 'search';
+        btnIcon.classList.remove('animate-spin');
+    },
+
+    getFieldGroup(field) {
+        for (const [groupKey, groupData] of Object.entries(this.fieldsByGroup)) {
+            if (groupData.fields && groupData.fields[field]) {
+                return groupKey;
+            }
+        }
+        return 'basic';
+    },
+
+    getGroupColor(group) {
+        return this.groupColors[group] || '#a3e635';
     },
 
     showPreview() {
@@ -287,12 +345,35 @@ const Genesis = {
             document.getElementById('headerDataWarning').classList.remove('hidden');
         }
 
+        // Group summary chips
+        this.renderGroupSummary();
+
         // Mapping UI
         this.renderMapping();
         this.renderPreviewTable();
+        this.renderEnrichedSummary();
 
         document.getElementById('importFileToken').value = this.fileToken;
         this.updateImportMapping();
+    },
+
+    renderGroupSummary() {
+        const container = document.getElementById('groupSummary');
+        container.innerHTML = '';
+
+        const byGroup = this.stats.mapped_by_group || {};
+        for (const [groupKey, count] of Object.entries(byGroup)) {
+            const groupMeta = this.fieldGroups[groupKey] || {};
+            const color = this.groupColors[groupKey] || '#a3e635';
+            const chip = document.createElement('div');
+            chip.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold';
+            chip.style.cssText = `background: ${color}15; border: 1px solid ${color}30; color: ${color}`;
+            chip.innerHTML = `
+                <span class="material-symbols-outlined text-[14px]">${groupMeta.icon || 'tag'}</span>
+                ${groupMeta.label || groupKey}: ${count} campo${count > 1 ? 's' : ''}
+            `;
+            container.appendChild(chip);
+        }
     },
 
     renderMapping() {
@@ -302,13 +383,18 @@ const Genesis = {
         this.headers.forEach((header, idx) => {
             const assignedField = this.mapping[idx] || '';
             const conf = this.confidence[idx] || 0;
+            const group = assignedField ? this.getFieldGroup(assignedField) : '';
+            const groupColor = group ? this.getGroupColor(group) : '#64748b';
 
             const confColor = conf >= 70 ? 'text-lime' : (conf >= 40 ? 'text-amber-400' : 'text-red-400');
-            const confBg = conf >= 70 ? 'bg-lime/10 border-lime/20' : (conf >= 40 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20');
             const icon = this.fieldIcons[assignedField] || 'help';
 
             const row = document.createElement('div');
-            row.className = 'flex items-center gap-3 p-3 bg-surface2/50 border border-white/5 rounded-xl';
+            row.className = 'flex items-center gap-3 p-3 bg-surface2/50 border border-white/5 rounded-xl transition-all hover:border-white/10';
+            if (assignedField) {
+                row.style.borderLeftWidth = '3px';
+                row.style.borderLeftColor = groupColor + '60';
+            }
             row.innerHTML = `
                 <div class="flex items-center gap-2 min-w-[180px]">
                     <span class="material-symbols-outlined text-[16px] text-muted">table_chart</span>
@@ -319,9 +405,7 @@ const Genesis = {
                     <select data-col="${idx}" onchange="Genesis.onMappingChange(${idx}, this.value)"
                             class="w-full h-9 bg-surface2 border border-white/10 rounded-lg px-3 text-xs text-white focus:outline-none focus:border-lime/50 transition-colors appearance-none cursor-pointer [color-scheme:dark]">
                         <option value="_skip" class="text-muted">-- Ignorar coluna --</option>
-                        ${this.availableFields.map(f =>
-                            `<option value="${f}" ${f === assignedField ? 'selected' : ''}>${this.fieldLabels[f] || f}</option>`
-                        ).join('')}
+                        ${this.renderFieldOptions(assignedField)}
                     </select>
                 </div>
                 ${conf > 0 ? `
@@ -339,6 +423,24 @@ const Genesis = {
         });
     },
 
+    renderFieldOptions(selectedField) {
+        let html = '';
+        // Renderizar opções agrupadas por grupo
+        for (const [groupKey, groupData] of Object.entries(this.fieldsByGroup)) {
+            const groupLabel = groupData.label || groupKey;
+            const fields = groupData.fields || {};
+            if (Object.keys(fields).length === 0) continue;
+
+            html += `<optgroup label="── ${groupLabel} ──">`;
+            for (const [fieldKey, fieldMeta] of Object.entries(fields)) {
+                const selected = fieldKey === selectedField ? 'selected' : '';
+                html += `<option value="${fieldKey}" ${selected}>${fieldMeta.label || fieldKey}</option>`;
+            }
+            html += '</optgroup>';
+        }
+        return html;
+    },
+
     onMappingChange(colIdx, newField) {
         if (newField === '_skip') {
             delete this.mapping[colIdx];
@@ -347,7 +449,6 @@ const Genesis = {
             for (const [k, v] of Object.entries(this.mapping)) {
                 if (v === newField && parseInt(k) !== colIdx) {
                     delete this.mapping[k];
-                    // Resetar o select dessa coluna
                     const otherSelect = document.querySelector(`select[data-col="${k}"]`);
                     if (otherSelect) otherSelect.value = '_skip';
                 }
@@ -356,6 +457,7 @@ const Genesis = {
         }
         this.updateImportMapping();
         this.renderPreviewTable();
+        this.renderEnrichedSummary();
     },
 
     renderPreviewTable() {
@@ -367,20 +469,37 @@ const Genesis = {
             .filter(([k,v]) => v && v !== '_skip')
             .sort((a,b) => parseInt(a[0]) - parseInt(b[0]));
 
-        head.innerHTML = mappedCols.map(([idx, field]) =>
-            `<th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider bg-surface2 whitespace-nowrap">
+        head.innerHTML = mappedCols.map(([idx, field]) => {
+            const group = this.getFieldGroup(field);
+            const color = this.getGroupColor(group);
+            const icon = this.fieldIcons[field] || 'help';
+            return `<th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider bg-surface2 whitespace-nowrap">
                 <span class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-lime text-[13px]">${this.fieldIcons[field] || 'help'}</span>
+                    <span class="material-symbols-outlined text-[13px]" style="color: ${color}">${icon}</span>
                     ${this.fieldLabels[field] || field}
                 </span>
-            </th>`
-        ).join('');
+            </th>`;
+        }).join('');
 
         body.innerHTML = this.sampleRows.slice(0, 5).map(row =>
             '<tr class="border-t border-white/5">' +
-            mappedCols.map(([idx]) =>
-                `<td class="px-3 py-2 text-xs text-slate-400 whitespace-nowrap max-w-[200px] truncate">${this.escHtml(row[parseInt(idx)] || '') || '<span class="text-slate-600">—</span>'}</td>`
-            ).join('') +
+            mappedCols.map(([idx, field]) => {
+                let val = row[parseInt(idx)] || '';
+                let displayVal = this.escHtml(val.substring(0, 50)) + (val.length > 50 ? '...' : '');
+                // Render especial para ratings
+                if (field === 'rating' && val) {
+                    const num = parseFloat(val.replace(',', '.'));
+                    if (!isNaN(num) && num >= 1 && num <= 5) {
+                        const stars = '★'.repeat(Math.round(num)) + '☆'.repeat(5 - Math.round(num));
+                        displayVal = `<span class="text-amber-400">${stars}</span> <span class="text-slate-500">${num}</span>`;
+                    }
+                }
+                // Google Maps — show icon
+                if (field === 'google_maps_url' && val) {
+                    displayVal = `<span class="flex items-center gap-1 text-sky-400"><span class="material-symbols-outlined text-[12px]">pin_drop</span>Link Maps</span>`;
+                }
+                return `<td class="px-3 py-2 text-xs text-slate-400 whitespace-nowrap max-w-[200px] truncate">${displayVal || '<span class="text-slate-600">—</span>'}</td>`;
+            }).join('') +
             '</tr>'
         ).join('');
 
@@ -397,6 +516,51 @@ const Genesis = {
         } else {
             document.getElementById('importBtn').classList.remove('opacity-50','cursor-not-allowed');
         }
+    },
+
+    renderEnrichedSummary() {
+        const mappedFields = Object.values(this.mapping);
+        const enrichedFields = ['google_maps_url', 'rating', 'review_count', 'reviews', 'opening_hours', 'closing_hours', 'category', 'social_instagram', 'social_facebook', 'social_linkedin'];
+        const detected = enrichedFields.filter(f => mappedFields.includes(f));
+
+        const container = document.getElementById('enrichedSummary');
+        const cards = document.getElementById('enrichedCards');
+
+        if (detected.length === 0) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+        cards.innerHTML = '';
+
+        detected.forEach(field => {
+            const group = this.getFieldGroup(field);
+            const color = this.getGroupColor(group);
+            const icon = this.fieldIcons[field] || 'help';
+            const label = this.fieldLabels[field] || field;
+
+            // Get sample values
+            const colIdx = Object.entries(this.mapping).find(([k,v]) => v === field)?.[0];
+            let samples = [];
+            if (colIdx !== undefined) {
+                samples = this.sampleRows.slice(0, 3).map(r => r[parseInt(colIdx)] || '').filter(v => v);
+            }
+
+            const card = document.createElement('div');
+            card.className = 'p-3 rounded-xl border border-white/5';
+            card.style.cssText = `background: ${color}08; border-color: ${color}20;`;
+            card.innerHTML = `
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="material-symbols-outlined text-[18px]" style="color: ${color}">${icon}</span>
+                    <span class="text-xs font-bold text-white">${label}</span>
+                </div>
+                <div class="space-y-1">
+                    ${samples.map(s => `<p class="text-[11px] text-slate-500 truncate" title="${this.escHtml(s)}">${this.escHtml(s.substring(0, 40))}${s.length > 40 ? '...' : ''}</p>`).join('')}
+                </div>
+            `;
+            cards.appendChild(card);
+        });
     },
 
     updateImportMapping() {

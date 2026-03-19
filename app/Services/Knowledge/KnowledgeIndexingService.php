@@ -30,12 +30,11 @@ use App\Services\AI\EmbeddingProvider;
 class KnowledgeIndexingService
 {
     private ChunkingService   $chunker;
-    private EmbeddingProvider $embedder;
+    private ?EmbeddingProvider $embedder = null;
 
     public function __construct()
     {
-        $this->chunker  = new ChunkingService();
-        $this->embedder = new EmbeddingProvider();
+        $this->chunker = new ChunkingService();
     }
 
     /**
@@ -53,6 +52,9 @@ class KnowledgeIndexingService
     public function indexTenant(string $tenantId): array
     {
         set_time_limit(120);
+
+        // Create embedder with tenant context so it can resolve API keys from DB
+        $this->embedder = new EmbeddingProvider($tenantId);
 
         $profile = CompanyProfile::findByTenant($tenantId);
 
@@ -76,6 +78,11 @@ class KnowledgeIndexingService
      */
     public function indexProfile(array $profile, string $tenantId): array
     {
+        // Ensure embedder has tenant context
+        if (!$this->embedder) {
+            $this->embedder = new EmbeddingProvider($tenantId);
+        }
+
         error_log(sprintf(
             '[KnowledgeIndexing] Iniciando indexação para tenant=%s profile_version=%d',
             $tenantId,

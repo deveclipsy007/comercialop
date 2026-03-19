@@ -13,6 +13,9 @@ class App
 
     public function boot(): void
     {
+        // Suprimir deprecation notices que vazam HTML em respostas JSON (PHP 8.5+)
+        error_reporting(E_ALL & ~E_DEPRECATED);
+
         // Carregar .env
         $this->loadEnv();
 

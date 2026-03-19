@@ -25,33 +25,39 @@ class DeepIntelligenceController
     public function runIntelligence(): void
     {
         Session::requireAuth();
-        header('Content-Type: application/json');
+
+        // Limpar qualquer output anterior (PHP warnings/deprecation notices)
+        if (ob_get_level()) ob_end_clean();
+        ob_start();
+
+        header('Content-Type: application/json; charset=utf-8');
 
         $request = json_decode(file_get_contents('php://input'), true);
-        $leadId = (int)($request['lead_id'] ?? 0);
-        $type = $request['type'] ?? '';
+        $leadId = trim($request['lead_id'] ?? '');
+        $type = trim($request['type'] ?? '');
 
-        if (!$leadId || !$type) {
+        if (empty($leadId) || empty($type)) {
+            ob_end_clean();
             echo json_encode(['success' => false, 'error' => 'Parâmetros inválidos']);
             return;
         }
 
         $tenantId = Session::get('tenant_id');
-        $userId = Session::get('user_id');
+        $userId = Session::get('id');
 
         try {
-            // Em aplicação real, você deve validar também o CSRF Token aqui.
-            // if(!isset($request['_csrf']) || $request['_csrf'] !== Session::get('csrf_token')){ throw new Exception('CSRF Invalid'); }
-
             $result = $this->manager->runIntelligence($leadId, $tenantId, $type, $userId);
 
             // Fetch balance pós-consumo
             $newBalance = TokenQuota::getBalance($tenantId);
             $result['tokenBalance'] = $newBalance;
 
+            ob_end_clean();
             echo json_encode($result);
-            
-        } catch (Exception $e) {
+
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            error_log('[DeepIntelligence] Erro: ' . $e->getMessage());
             echo json_encode([
                 'success' => false,
                 'error' => $e->getMessage()

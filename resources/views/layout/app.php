@@ -149,6 +149,7 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
                     'icon' => 'psychology',
                     'items' => [
                         ['label' => 'Overview',  'path' => '/',          'key' => 'dashboard', 'icon' => 'grid_view'],
+                        ['label' => 'Copilot',   'path' => '/copilot',   'key' => 'copilot',   'icon' => 'smart_toy'],
                         ['label' => 'SPIN Hub',  'path' => '/spin',      'key' => 'spin',      'icon' => 'psychology_alt'],
                         ['label' => 'Knowledge', 'path' => '/knowledge', 'key' => 'knowledge', 'icon' => 'neurology'],
                     ]
@@ -260,10 +261,10 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
             </a>
 
             <!-- Copilot Action (Circular) -->
-            <button onclick="openModal('copilotModal')" class="flex size-10 items-center justify-center rounded-full bg-surface border border-white/5 text-muted hover:text-lime hover:border-lime/30 transition-all group relative" title="Operon AI">
+            <a href="/copilot" class="flex size-10 items-center justify-center rounded-full bg-surface border border-white/5 text-muted hover:text-lime hover:border-lime/30 transition-all group relative <?= ($active ?? '') === 'copilot' ? 'border-lime/40 text-lime' : '' ?>" title="Operon AI Copilot">
                 <span class="material-symbols-outlined text-[20px]">smart_toy</span>
                 <span class="absolute top-[2px] right-[2px] size-2.5 bg-lime rounded-full animate-pulse border-2 border-bg"></span>
-            </button>
+            </a>
 
             <!-- Context Switcher (Multi-Company) -->
             <?php if (!empty($linkedTenants)): ?>

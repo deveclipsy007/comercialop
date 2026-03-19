@@ -109,8 +109,12 @@ class KnowledgeController
 
     public function saveProfile(): void
     {
+        // Limpar qualquer output anterior (PHP warnings/deprecation notices)
+        if (ob_get_level()) ob_end_clean();
+        ob_start();
+
         $tenantId = Session::get('tenant_id');
-        if (!$tenantId) { $this->jsonError('Não autorizado', 401); }
+        if (!$tenantId) { ob_end_clean(); $this->jsonError('Não autorizado', 401); }
 
         if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
             $this->jsonError('Token CSRF inválido');
@@ -311,6 +315,201 @@ class KnowledgeController
         $this->jsonSuccess(['message' => 'Documento removido.']);
     }
 
+    // ─── POST /knowledge/extract-document ────────────────────────────────────
+
+    public function extractDocument(): void
+    {
+        // Limpar qualquer output anterior (PHP warnings/deprecation notices)
+        if (ob_get_level()) ob_end_clean();
+        ob_start();
+
+        $tenantId = Session::get('tenant_id');
+        if (!$tenantId) { ob_end_clean(); $this->jsonError('Não autorizado', 401); }
+
+        if (empty($_FILES['document']) || $_FILES['document']['error'] !== UPLOAD_ERR_OK) {
+            ob_end_clean();
+            $this->jsonError('Nenhum documento enviado ou erro no upload.');
+        }
+
+        $file = $_FILES['document'];
+        $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $allowed = ['txt', 'md', 'csv', 'pdf', 'docx'];
+
+        if (!in_array($ext, $allowed)) {
+            $this->jsonError('Formato não suportado. Use: ' . implode(', ', $allowed));
+        }
+
+        // Limitar tamanho (5MB)
+        if ($file['size'] > 5 * 1024 * 1024) {
+            $this->jsonError('Arquivo muito grande. Máximo 5MB.');
+        }
+
+        // Extrair texto do documento
+        $text = $this->extractTextFromFile($file['tmp_name'], $ext);
+
+        if (empty(trim($text))) {
+            $this->jsonError('Não foi possível extrair texto do documento.');
+        }
+
+        // Limitar a 15.000 caracteres para não exceder contexto da IA
+        $text = mb_substr($text, 0, 15000);
+
+        // Enviar para IA extrair dados estruturados
+        error_log('[KnowledgeController] extractDocument tenantId=' . $tenantId);
+        $provider = \App\Services\AI\AIProviderFactory::make('knowledge_extraction', $tenantId);
+        error_log('[KnowledgeController] provider=' . $provider->getProviderName() . '/' . $provider->getModel());
+
+        $systemPrompt = <<<PROMPT
+Você é um especialista em análise de documentos corporativos. Sua tarefa é extrair informações estratégicas de um documento fornecido e organizá-las nos campos abaixo.
+
+REGRAS:
+1. Extraia APENAS o que está presente ou claramente implícito no documento.
+2. NÃO invente informações que não existem no texto.
+3. Se um campo não tiver informação correspondente no documento, retorne string vazia.
+4. Para campos de array, retorne array vazio se não houver dados.
+5. Seja preciso na extração. Priorize fidelidade ao texto original.
+PROMPT;
+
+        $userPrompt = <<<PROMPT
+DOCUMENTO ENVIADO:
+---
+{$text}
+---
+
+Extraia as seguintes informações do documento acima e retorne APENAS um JSON válido:
+
+{
+  "agency_name": "Nome da empresa/agência",
+  "agency_niche": "Nicho principal de atuação",
+  "agency_city": "Cidade",
+  "agency_state": "Estado (sigla)",
+  "offer_summary": "Resumo da oferta/proposta da empresa",
+  "offer_price_range": "Faixa de preço se mencionada",
+  "unique_value_prop": "Proposta de valor única",
+  "guarantees": "Garantias oferecidas",
+  "delivery_timeline": "Prazo de entrega/resultados",
+  "differentials": ["Diferencial 1", "Diferencial 2"],
+  "services": [{"name": "Serviço 1", "description": "Descrição", "price_range": "Preço"}],
+  "icp_profile": "Descrição narrativa do cliente ideal",
+  "icp_segment": ["Segmento 1", "Segmento 2"],
+  "icp_company_size": "Porte ideal do cliente",
+  "icp_ticket_range": "Faixa de ticket/investimento",
+  "icp_pain_points": ["Dor 1", "Dor 2"],
+  "cases": [{"client": "Cliente", "result": "Resultado", "niche": "Nicho", "timeframe": "Prazo"}],
+  "objection_responses": [{"objection": "Objeção comum", "response": "Resposta ideal"}],
+  "competitors": [{"name": "Concorrente", "weakness": "Ponto fraco", "how_to_win": "Como ganhar"}],
+  "pricing_justification": "Justificativa de preço",
+  "custom_context": "Qualquer informação estratégica extra (metodologia, playbooks, rituais, linguagem da marca, etc.)"
+}
+PROMPT;
+
+        try {
+            $meta = $provider->generateJsonWithMeta($systemPrompt, $userPrompt);
+            $result = $meta['parsed'] ?? $meta;
+
+            if (\App\Helpers\AIResponseParser::hasError($result)) {
+                $errDetail = \App\Helpers\AIResponseParser::getErrorMessage($result);
+                error_log('[KnowledgeController] AI parse error: ' . $errDetail);
+                error_log('[KnowledgeController] Raw AI response: ' . substr($meta['text'] ?? '', 0, 500));
+                $this->jsonError('A IA não conseguiu processar o documento. Tente um formato diferente.');
+            }
+
+            // Registrar consumo de tokens (não pode quebrar o fluxo)
+            try {
+                $usage = $meta['usage'] ?? ['input' => 0, 'output' => 0];
+                (new \App\Services\TokenService())->consume(
+                    'knowledge_index', $tenantId,
+                    Session::get('id'),
+                    $provider->getProviderName(),
+                    $provider->getModel(),
+                    (int)($usage['input'] ?? 0), (int)($usage['output'] ?? 0)
+                );
+            } catch (\Throwable $tokenErr) {
+                error_log('[KnowledgeController] Token tracking failed (non-fatal): ' . $tokenErr->getMessage());
+            }
+
+            $this->jsonSuccess([
+                'message'  => 'Documento analisado com sucesso. Revise os campos antes de salvar.',
+                'extracted' => $result,
+                'filename'  => $file['name'],
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[KnowledgeController] extractDocument error: ' . $e->getMessage());
+            $this->jsonError('Erro ao processar documento: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Extrai texto bruto de um arquivo baseado na extensão.
+     */
+    private function extractTextFromFile(string $path, string $ext): string
+    {
+        return match ($ext) {
+            'txt', 'md', 'csv' => file_get_contents($path) ?: '',
+            'pdf'  => $this->extractTextFromPdf($path),
+            'docx' => $this->extractTextFromDocx($path),
+            default => '',
+        };
+    }
+
+    /**
+     * Extrai texto de PDF via regex simples (sem dependências externas).
+     */
+    private function extractTextFromPdf(string $path): string
+    {
+        $content = file_get_contents($path);
+        if (!$content) return '';
+
+        // Extrair streams de texto do PDF
+        $text = '';
+        if (preg_match_all('/stream\s*\n(.*?)\nendstream/s', $content, $matches)) {
+            foreach ($matches[1] as $stream) {
+                // Tentar decompress zlib
+                $decoded = @gzuncompress($stream);
+                if ($decoded === false) $decoded = @gzinflate($stream);
+                if ($decoded === false) $decoded = $stream;
+
+                // Extrair texto entre parênteses (PDF text objects)
+                if (preg_match_all('/\(([^)]+)\)/', $decoded, $textMatches)) {
+                    $text .= implode(' ', $textMatches[1]) . "\n";
+                }
+                // Extrair texto de Tj/TJ operators
+                if (preg_match_all('/\[([^\]]+)\]\s*TJ/i', $decoded, $tjMatches)) {
+                    foreach ($tjMatches[1] as $tj) {
+                        if (preg_match_all('/\(([^)]+)\)/', $tj, $subMatches)) {
+                            $text .= implode('', $subMatches[1]) . ' ';
+                        }
+                    }
+                }
+            }
+        }
+
+        // Se não extraiu texto, tentar texto plano no conteúdo
+        if (empty(trim($text))) {
+            $text = preg_replace('/[^\x20-\x7E\xA0-\xFF\n\r\t]/', '', $content);
+        }
+
+        return trim($text);
+    }
+
+    /**
+     * Extrai texto de DOCX via zip + XML.
+     */
+    private function extractTextFromDocx(string $path): string
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($path) !== true) return '';
+
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        if (!$xml) return '';
+
+        // Remover XML tags e extrair texto
+        $text = strip_tags($xml);
+        return trim(preg_replace('/\s+/', ' ', $text));
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private function parseTextareaToArray(string $text): array
@@ -323,16 +522,18 @@ class KnowledgeController
 
     private function jsonSuccess(array $data, int $code = 200): never
     {
+        if (ob_get_level()) ob_end_clean();
         http_response_code($code);
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['success' => true, ...$data]);
         exit;
     }
 
     private function jsonError(string $message, int $code = 400): never
     {
+        if (ob_get_level()) ob_end_clean();
         http_response_code($code);
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['success' => false, 'error' => $message]);
         exit;
     }

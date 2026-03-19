@@ -87,8 +87,11 @@ class Lead
             'INSERT INTO leads (id, tenant_id, name, segment, website, phone, email, address,
                                 pipeline_status, priority_score, fit_score,
                                 analysis, human_context, social_presence, tags,
-                                cnpj_data, pagespeed_data, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))',
+                                cnpj_data, pagespeed_data,
+                                google_maps_url, rating, review_count, reviews,
+                                opening_hours, closing_hours, category, enrichment_data,
+                                created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))',
             [
                 $id,
                 $tenantId,
@@ -107,6 +110,14 @@ class Lead
                 json_encode($data['tags'] ?? []),
                 isset($data['cnpj_data'])      ? json_encode($data['cnpj_data'])      : null,
                 isset($data['pagespeed_data']) ? json_encode($data['pagespeed_data']) : null,
+                $data['google_maps_url'] ?? null,
+                isset($data['rating']) ? (float)$data['rating'] : null,
+                isset($data['review_count']) ? (int)$data['review_count'] : null,
+                isset($data['reviews'])        ? json_encode($data['reviews'])        : null,
+                $data['opening_hours'] ?? null,
+                $data['closing_hours'] ?? null,
+                $data['category'] ?? null,
+                isset($data['enrichment_data'])? json_encode($data['enrichment_data']): null,
             ]
         );
         return $id;
@@ -114,11 +125,13 @@ class Lead
 
     public static function update(string $id, string $tenantId, array $data): bool
     {
-        $jsonFields = ['analysis', 'human_context', 'social_presence', 'tags', 'cnpj_data', 'pagespeed_data'];
+        $jsonFields = ['analysis', 'human_context', 'social_presence', 'tags', 'cnpj_data', 'pagespeed_data', 'reviews', 'enrichment_data'];
         $allowed    = ['name', 'segment', 'website', 'phone', 'email', 'address', 'assigned_to',
                        'pipeline_status', 'priority_score', 'fit_score', 'manual_score_override',
                        'next_followup_at', 'analysis', 'human_context', 'social_presence',
-                       'tags', 'cnpj_data', 'pagespeed_data'];
+                       'tags', 'cnpj_data', 'pagespeed_data',
+                       'google_maps_url', 'rating', 'review_count', 'reviews',
+                       'opening_hours', 'closing_hours', 'category', 'enrichment_data'];
 
         $sets   = [];
         $params = [];
@@ -149,12 +162,49 @@ class Lead
 
     public static function saveAnalysis(string $id, string $tenantId, array $analysis): bool
     {
-        $score = (int) ($analysis['priorityScore'] ?? 0);
-        return self::update($id, $tenantId, [
+        $score = max(1, (int) ($analysis['priorityScore'] ?? 25));
+        $fit   = max(1, (int) ($analysis['fitScore'] ?? $score));
+
+        $updateData = [
             'analysis'       => $analysis,
             'priority_score' => $score,
-            'fit_score'      => (int) ($analysis['fitScore'] ?? $score),
-        ]);
+            'fit_score'      => $fit,
+        ];
+
+        // Enriquecer lead com dados extraídos pela IA (apenas se o lead não tiver esses dados ainda)
+        $currentLead = self::findByTenant($id, $tenantId);
+
+        if (!empty($analysis['extractedContact'])) {
+            $contact = $analysis['extractedContact'];
+            if (!empty($contact['phone']) && empty($currentLead['phone'])) {
+                $updateData['phone'] = $contact['phone'];
+            }
+            if (!empty($contact['address']) && empty($currentLead['address'])) {
+                $updateData['address'] = $contact['address'];
+            }
+            if (!empty($contact['website']) && empty($currentLead['website'])) {
+                $updateData['website'] = $contact['website'];
+            }
+        }
+
+        if (!empty($analysis['socialPresence'])) {
+            $social = $analysis['socialPresence'];
+            $existingSocial = $currentLead['social_presence'] ?? [];
+            $merged = false;
+
+            foreach (['instagram', 'facebook', 'linkedin'] as $platform) {
+                if (!empty($social[$platform]) && empty($existingSocial[$platform])) {
+                    $existingSocial[$platform] = $social[$platform];
+                    $merged = true;
+                }
+            }
+
+            if ($merged) {
+                $updateData['social_presence'] = $existingSocial;
+            }
+        }
+
+        return self::update($id, $tenantId, $updateData);
     }
 
     public static function delete(string $id, string $tenantId): bool
@@ -210,14 +260,16 @@ class Lead
 
     private static function decode(array $lead): array
     {
-        $jsonFields = ['analysis', 'human_context', 'social_presence', 'tags', 'cnpj_data', 'pagespeed_data'];
+        $jsonFields = ['analysis', 'human_context', 'social_presence', 'tags', 'cnpj_data', 'pagespeed_data', 'reviews', 'enrichment_data'];
         foreach ($jsonFields as $field) {
             if (isset($lead[$field]) && is_string($lead[$field])) {
                 $lead[$field] = json_decode($lead[$field], true) ?? [];
             }
         }
-        // Ensure priority_score is always int
+        // Ensure numeric fields
         $lead['priority_score'] = (int) ($lead['priority_score'] ?? 0);
+        if (isset($lead['rating']))       $lead['rating']       = (float) $lead['rating'];
+        if (isset($lead['review_count'])) $lead['review_count'] = (int) $lead['review_count'];
         return $lead;
     }
 

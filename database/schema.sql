@@ -56,6 +56,14 @@ CREATE TABLE IF NOT EXISTS leads (
     social_presence      TEXT,    -- JSON: {linkedin, instagram, facebook}
     human_context        TEXT,    -- JSON: {temperature, timingStatus, objectionCategory, notes}
     tags                 TEXT,    -- JSON array
+    google_maps_url      TEXT,    -- URL do Google Maps do local
+    rating               REAL,    -- Nota/avaliação média (1.0-5.0)
+    review_count         INTEGER, -- Quantidade de avaliações
+    reviews              TEXT,    -- JSON array de reviews/testemunhos
+    opening_hours        TEXT,    -- Horário de abertura
+    closing_hours        TEXT,    -- Horário de fechamento
+    category             TEXT,    -- Categoria do negócio (ex: Restaurante, Salão)
+    enrichment_data      TEXT,    -- JSON catch-all para campos extras futuros
     assigned_to          TEXT REFERENCES users(id),
     next_followup_at     TEXT,
     created_at           TEXT NOT NULL DEFAULT (datetime('now')),

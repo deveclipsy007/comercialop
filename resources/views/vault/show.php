@@ -125,6 +125,31 @@ $score     = $lead['priority_score'] ?? 0;
                 <?php endif; ?>
             </div>
 
+            <?php if (!empty($analysis['recommendations'])): ?>
+            <div class="mt-6 bg-surface2 rounded-xl p-5 border border-stroke">
+                <p class="text-[11px] font-bold text-lime uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
+                    <span class="size-1.5 rounded-full bg-lime"></span> Recomendações de Abordagem
+                </p>
+                <ul class="space-y-3">
+                    <?php foreach ($analysis['recommendations'] as $item): ?>
+                    <li class="flex items-start gap-2.5 text-sm text-subtle">
+                        <span class="material-symbols-outlined text-lime text-[16px] mt-0.5 shrink-0">arrow_circle_right</span>
+                        <?= e($item) ?>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($analysis['operonFit'])): ?>
+            <div class="mt-6 p-5 rounded-xl bg-lime/5 border border-lime/20">
+                <p class="text-[11px] font-bold text-lime uppercase tracking-[0.1em] mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[14px]">handshake</span> Encaixe com a Operon
+                </p>
+                <p class="text-sm text-text leading-relaxed"><?= e($analysis['operonFit']) ?></p>
+            </div>
+            <?php endif; ?>
+
             <?php if (!empty($analysis['urgencyLevel'])): ?>
             <div class="mt-8 pt-6 border-t border-stroke flex items-center justify-between">
                 <span class="text-[11px] font-bold text-muted uppercase tracking-[0.1em]">Nível de Urgência</span>
@@ -184,6 +209,13 @@ $score     = $lead['priority_score'] ?? 0;
                                 $resultContent .= '<li>' . e($item) . '</li>';
                             }
                             $resultContent .= '</ul>';
+                            // Mostrar estratégia se existir
+                            if (!empty($record['result_data_decoded']['strategy'])) {
+                                $resultContent .= '<div class="mt-3 pt-3 border-t border-stroke">';
+                                $resultContent .= '<p class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">Estratégia de Abordagem</p>';
+                                $resultContent .= '<p class="text-xs text-subtle leading-relaxed">' . nl2br(e($record['result_data_decoded']['strategy'])) . '</p>';
+                                $resultContent .= '</div>';
+                            }
                         }
                     } elseif ($status === 'failed') {
                         $resultContent = '<span class="text-red-400 text-xs italic">Erro: ' . e($record['error_message'] ?? 'Falha na geração') . '</span>';

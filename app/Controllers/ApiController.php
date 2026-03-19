@@ -60,12 +60,71 @@ class ApiController
 
         $tokens = new TokenService();
         if (!$tokens->hasSufficient('copilot_message', $tenantId)) {
-            echo json_encode(['error' => 'tokens_depleted', 'message' => 'Tokens diários esgotados.']);
+            echo json_encode(['error' => 'tokens_depleted', 'message' => 'Créditos esgotados.']);
             return;
         }
 
+        // Lead context
+        $leadId = trim($body['lead_id'] ?? '');
+        $leadContext = '';
+        $leadData = null;
+        if ($leadId) {
+            $leadData = Lead::findByTenant($leadId, $tenantId);
+            if ($leadData) {
+                $humanCtx = json_decode($leadData['human_context'] ?? '{}', true);
+                $analysis = json_decode($leadData['analysis'] ?? '{}', true);
+                $leadContext = "\n\n--- CONTEXTO DO LEAD SELECIONADO ---\n";
+                $leadContext .= "Nome: {$leadData['name']}\n";
+                $leadContext .= "Segmento: {$leadData['segment']}\n";
+                if ($leadData['phone']) $leadContext .= "Telefone: {$leadData['phone']}\n";
+                if ($leadData['email']) $leadContext .= "Email: {$leadData['email']}\n";
+                if ($leadData['website']) $leadContext .= "Website: {$leadData['website']}\n";
+                $leadContext .= "Pipeline: {$leadData['pipeline_status']}\n";
+                if ($leadData['address']) $leadContext .= "Endereço: {$leadData['address']}\n";
+                $temp = $humanCtx['temperature'] ?? '';
+                if ($temp) $leadContext .= "Temperatura: {$temp}\n";
+                $notes = $humanCtx['notes'] ?? '';
+                if ($notes) $leadContext .= "Notas do closer: {$notes}\n";
+                if (!empty($analysis)) $leadContext .= "Análise IA: " . substr(json_encode($analysis, JSON_UNESCAPED_UNICODE), 0, 500) . "\n";
+                $leadContext .= "--- FIM DO CONTEXTO ---\n";
+            }
+        }
+
+        // Response filter/focus
+        $filter = trim($body['filter'] ?? '');
+        $filterInstruction = '';
+        $filterMap = [
+            'closing' => 'Foque sua resposta em estratégias de fechamento de venda. Dê técnicas práticas, argumentos de urgência e próximos passos para fechar negócio.',
+            'objections' => 'Foque em antecipar e responder objeções do prospect. Liste as objeções prováveis e como contorná-las com argumentos comerciais sólidos.',
+            'followup' => 'Foque em estratégia de follow-up. Sugira mensagens, timing ideal e abordagem para reengajar o lead sem ser invasivo.',
+            'diagnosis' => 'Foque em diagnóstico comercial do lead. Analise o cenário, identifique dores, oportunidades e recomende abordagem estratégica.',
+            'potential' => 'Foque em analisar o potencial comercial. Avalie fit, timing, budget provável e priorize recomendações práticas.',
+            'whatsapp' => 'Gere uma mensagem profissional para WhatsApp. Tom conversacional, direto, sem ser invasivo. Pronta para copiar e enviar.',
+            'strategic' => 'Faça uma análise estratégica completa. Considere concorrência, timing de mercado, posicionamento e recomendações de alto nível.',
+            'summary' => 'Dê um resumo prático e direto. Bullet points, sem enrolação. Foque no que é acionável agora.',
+        ];
+        if ($filter && isset($filterMap[$filter])) {
+            $filterInstruction = "\n\nINSTRUÇÃO DE FOCO: " . $filterMap[$filter];
+        }
+
+        // Conversation history (last messages for context)
+        $history = $body['history'] ?? [];
+        $historyText = '';
+        if (!empty($history) && is_array($history)) {
+            $recentHistory = array_slice($history, -6); // Last 6 messages
+            foreach ($recentHistory as $h) {
+                $role = ($h['role'] ?? '') === 'user' ? 'Usuário' : 'Assistente';
+                $historyText .= "{$role}: " . substr($h['content'] ?? '', 0, 300) . "\n";
+            }
+            if ($historyText) {
+                $historyText = "\n\nHISTÓRICO RECENTE DA CONVERSA:\n" . $historyText;
+            }
+        }
+
         $provider = AIProviderFactory::make('copilot_message', $tenantId);
-        $systemPrompt = "Você é o Copilot da Operon Intelligence, um assistente de vendas B2B. Responda de forma concisa e comercialmente relevante em português brasileiro.";
+
+        $systemPrompt = "Você é o Operon Intelligence, um assistente estratégico de vendas B2B de alto nível. Você é consultivo, direto, prático e focado em resultado. Responda sempre em português brasileiro, de forma concisa e comercialmente relevante. Se o usuário selecionou um lead como contexto, use essas informações para personalizar e enriquecer suas respostas.{$leadContext}{$filterInstruction}{$historyText}";
+
         $meta = $provider->generateWithMeta($systemPrompt, $message);
         $reply = $meta['text'] ?? '';
         $usage = $meta['usage'] ?? ['input' => 0, 'output' => 0];

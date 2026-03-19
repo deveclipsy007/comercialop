@@ -160,13 +160,34 @@ class GeminiProvider
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
 
-        $raw  = curl_exec($ch);
+        $raw  = @curl_exec($ch);
+        $err  = curl_error($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
-        if ($raw === false || $code >= 400) {
-            error_log("[Gemini] HTTP {$code}: {$raw}");
-            return [];
+        // Retry without SSL verify if certificate error
+        if ($raw === false && (str_contains($err, 'certificate') || str_contains($err, 'trust anchors') || str_contains($err, 'SSL'))) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            $raw  = @curl_exec($ch);
+            $err  = curl_error($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        }
+
+        // curl_close deprecated in PHP 8.5, no-op since 8.0
+        if (PHP_VERSION_ID < 80500) {
+            curl_close($ch);
+        }
+
+        if ($raw === false) {
+            error_log("[Gemini] cURL error: {$err}");
+            throw new \RuntimeException("Erro de conexão com Gemini: {$err}");
+        }
+
+        if ($code >= 400) {
+            $decoded = json_decode($raw, true);
+            $apiMsg = $decoded['error']['message'] ?? substr($raw, 0, 200);
+            error_log("[Gemini] HTTP {$code}: {$apiMsg}");
+            throw new \RuntimeException("Gemini HTTP {$code}: {$apiMsg}");
         }
 
         return json_decode($raw, true) ?? [];
@@ -183,12 +204,13 @@ class GeminiProvider
     private function mockResponse(array $options): string
     {
         error_log('[Gemini] API key não configurada. Configure pelo painel Admin > Chaves de IA.');
+        $msg = 'Chave de API Gemini não configurada. Solicite ao administrador que configure pelo painel Admin > Chaves de IA.';
         if ($options['json_mode'] ?? false) {
             return json_encode([
                 '_error' => true,
-                '_message' => 'Chave de API Gemini não configurada. Solicite ao administrador que configure pelo painel Admin > Chaves de IA.',
+                '_message' => $msg,
             ]);
         }
-        return '';
+        return $msg;
     }
 }

@@ -10,29 +10,39 @@ class DeepIntelligenceRun
     public const STATUS_COMPLETED  = 'completed';
     public const STATUS_FAILED     = 'failed';
 
-    public static function create(string $tenantId, int $leadId, string $type, int $userId): int
+    public static function create(string $tenantId, string $leadId, string $type, string $userId): string
     {
-        return Database::insert('lead_deep_intelligence_runs', [
-            'tenant_id'         => $tenantId,
-            'lead_id'           => $leadId,
-            'intelligence_type' => $type,
-            'status'            => self::STATUS_PENDING,
-            'requested_by'      => $userId,
-            'created_at'        => date('Y-m-d H:i:s'),
-            'updated_at'        => date('Y-m-d H:i:s')
-        ]);
+        Database::execute(
+            'INSERT INTO lead_deep_intelligence_runs (tenant_id, lead_id, intelligence_type, status, requested_by, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [$tenantId, $leadId, $type, self::STATUS_PENDING, $userId, date('Y-m-d H:i:s'), date('Y-m-d H:i:s')]
+        );
+        return Database::lastInsertId();
     }
 
-    public static function updateStatus(int $id, string $status, array $extra = []): void
+    public static function updateStatus(string $id, string $status, array $extra = []): void
     {
-        $data = array_merge(['status' => $status, 'updated_at' => date('Y-m-d H:i:s')], $extra);
+        $sets = ['status = ?', 'updated_at = ?'];
+        $params = [$status, date('Y-m-d H:i:s')];
+
         if ($status === self::STATUS_COMPLETED || $status === self::STATUS_FAILED) {
-            $data['completed_at'] = date('Y-m-d H:i:s');
+            $sets[] = 'completed_at = ?';
+            $params[] = date('Y-m-d H:i:s');
         }
-        Database::update('lead_deep_intelligence_runs', $data, 'id = ?', [$id]);
+
+        foreach ($extra as $col => $val) {
+            $sets[] = "{$col} = ?";
+            $params[] = $val;
+        }
+
+        $params[] = $id;
+        Database::execute(
+            'UPDATE lead_deep_intelligence_runs SET ' . implode(', ', $sets) . ' WHERE id = ?',
+            $params
+        );
     }
 
-    public static function findByLead(int $leadId, string $tenantId): array
+    public static function findByLead(string $leadId, string $tenantId): array
     {
         return Database::select(
             'SELECT * FROM lead_deep_intelligence_runs WHERE lead_id = ? AND tenant_id = ? ORDER BY created_at DESC',

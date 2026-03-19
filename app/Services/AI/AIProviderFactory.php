@@ -41,10 +41,25 @@ class AIProviderFactory
             return $provider;
         }
 
-        // 3. Fallback: Gemini com chave do DB ou .env
-        $geminiKey = AiApiKey::getDecryptedKey('gemini', $tenantId);
-        $model = config('services.gemini.model', 'gemini-2.0-flash');
-        return new GeminiProvider($geminiKey ?: null, $model);
+        // 3. Fallback: tentar cada provider que tenha chave disponível
+        // Ordem de preferência: gemini → openai → grok
+        $fallbackOrder = ['gemini', 'openai', 'grok'];
+        foreach ($fallbackOrder as $fb) {
+            $key = AiApiKey::getDecryptedKey($fb, $tenantId);
+            error_log(sprintf('[AIProviderFactory] fallback check %s tenant=%s hasKey=%s', $fb, $tenantId, empty($key) ? 'NO' : 'YES(' . strlen($key) . ')'));
+            if (!empty($key)) {
+                if ($fb === 'gemini') {
+                    return new GeminiProvider($key, config('services.gemini.model', 'gemini-2.0-flash'));
+                }
+                $model = $fb === 'grok'
+                    ? config('services.grok.model', 'grok-2')
+                    : config('services.openai.model', 'gpt-4o');
+                return new OpenAIProvider($fb, $key, $model);
+            }
+        }
+
+        // 4. Último recurso: Gemini sem chave (retornará mock/erro)
+        return new GeminiProvider(null, config('services.gemini.model', 'gemini-2.0-flash'));
     }
 
     /**

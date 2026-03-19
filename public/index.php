@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+// Desabilitar opcache para dev (evitar servir código cacheado após edições)
+if (function_exists('opcache_reset')) {
+    ini_set('opcache.revalidate_freq', '0');
+    ini_set('opcache.validate_timestamps', '1');
+}
+
 // Servir arquivos estáticos no PHP built-in server
 if (php_sapi_name() === 'cli-server') {
     $uri = urldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));

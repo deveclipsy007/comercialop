@@ -48,7 +48,7 @@ class DeepIntelligenceManager
     /**
      * Retorna o status de todas as inteligências para um lead específico.
      */
-    public function getLeadIntelligences(int $leadId, string $tenantId): array
+    public function getLeadIntelligences(string $leadId, string $tenantId): array
     {
         $runs = DeepIntelligenceRun::findByLead($leadId, $tenantId);
         
@@ -69,7 +69,7 @@ class DeepIntelligenceManager
     /**
      * Executa uma inteligência específica, gravando status e consumindo tokens.
      */
-    public function runIntelligence(int $leadId, string $tenantId, string $type, int $userId): array
+    public function runIntelligence(string $leadId, string $tenantId, string $type, string $userId): array
     {
         if (!isset($this->strategies[$type])) {
             throw new Exception("Inteligência não encontrada: {$type}");
@@ -82,10 +82,7 @@ class DeepIntelligenceManager
         DeepIntelligenceRun::updateStatus($runId, DeepIntelligenceRun::STATUS_PROCESSING);
 
         try {
-            // 2. Cobrar Tokens (Verificando saldo implícito se o TokenService fizer isso)
-            $this->tokens->consume($type, $tenantId, $strategy->getEstimatedTokens());
-
-            // 3. Buscar Dados do Lead (Para contexto visual + base)
+            // 2. Buscar Dados do Lead (Para contexto visual + base)
             $lead = Lead::findByTenant($leadId, $tenantId);
             if (!$lead) {
                 throw new Exception("Lead não encontrado");

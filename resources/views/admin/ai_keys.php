@@ -86,7 +86,7 @@ foreach (($keys ?? []) as $k) {
                 <div>
                     <label class="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">API Key</label>
                     <input type="password" name="api_key" value=""
-                           placeholder="<?= $existing ? $existing['masked_key'] : $prov['placeholder'] ?>"
+                           placeholder="<?= $existing ? ($existing['key_preview'] ?? '••••••••••••') : $prov['placeholder'] ?>"
                            class="w-full bg-surface2 border border-stroke rounded-xl px-4 py-2 text-sm text-text placeholder-subtle focus:outline-none focus:border-lime/50 transition-all font-mono">
                 </div>
 
