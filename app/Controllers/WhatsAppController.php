@@ -8,6 +8,7 @@ use App\Core\Database;
 use App\Core\Session;
 use App\Core\View;
 use App\Models\Lead;
+use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppConversationAnalysis;
 use App\Models\WhatsAppIntegration;
@@ -29,6 +30,7 @@ use App\Services\WhatsApp\SyncService;
  *   POST /whatsapp/sync                         → sync()
  *   POST /whatsapp/disconnect                   → disconnect()
  *   GET  /whatsapp/conversations                → conversations() (JSON)
+ *   GET  /whatsapp/notifications                → notifications() (JSON)
  *   GET  /whatsapp/conversation/:id             → conversation()
  *   POST /whatsapp/conversation/:id/link        → linkLead()
  *   POST /whatsapp/conversation/:id/unlink      → unlinkLead()
@@ -326,6 +328,46 @@ class WhatsAppController
         ]);
     }
 
+    // ─── GET /whatsapp/notifications ────────────────────────────────────────
+
+    public function notifications(): void
+    {
+        Session::requireAuth();
+
+        $tenantId = Session::get('tenant_id');
+        $userId   = (string) Session::get('id');
+        $user     = User::findById($userId);
+        $prefs    = json_decode($user['preferences'] ?? '{}', true) ?: [];
+        $enabled  = (int) ($prefs['notify_whatsapp_new'] ?? 1) === 1;
+        $integration = WhatsAppIntegration::findByTenant($tenantId);
+
+        if (!$integration) {
+            $this->jsonSuccess([
+                'enabled'         => $enabled,
+                'has_integration' => false,
+                'total'           => 0,
+                'items'           => [],
+            ]);
+        }
+
+        if (!$enabled) {
+            $this->jsonSuccess([
+                'enabled'         => false,
+                'has_integration' => true,
+                'total'           => 0,
+                'items'           => [],
+            ]);
+        }
+
+        $items = WhatsAppConversation::latestUnreadByTenant($tenantId, 8);
+        $this->jsonSuccess([
+            'enabled'         => true,
+            'has_integration' => true,
+            'total'           => WhatsAppConversation::unreadCountByTenant($tenantId),
+            'items'           => $items,
+        ]);
+    }
+
     // ─── GET /whatsapp/conversation/:id ─────────────────────────────────────
 
     public function conversation(string $id): void
@@ -339,6 +381,9 @@ class WhatsAppController
             View::render('errors/404', ['active' => 'whatsapp']);
             return;
         }
+
+        WhatsAppConversation::resetUnread($id, $tenantId);
+        $conversation['unread_count'] = 0;
 
         $page     = max(1, (int) ($_GET['page'] ?? 1));
         $limit    = 50;
@@ -404,6 +449,8 @@ class WhatsAppController
         if (!$conversation) {
             $this->jsonError('Conversa não encontrada.', 404);
         }
+
+        WhatsAppConversation::resetUnread($id, $tenantId);
 
         $page   = max(1, (int) ($_GET['page'] ?? 1));
         $limit  = 50;
@@ -830,14 +877,28 @@ class WhatsAppController
                 $body    = $msg['message']['conversation']
                     ?? $msg['message']['extendedTextMessage']['text']
                     ?? '';
+                $msgType = 'text';
+                if (isset($msg['message']['imageMessage'])) {
+                    $msgType = 'image';
+                    $body = $body ?: '📷 Imagem';
+                } elseif (isset($msg['message']['audioMessage'])) {
+                    $msgType = 'audio';
+                    $body = $body ?: '🎵 Áudio';
+                } elseif (isset($msg['message']['videoMessage'])) {
+                    $msgType = 'video';
+                    $body = $body ?: '🎬 Vídeo';
+                } elseif (isset($msg['message']['documentMessage'])) {
+                    $msgType = 'file';
+                    $body = $body ?: '📎 Arquivo';
+                }
                 $fromMe  = $msg['key']['fromMe'] ?? false;
                 $ts      = $msg['messageTimestamp'] ?? time();
 
-                WhatsAppMessage::insertIgnore($conv['id'], $tenantId, [
+                $inserted = WhatsAppMessage::insertIgnore($conv['id'], $tenantId, [
                     'remote_id'    => $remoteId,
                     'direction'    => $fromMe ? 'outgoing' : 'incoming',
                     'body'         => $body,
-                    'message_type' => 'text',
+                    'message_type' => $msgType,
                     'timestamp'    => (int) $ts,
                     'status'       => 'received',
                 ]);
@@ -849,6 +910,10 @@ class WhatsAppController
                         'last_message_preview' => mb_substr($body, 0, 120),
                         'last_message_at'      => date('Y-m-d H:i:s', (int) $ts),
                     ]);
+                }
+
+                if ($inserted && !$fromMe) {
+                    WhatsAppConversation::incrementUnread($conv['id'], $tenantId);
                 }
             }
         }

@@ -44,6 +44,14 @@ class WhatsAppConversation
                 $updates[] = 'last_message_at = ?';
                 $params[] = $data['last_message_at'];
             }
+            if (isset($data['phone'])) {
+                $updates[] = 'phone = ?';
+                $params[] = $data['phone'];
+            }
+            if (isset($data['unread_count'])) {
+                $updates[] = 'unread_count = ?';
+                $params[] = (int) $data['unread_count'];
+            }
             
             if (empty($updates)) return $existing['id'];
 
@@ -76,6 +84,7 @@ class WhatsAppConversation
     public static function allByTenant(string $tenantId, array $filters = []): array
     {
         $sql = 'SELECT c.*,
+                       MIN(leads.name) as lead_name,
                        GROUP_CONCAT(l.lead_id) as linked_lead_ids,
                        GROUP_CONCAT(leads.name) as linked_lead_names,
                        COUNT(l.lead_id) as linked_count
@@ -129,5 +138,57 @@ class WhatsAppConversation
 
         $res = Database::selectFirst($sql, $params);
         return (int)($res['total'] ?? 0);
+    }
+
+    public static function incrementUnread(string $id, string $tenantId, int $delta = 1): void
+    {
+        Database::execute(
+            'UPDATE whatsapp_conversations
+             SET unread_count = COALESCE(unread_count, 0) + ?,
+                 updated_at = datetime("now")
+             WHERE id = ? AND tenant_id = ?',
+            [max(1, $delta), $id, $tenantId]
+        );
+    }
+
+    public static function resetUnread(string $id, string $tenantId): void
+    {
+        Database::execute(
+            'UPDATE whatsapp_conversations
+             SET unread_count = 0,
+                 updated_at = datetime("now")
+             WHERE id = ? AND tenant_id = ?',
+            [$id, $tenantId]
+        );
+    }
+
+    public static function unreadCountByTenant(string $tenantId): int
+    {
+        $row = Database::selectFirst(
+            'SELECT COALESCE(SUM(unread_count), 0) as total
+             FROM whatsapp_conversations
+             WHERE tenant_id = ?',
+            [$tenantId]
+        );
+
+        return (int) ($row['total'] ?? 0);
+    }
+
+    public static function latestUnreadByTenant(string $tenantId, int $limit = 8): array
+    {
+        return Database::select(
+            'SELECT c.*,
+                    MIN(leads.name) as lead_name,
+                    COUNT(l.lead_id) as linked_count
+             FROM whatsapp_conversations c
+             LEFT JOIN whatsapp_lead_links l ON l.conversation_id = c.id AND l.tenant_id = c.tenant_id
+             LEFT JOIN leads ON leads.id = l.lead_id
+             WHERE c.tenant_id = ?
+               AND COALESCE(c.unread_count, 0) > 0
+             GROUP BY c.id
+             ORDER BY c.last_message_at DESC, c.updated_at DESC
+             LIMIT ?',
+            [$tenantId, max(1, $limit)]
+        );
     }
 }

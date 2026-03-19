@@ -147,6 +147,7 @@ $router->get('/whatsapp/status',                 [WhatsAppController::class, 'ge
 $router->post('/whatsapp/sync',                  [WhatsAppController::class, 'sync']);
 $router->post('/whatsapp/disconnect',            [WhatsAppController::class, 'disconnect']);
 $router->get('/whatsapp/conversations',          [WhatsAppController::class, 'conversations']);
+$router->get('/whatsapp/notifications',         [WhatsAppController::class, 'notifications']);
 $router->get('/whatsapp/conversation/:id',          [WhatsAppController::class, 'conversation']);
 $router->get('/whatsapp/conversation/:id/messages', [WhatsAppController::class, 'conversationMessages']);
 $router->post('/whatsapp/conversation/:id/link',    [WhatsAppController::class, 'linkLead']);

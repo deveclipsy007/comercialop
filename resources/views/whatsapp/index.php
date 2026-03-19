@@ -346,6 +346,7 @@ const Chat = {
     conversations: [],
     activeConvId: null,
     searchTimeout: null,
+    pendingConvId: <?= json_encode($_GET['conversation'] ?? null) ?>,
 
     // ─── Init ───
     init() {
@@ -419,6 +420,7 @@ const Chat = {
                 const timeStr = c.last_message_at ? this.formatTime(c.last_message_at) : '';
                 const preview = c.last_message_preview || '';
                 const truncPreview = preview.length > 45 ? preview.substring(0, 45) + '...' : preview;
+                const unread = Number(c.unread_count || 0);
 
                 html += `
                 <div class="wa-contact ${isActive ? 'active' : ''} px-4 py-3 cursor-pointer border-b border-zinc-800/30" onclick="Chat.openConversation('${c.id}')">
@@ -433,7 +435,10 @@ const Chat = {
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-xs text-zinc-500 truncate">${this.esc(truncPreview) || '<span class="italic">Sem mensagens</span>'}</span>
-                                ${c.lead_name ? `<span class="flex-shrink-0 ml-1 w-2 h-2 rounded-full bg-green-500" title="Vinculado: ${this.esc(c.lead_name)}"></span>` : ''}
+                                <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                                    ${c.lead_name ? `<span class="w-2 h-2 rounded-full bg-green-500" title="Vinculado: ${this.esc(c.lead_name)}"></span>` : ''}
+                                    ${unread > 0 ? `<span class="min-w-[20px] h-5 px-1.5 rounded-full bg-green-500 text-white text-[10px] font-black flex items-center justify-center">${unread}</span>` : ''}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -441,6 +446,14 @@ const Chat = {
             });
 
             container.innerHTML = html;
+
+            if (this.pendingConvId) {
+                const targetId = this.pendingConvId;
+                this.pendingConvId = null;
+                if (this.conversations.some(c => c.id === targetId)) {
+                    await this.openConversation(targetId);
+                }
+            }
         } catch (err) {
             console.error('loadConversations error:', err);
             container.innerHTML = '<div class="p-6 text-center text-red-500 text-sm">Erro ao carregar conversas</div>';
@@ -542,6 +555,12 @@ const Chat = {
             msgContainer.innerHTML = html;
             // Scroll to bottom
             msgContainer.scrollTop = msgContainer.scrollHeight;
+
+            const currentConv = this.conversations.find(c => c.id === convId);
+            if (currentConv && Number(currentConv.unread_count || 0) > 0) {
+                currentConv.unread_count = 0;
+                await this.loadConversations(document.getElementById('wa-search').value);
+            }
 
             // Show sync bar
             document.getElementById('wa-chat-syncbar').classList.remove('hidden');

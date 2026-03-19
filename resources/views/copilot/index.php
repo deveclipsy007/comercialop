@@ -109,6 +109,69 @@ foreach ($leads as $l) {
 .ai-msg strong, .ai-msg b { color: #E1FB15; }
 .ai-msg blockquote { border-left: 3px solid #E1FB15; padding-left: 12px; margin: 8px 0; color: #A1A1AA; }
 
+/* Copy draft card */
+.copy-draft-card {
+    margin: 12px 0 4px;
+    border: 1px solid rgba(225,251,21,0.18);
+    background: linear-gradient(180deg, rgba(225,251,21,0.05) 0%, rgba(255,255,255,0.02) 100%);
+    border-radius: 16px;
+    padding: 12px;
+}
+.copy-draft-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.copy-draft-title { font-size: 11px; font-weight: 700; color: #E1FB15; letter-spacing: 0.08em; text-transform: uppercase; }
+.copy-draft-subtitle { font-size: 10px; color: #71717A; margin-top: 2px; }
+.copy-draft-input {
+    width: 100%;
+    min-height: 180px;
+    max-height: 420px;
+    resize: vertical;
+    border-radius: 12px;
+    border: 1px solid #2A2A2A;
+    background: rgba(0,0,0,0.34);
+    color: #F4F4F5;
+    padding: 14px;
+    line-height: 1.65;
+    font-size: 13px;
+    outline: none;
+}
+.copy-draft-input:focus {
+    border-color: rgba(225,251,21,0.35);
+    box-shadow: 0 0 0 3px rgba(225,251,21,0.08);
+}
+.copy-draft-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+.copy-draft-btn {
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid #2A2A2A;
+    background: #131313;
+    color: #D4D4D8;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.18s ease;
+}
+.copy-draft-btn:hover { border-color: rgba(225,251,21,0.25); color: #E1FB15; }
+.copy-draft-btn.-primary {
+    background: rgba(225,251,21,0.08);
+    border-color: rgba(225,251,21,0.2);
+    color: #E1FB15;
+}
+
 /* Drag & Drop overlay */
 .drop-overlay {
     position: absolute; inset: 0; background: rgba(0,0,0,0.8);
@@ -817,6 +880,7 @@ const Copilot = {
         const input = document.getElementById('chatInput');
         const msg = input.value.trim();
         if (!msg && !this.attachedFile) return;
+        const requestContext = { filter: this.activeFilter, prompt: msg };
 
         const messages = document.getElementById('chatMessages');
 
@@ -890,7 +954,7 @@ const Copilot = {
                             <span class="material-symbols-outlined text-lime text-sm">smart_toy</span>
                         </div>
                         <div class="max-w-2xl">
-                            <div class="bg-surface2 border border-stroke rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-text ai-msg">${this.formatReply(reply)}</div>
+                            <div class="bg-surface2 border border-stroke rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-text ai-msg">${this.renderAssistantReply(reply, requestContext)}</div>
                             <div class="flex items-center gap-2 mt-1 ml-1">
                                 <p class="text-[9px] text-subtle">${rts}</p>
                                 <button onclick="Copilot.copyMsg(this)" class="text-[9px] text-subtle hover:text-lime transition-colors flex items-center gap-0.5" title="Copiar">
@@ -899,6 +963,7 @@ const Copilot = {
                             </div>
                         </div>
                     </div>`;
+                this.refreshDraftInputs(messages);
             }
         } catch (e) {
             document.getElementById(loaderId)?.remove();
@@ -930,7 +995,10 @@ const Copilot = {
     copyMsg(btn) {
         const msgEl = btn.closest('.max-w-2xl')?.querySelector('.ai-msg');
         if (!msgEl) return;
-        navigator.clipboard.writeText(msgEl.innerText).then(() => {
+        const draftEl = msgEl.querySelector('.copy-draft-input');
+        const content = draftEl ? draftEl.value : msgEl.innerText;
+
+        navigator.clipboard.writeText(content).then(() => {
             const icon = btn.querySelector('.material-symbols-outlined');
             icon.textContent = 'check';
             setTimeout(() => icon.textContent = 'content_copy', 1500);
@@ -949,6 +1017,169 @@ const Copilot = {
                     Conversa limpa. Como posso ajudar?
                 </div>
             </div>`;
+    },
+
+    renderAssistantReply(text, context = {}) {
+        const artifact = this.extractCopyArtifact(text, context);
+        if (!artifact) return this.formatReply(text);
+
+        const token = '__COPY_DRAFT_CARD__';
+        let source = text;
+
+        if (artifact.rawBlock) {
+            source = source.replace(artifact.rawBlock, '\n\n' + token + '\n\n');
+        } else {
+            source += '\n\n' + token;
+        }
+        source = source.trim();
+
+        let html = this.formatReply(source);
+        const card = this.renderCopyDraftCard(artifact);
+        html = html.replace(new RegExp(`<p>${token}</p>`, 'g'), card);
+        html = html.replace(new RegExp(token, 'g'), card);
+        return html;
+    },
+
+    renderCopyDraftCard(artifact) {
+        return `
+            <div class="copy-draft-card">
+                <div class="copy-draft-header">
+                    <div>
+                        <div class="copy-draft-title">${this.esc(artifact.title)}</div>
+                        <div class="copy-draft-subtitle">Edite, copie ou importe no campo abaixo.</div>
+                    </div>
+                </div>
+                <textarea class="copy-draft-input" oninput="Copilot.autoGrowDraft(this)">${this.esc(artifact.text)}</textarea>
+                <div class="copy-draft-actions">
+                    <button type="button" class="copy-draft-btn -primary" onclick="Copilot.copyDraft(this)">
+                        <span class="material-symbols-outlined text-[14px]">content_copy</span>
+                        <span class="copy-draft-label">Copiar</span>
+                    </button>
+                    <button type="button" class="copy-draft-btn" onclick="Copilot.importDraft(this)">
+                        <span class="material-symbols-outlined text-[14px]">south</span>
+                        <span class="copy-draft-label">Importar</span>
+                    </button>
+                </div>
+            </div>`;
+    },
+
+    extractCopyArtifact(text, context = {}) {
+        const normalized = (text || '').replace(/\r\n/g, '\n').trim();
+        if (!normalized) return null;
+
+        const delimitedMatch = normalized.match(/(?:^|\n)(?:-{3,}|\*{3,})\s*\n([\s\S]*?)\n(?:-{3,}|\*{3,})(?=\n|$)/);
+        if (delimitedMatch) {
+            const candidate = delimitedMatch[1].trim();
+            if (this.looksLikeCopyText(candidate, context, true)) {
+                return {
+                    title: this.getCopyArtifactTitle(context),
+                    text: candidate,
+                    rawBlock: delimitedMatch[0],
+                };
+            }
+        }
+
+        if (!this.hasCopyIntent(context, normalized)) return null;
+
+        const paragraphs = normalized.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+        if (paragraphs.length === 0) return null;
+
+        let start = 0;
+        let end = paragraphs.length;
+
+        if (/^(claro|perfeito|otimo|aqui est[aá]|segue|abaixo|montei|criei|preparei)/i.test(paragraphs[0])) {
+            start = 1;
+        }
+
+        while (end > start && /^(essa|esse|esta|este|se quiser|posso|observa[cç][aã]o|dica|ajuste|adapta[cç][aã]o|nota)/i.test(paragraphs[end - 1])) {
+            end--;
+        }
+
+        const candidate = paragraphs.slice(start, end).join('\n\n').trim();
+        if (!this.looksLikeCopyText(candidate, context, false)) return null;
+
+        return {
+            title: this.getCopyArtifactTitle(context),
+            text: candidate,
+            rawBlock: null,
+        };
+    },
+
+    getCopyArtifactTitle(context = {}) {
+        const hay = `${context.filter || ''} ${context.prompt || ''}`.toLowerCase();
+        if (hay.includes('whatsapp')) return 'Mensagem pronta para WhatsApp';
+        if (hay.includes('email')) return 'Email pronto para editar';
+        if (hay.match(/follow[\s-]?up/)) return 'Follow-up pronto para editar';
+        if (hay.match(/abordagem|pitch|roteiro|script/)) return 'Roteiro pronto para editar';
+        return 'Texto pronto para editar';
+    },
+
+    hasCopyIntent(context = {}, text = '') {
+        const hay = `${context.filter || ''} ${context.prompt || ''} ${text.slice(0, 180)}`.toLowerCase();
+        return /(whatsapp|mensagem|abordagem|email|follow[\s-]?up|pitch|roteiro|script|texto pronto|pronta para copiar|copiar|enviar)/i.test(hay);
+    },
+
+    looksLikeCopyText(candidate, context = {}, fromDelimiter = false) {
+        if (!candidate) return false;
+
+        const trimmed = candidate.trim();
+        const length = trimmed.length;
+        const lineCount = trimmed.split('\n').filter(line => line.trim()).length;
+        const hasGreeting = /^(ola|oi|bom dia|boa tarde|boa noite)\b/i.test(trimmed);
+        const hasClosing = /(atenciosamente|abracos?|aguardo seu retorno|fico a disposi[cç][aã]o|podemos conversar|me chama)/i.test(trimmed);
+
+        if (fromDelimiter) return length >= 60 && lineCount >= 2;
+
+        if (length < 90 || lineCount < 3) return false;
+        return hasGreeting || hasClosing || this.hasCopyIntent(context);
+    },
+
+    refreshDraftInputs(scope = document) {
+        scope.querySelectorAll('.copy-draft-input').forEach((el) => this.autoGrowDraft(el));
+    },
+
+    autoGrowDraft(textarea) {
+        if (!textarea) return;
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 420) + 'px';
+    },
+
+    copyDraft(btn) {
+        const textarea = btn.closest('.copy-draft-card')?.querySelector('.copy-draft-input');
+        if (!textarea) return;
+
+        navigator.clipboard.writeText(textarea.value).then(() => {
+            this.flashDraftButton(btn, 'check', 'Copiado');
+        });
+    },
+
+    importDraft(btn) {
+        const textarea = btn.closest('.copy-draft-card')?.querySelector('.copy-draft-input');
+        const input = document.getElementById('chatInput');
+        if (!textarea || !input) return;
+
+        input.value = textarea.value;
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+        input.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        this.flashDraftButton(btn, 'check', 'Importado');
+    },
+
+    flashDraftButton(btn, iconName, label) {
+        if (!btn) return;
+        const icon = btn.querySelector('.material-symbols-outlined');
+        const labelEl = btn.querySelector('.copy-draft-label');
+        const original = btn.dataset.originalLabel || labelEl?.textContent || '';
+
+        if (!btn.dataset.originalLabel) btn.dataset.originalLabel = original;
+        if (icon) icon.textContent = iconName;
+        if (labelEl) labelEl.textContent = label;
+
+        setTimeout(() => {
+            if (icon) icon.textContent = btn.classList.contains('-primary') ? 'content_copy' : 'south';
+            if (labelEl) labelEl.textContent = btn.dataset.originalLabel;
+        }, 1500);
     },
 
     // ── Markdown Formatter ──
