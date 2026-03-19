@@ -10,12 +10,17 @@
 
 # Databases
 /storage/*.sqlite
-/storage/*.sqlite.bak
+/storage/*.sqlite-shm
+/storage/*.sqlite-wal
 /database/*.sqlite
 /database/*.sqlite-shm
 /database/*.sqlite-wal
 /database/*.db-shm
 /database/*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+*.db-shm
+*.db-wal
 
 # Cache & Logs
 /storage/cache/*
