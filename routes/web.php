@@ -65,6 +65,7 @@ $router->get('/follow-up', [\App\Controllers\FollowupController::class, 'index']
 $router->post('/follow-up/create', [\App\Controllers\FollowupController::class, 'store']);
 $router->post('/follow-up/format-message', [\App\Controllers\FollowupController::class, 'formatMessage']);
 $router->post('/follow-up/:id/complete', [\App\Controllers\FollowupController::class, 'complete']);
+$router->post('/follow-up/:id/delete',   [\App\Controllers\FollowupController::class, 'delete']);
 
 // ── Knowledge Base (RAG) ──────────────────────────────────────
 $router->get('/knowledge',                          [KnowledgeController::class, 'index']);
