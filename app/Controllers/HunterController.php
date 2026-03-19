@@ -66,7 +66,7 @@ class HunterController
     {
         Session::requireAuth();
         $tenantId = Session::get('tenant_id');
-        $userId = Session::get('user_id');
+        $userId = Session::get('id');
 
         $body = $this->getJsonBody();
         if (!$this->validateCsrf($body)) return;

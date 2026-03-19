@@ -91,6 +91,7 @@ class WhatsAppController
 
             // Migration 009: Intelligence Hub (1:N links + analysis columns)
             $this->ensureIntelligenceMigration($basePath);
+            $this->ensureConversationStateMigration();
 
         } catch (\Throwable $e) {
             error_log('[WhatsAppController] ensureTablesExist() falhou: ' . $e->getMessage());
@@ -122,6 +123,52 @@ class WhatsAppController
             } catch (\Throwable $e) {
                 // Column already exists — ignore
             }
+        }
+    }
+
+    private function ensureConversationStateMigration(): void
+    {
+        try {
+            Database::execute('ALTER TABLE whatsapp_conversations ADD COLUMN last_read_ts INTEGER DEFAULT 0', []);
+        } catch (\Throwable $e) {
+            // Column already exists — ignore
+        }
+
+        try {
+            Database::execute(
+                'UPDATE whatsapp_conversations
+                 SET last_read_ts = COALESCE(
+                     (
+                         SELECT MAX(m.timestamp)
+                         FROM whatsapp_messages m
+                         WHERE m.conversation_id = whatsapp_conversations.id
+                           AND m.tenant_id = whatsapp_conversations.tenant_id
+                     ),
+                     CAST(strftime("%s", "now") AS INTEGER)
+                 )
+                 WHERE last_read_ts IS NULL
+                    OR last_read_ts = 0
+                    OR (
+                        COALESCE(unread_count, 0) = 0
+                        AND COALESCE((
+                            SELECT MAX(m.timestamp)
+                            FROM whatsapp_messages m
+                            WHERE m.conversation_id = whatsapp_conversations.id
+                              AND m.tenant_id = whatsapp_conversations.tenant_id
+                        ), 0) > 0
+                        AND ABS(
+                            COALESCE(last_read_ts, 0) - COALESCE((
+                                SELECT MAX(m.timestamp)
+                                FROM whatsapp_messages m
+                                WHERE m.conversation_id = whatsapp_conversations.id
+                                  AND m.tenant_id = whatsapp_conversations.tenant_id
+                            ), 0)
+                        ) <= 10800
+                    )',
+                []
+            );
+        } catch (\Throwable $e) {
+            error_log('[WhatsAppController] ensureConversationStateMigration() falhou: ' . $e->getMessage());
         }
     }
 
@@ -359,6 +406,10 @@ class WhatsAppController
             ]);
         }
 
+        $this->maybeAutoSyncNotifications($tenantId, $integration);
+        $integration = WhatsAppIntegration::findByTenant($tenantId) ?? $integration;
+        WhatsAppConversation::recalculateUnreadByTenant($tenantId);
+
         $items = WhatsAppConversation::latestUnreadByTenant($tenantId, 8);
         $this->jsonSuccess([
             'enabled'         => true,
@@ -382,7 +433,7 @@ class WhatsAppController
             return;
         }
 
-        WhatsAppConversation::resetUnread($id, $tenantId);
+        WhatsAppConversation::markRead($id, $tenantId);
         $conversation['unread_count'] = 0;
 
         $page     = max(1, (int) ($_GET['page'] ?? 1));
@@ -450,7 +501,7 @@ class WhatsAppController
             $this->jsonError('Conversa não encontrada.', 404);
         }
 
-        WhatsAppConversation::resetUnread($id, $tenantId);
+        WhatsAppConversation::markRead($id, $tenantId);
 
         $page   = max(1, (int) ($_GET['page'] ?? 1));
         $limit  = 50;
@@ -912,8 +963,8 @@ class WhatsAppController
                     ]);
                 }
 
-                if ($inserted && !$fromMe) {
-                    WhatsAppConversation::incrementUnread($conv['id'], $tenantId);
+                if (!$fromMe) {
+                    WhatsAppConversation::recalculateUnread($conv['id'], $tenantId);
                 }
             }
         }
@@ -938,5 +989,26 @@ class WhatsAppController
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'error' => $message]);
         exit;
+    }
+
+    private function maybeAutoSyncNotifications(string $tenantId, array $integration): void
+    {
+        if (($integration['status'] ?? '') !== 'connected') {
+            return;
+        }
+
+        $lastSyncAt = $integration['last_sync_at'] ?? null;
+        if ($lastSyncAt) {
+            $lastSyncTs = strtotime((string) $lastSyncAt);
+            if ($lastSyncTs !== false && (time() - $lastSyncTs) < 12) {
+                return;
+            }
+        }
+
+        try {
+            $this->sync->syncTenant($tenantId);
+        } catch (\Throwable $e) {
+            error_log('[WhatsApp notifications] auto-sync falhou: ' . $e->getMessage());
+        }
     }
 }

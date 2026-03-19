@@ -53,6 +53,8 @@ class SyncService
             foreach ($chats as $chat) {
                 $jid = $chat['remoteJid'] ?? $chat['id'] ?? '';
                 if (!$jid || str_contains($jid, '@g.us')) continue; // Ignorar grupos
+                $existingConversation = WhatsAppConversation::findByJid($tenantId, $jid);
+                $isNewConversation = !$existingConversation;
 
                 // Extrair nome: pushName do chat, do lastMessage, ou fallback para JID
                 $displayName = $chat['name']
@@ -119,6 +121,10 @@ class SyncService
                         $messages = [];
                     }
 
+                    $sawIncoming = false;
+                    $sawRecentIncoming = false;
+                    $latestMessageTs = 0;
+
                     foreach ($messages as $msg) {
                         $remoteId = $msg['key']['id'] ?? '';
                         if (!$remoteId) continue;
@@ -145,15 +151,38 @@ class SyncService
                         }
 
                         if ($body) {
+                            $isIncoming = ($msg['key']['fromMe'] ?? false) !== true;
+                            $messageTs = (int)($msg['messageTimestamp'] ?? time());
+                            $latestMessageTs = max($latestMessageTs, $messageTs);
                             $inserted = WhatsAppMessage::insertIgnore($convId, $tenantId, [
                                 'remote_id'    => $remoteId,
-                                'direction'    => ($msg['key']['fromMe'] ?? false) ? 'outgoing' : 'incoming',
+                                'direction'    => $isIncoming ? 'incoming' : 'outgoing',
                                 'body'         => $body,
                                 'message_type' => $msgType,
-                                'timestamp'    => (int)($msg['messageTimestamp'] ?? time()),
+                                'timestamp'    => $messageTs,
                             ]);
-                            if ($inserted) $stats['messages_synced']++;
+                            if ($inserted) {
+                                $stats['messages_synced']++;
+                            }
+
+                            if ($isIncoming) {
+                                $sawIncoming = true;
+                                if ($messageTs >= (time() - 900)) {
+                                    $sawRecentIncoming = true;
+                                }
+                            }
                         }
+                    }
+
+                    if ($isNewConversation && !$sawRecentIncoming && $latestMessageTs > 0) {
+                        WhatsAppConversation::upsertByJid($tenantId, $integration['id'], [
+                            'remote_jid'   => $jid,
+                            'last_read_ts' => $latestMessageTs,
+                        ]);
+                    }
+
+                    if ($sawIncoming) {
+                        WhatsAppConversation::recalculateUnread($convId, $tenantId);
                     }
                 } catch (\Exception $e) {
                     // Log mas continua com as próximas conversas

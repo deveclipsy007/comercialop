@@ -52,6 +52,10 @@ class WhatsAppConversation
                 $updates[] = 'unread_count = ?';
                 $params[] = (int) $data['unread_count'];
             }
+            if (isset($data['last_read_ts'])) {
+                $updates[] = 'last_read_ts = ?';
+                $params[] = (int) $data['last_read_ts'];
+            }
             
             if (empty($updates)) return $existing['id'];
 
@@ -65,8 +69,8 @@ class WhatsAppConversation
 
         $id = bin2hex(random_bytes(8));
         Database::execute(
-            'INSERT INTO whatsapp_conversations (id, tenant_id, integration_id, remote_jid, display_name, phone, last_message_preview, last_message_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO whatsapp_conversations (id, tenant_id, integration_id, remote_jid, display_name, phone, last_message_preview, last_message_at, last_read_ts)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $id,
                 $tenantId,
@@ -75,7 +79,8 @@ class WhatsAppConversation
                 $data['display_name'] ?? null,
                 $data['phone'] ?? null,
                 $data['last_message_preview'] ?? null,
-                $data['last_message_at'] ?? null
+                $data['last_message_at'] ?? null,
+                (int) ($data['last_read_ts'] ?? 0),
             ]
         );
         return $id;
@@ -153,12 +158,52 @@ class WhatsAppConversation
 
     public static function resetUnread(string $id, string $tenantId): void
     {
+        self::markRead($id, $tenantId);
+    }
+
+    public static function markRead(string $id, string $tenantId, ?int $readTs = null): void
+    {
         Database::execute(
             'UPDATE whatsapp_conversations
              SET unread_count = 0,
+                 last_read_ts = ?,
                  updated_at = datetime("now")
              WHERE id = ? AND tenant_id = ?',
+            [$readTs ?? time(), $id, $tenantId]
+        );
+    }
+
+    public static function recalculateUnread(string $id, string $tenantId): void
+    {
+        Database::execute(
+            'UPDATE whatsapp_conversations
+             SET unread_count = (
+                 SELECT COUNT(*)
+                 FROM whatsapp_messages m
+                 WHERE m.conversation_id = whatsapp_conversations.id
+                   AND m.tenant_id = whatsapp_conversations.tenant_id
+                   AND m.direction = "incoming"
+                   AND m.timestamp > COALESCE(whatsapp_conversations.last_read_ts, 0)
+             )
+             WHERE id = ? AND tenant_id = ?',
             [$id, $tenantId]
+        );
+    }
+
+    public static function recalculateUnreadByTenant(string $tenantId): void
+    {
+        Database::execute(
+            'UPDATE whatsapp_conversations
+             SET unread_count = (
+                 SELECT COUNT(*)
+                 FROM whatsapp_messages m
+                 WHERE m.conversation_id = whatsapp_conversations.id
+                   AND m.tenant_id = whatsapp_conversations.tenant_id
+                   AND m.direction = "incoming"
+                   AND m.timestamp > COALESCE(whatsapp_conversations.last_read_ts, 0)
+             )
+             WHERE tenant_id = ?',
+            [$tenantId]
         );
     }
 
