@@ -58,6 +58,10 @@ $score     = $lead['priority_score'] ?? 0;
             class="ai-trigger inline-flex items-center gap-2 h-10 px-5 bg-white text-bg rounded-pill text-sm font-bold hover:bg-white/90 transition-all shadow-soft ml-2">
         <span class="material-symbols-outlined text-[18px]">auto_awesome</span> Operon 4D
     </button>
+    <button onclick="LeadInfographic.open()"
+            class="inline-flex items-center gap-2 h-10 px-5 bg-surface border border-lime/30 hover:bg-lime/10 text-lime rounded-pill text-sm font-bold transition-all shadow-soft ml-2">
+        <span class="material-symbols-outlined text-[18px]">hub</span> Infográfico
+    </button>
 </div>
 
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -980,7 +984,9 @@ $score     = $lead['priority_score'] ?? 0;
     </div>
 </div>
 
-<?php 
+<?php include __DIR__ . '/partials/lead_infographic.php'; ?>
+
+<?php
 $safeId = e($lead['id']);
 $extraScripts = <<<JS
 <script>
