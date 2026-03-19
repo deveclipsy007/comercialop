@@ -126,6 +126,10 @@ $router->post('/profile',           [UserSettingsController::class, 'updateProfi
 $router->post('/profile/whitelabel',[UserSettingsController::class, 'updateUserWhiteLabel']);
 $router->get('/logs',               [UserSettingsController::class, 'logs']);
 $router->get('/settings',           [UserSettingsController::class, 'settings']);
+$router->post('/settings',          [UserSettingsController::class, 'saveSettings']);
+$router->post('/settings/notifications', [UserSettingsController::class, 'saveNotifications']);
+$router->post('/settings/custom-field',        [UserSettingsController::class, 'saveCustomField']);
+$router->post('/settings/custom-field/delete', [UserSettingsController::class, 'deleteCustomField']);
 $router->get('/integrations',       [UserSettingsController::class, 'integrations']);
 
 // ── WhatsApp ────────────────────────────────────────────────
@@ -146,6 +150,7 @@ $router->post('/whatsapp/conversation/:id/summary',       [WhatsAppController::c
 $router->post('/whatsapp/conversation/:id/next-message',   [WhatsAppController::class, 'nextMessage']);
 $router->post('/whatsapp/conversation/:id/strategic',      [WhatsAppController::class, 'strategicAnalysis']);
 $router->post('/whatsapp/conversation/:id/interest-score', [WhatsAppController::class, 'interestScore']);
+$router->post('/whatsapp/conversation/:id/prepare-send',  [WhatsAppController::class, 'prepareSend']);
 $router->get('/whatsapp/webhook',                [WhatsAppController::class, 'webhookHandler']);
 $router->post('/whatsapp/webhook',               [WhatsAppController::class, 'webhookHandler']);
 

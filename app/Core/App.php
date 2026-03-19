@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Core\Database;
+
 class App
 {
     private static array $config = [];
@@ -22,8 +24,21 @@ class App
         // Iniciar sessão
         Session::start();
 
-        // Configurar timezone
-        date_default_timezone_set(env('TOKEN_TIMEZONE', 'America/Sao_Paulo'));
+        // Configurar timezone — usa o fuso do tenant se disponível
+        $tz = env('TOKEN_TIMEZONE', 'America/Sao_Paulo');
+        try {
+            $tenantId = Session::get('tenant_id');
+            if ($tenantId) {
+                $tenant = Database::selectFirst('SELECT settings FROM tenants WHERE id = ?', [$tenantId]);
+                $tenantSettings = json_decode($tenant['settings'] ?? '{}', true);
+                if (!empty($tenantSettings['timezone'])) {
+                    $tz = $tenantSettings['timezone'];
+                }
+            }
+        } catch (\Exception $e) {
+            // DB not ready yet — use default
+        }
+        date_default_timezone_set($tz);
 
         // Iniciar router
         $this->router = new Router();

@@ -624,6 +624,124 @@ class WhatsAppController
         }
     }
 
+    // ─── POST /whatsapp/conversation/:id/prepare-send ─────────────────────────
+
+    public function prepareSend(string $id): void
+    {
+        Session::requireAuth();
+        $tenantId = Session::get('tenant_id');
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            $this->jsonError('Token CSRF inválido');
+        }
+
+        $conversation = WhatsAppConversation::findByIdAndTenant($id, $tenantId);
+        if (!$conversation) {
+            $this->jsonError('Conversa não encontrada.', 404);
+        }
+
+        $message = trim($_POST['message'] ?? '');
+        if (empty($message)) {
+            $this->jsonError('Mensagem vazia. Gere ou digite uma mensagem primeiro.');
+        }
+
+        // Extrair número do remote_jid ou phone
+        $rawPhone = $conversation['phone'] ?? '';
+        if (empty($rawPhone)) {
+            $jid = $conversation['remote_jid'] ?? '';
+            // JID format: 5511999887766@s.whatsapp.net
+            $rawPhone = preg_replace('/@.*$/', '', $jid);
+        }
+
+        // Formatar número para padrão internacional
+        $formattedPhone = $this->formatPhoneInternational($rawPhone);
+
+        // Validações
+        $validationErrors = [];
+
+        if (empty($formattedPhone)) {
+            $validationErrors[] = 'Número de telefone não encontrado para este contato.';
+        } elseif (strlen(preg_replace('/\D/', '', $formattedPhone)) < 10) {
+            $validationErrors[] = 'Número de telefone parece incompleto: ' . $formattedPhone;
+        }
+
+        // Verificar status da conexão WhatsApp
+        $integration = WhatsAppIntegration::findByTenant($tenantId);
+        $channelConnected = false;
+        $connectionStatus = 'Desconectado';
+
+        if ($integration && ($integration['status'] ?? '') === 'connected' && ($integration['active'] ?? 0)) {
+            $channelConnected = true;
+            $connectionStatus = 'Conectado';
+        } elseif ($integration) {
+            $connectionStatus = ucfirst($integration['status'] ?? 'desconectado');
+        }
+
+        // Montar URL wa.me
+        $canSend = empty($validationErrors) && !empty($formattedPhone);
+        $cleanNumber = preg_replace('/\D/', '', $formattedPhone);
+        $whatsappUrl = $canSend
+            ? 'https://wa.me/' . $cleanNumber . '?text=' . rawurlencode($message)
+            : '';
+
+        // Mensagem de validação
+        $validationMessage = '';
+        if (!empty($validationErrors)) {
+            $validationMessage = implode(' ', $validationErrors);
+        } elseif (!$channelConnected) {
+            $validationMessage = 'Canal WhatsApp não está conectado, mas você ainda pode enviar via wa.me.';
+        }
+
+        // Log da geração
+        error_log(sprintf(
+            '[WhatsApp PrepSend] tenant=%s conv=%s phone=%s canSend=%s',
+            $tenantId, $id, $formattedPhone, $canSend ? 'yes' : 'no'
+        ));
+
+        $this->jsonSuccess([
+            'generated_message'     => $message,
+            'contact_phone'         => $rawPhone,
+            'formatted_phone'       => $formattedPhone,
+            'channel_connected'     => $channelConnected,
+            'connection_status'     => $connectionStatus,
+            'can_open_whatsapp_link'=> $canSend,
+            'whatsapp_url'          => $whatsappUrl,
+            'validation_message'    => $validationMessage,
+        ]);
+    }
+
+    /**
+     * Formata número de telefone para padrão internacional brasileiro.
+     * Remove caracteres especiais, adiciona DDI +55 se necessário.
+     */
+    private function formatPhoneInternational(string $phone): string
+    {
+        if (empty($phone)) return '';
+
+        // Remove tudo que não é dígito
+        $digits = preg_replace('/\D/', '', $phone);
+
+        if (empty($digits)) return '';
+
+        // Se já começa com 55 e tem 12-13 dígitos (55 + DDD + número), está ok
+        if (str_starts_with($digits, '55') && strlen($digits) >= 12 && strlen($digits) <= 13) {
+            return '+' . $digits;
+        }
+
+        // Se tem 10-11 dígitos (DDD + número sem DDI), adicionar 55
+        if (strlen($digits) >= 10 && strlen($digits) <= 11) {
+            return '+55' . $digits;
+        }
+
+        // Se já tem DDI de outro país (começa com outro código e tem muitos dígitos)
+        if (strlen($digits) >= 12) {
+            return '+' . $digits;
+        }
+
+        // Fallback: retorna com + na frente
+        return '+' . $digits;
+    }
+
     // ─── GET /whatsapp/webhook ───────────────────────────────────────────────
     // ─── POST /whatsapp/webhook ──────────────────────────────────────────────
 

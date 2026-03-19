@@ -3,7 +3,12 @@
     "allow": [
       "Bash(find C:UsersYohannDownloadsbaseoperoncomercialdatabasemigrations -type f -name *.sql)",
       "WebSearch",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(php -l app/Controllers/WhatsAppController.php)",
+      "Bash(php -l resources/views/whatsapp/conversation.php)",
+      "Bash(php -l routes/web.php)",
+      "Bash(sqlite3 database/operon.db \"SELECT sql FROM sqlite_master WHERE name=''''custom_fields''''\")",
+      "Bash(sqlite3 database/operon.db 'PRAGMA table_info\\(users\\)')"
     ]
   }
 }

@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
     wl_logo     TEXT,
     wl_features TEXT,
     wl_allow_setup INTEGER DEFAULT 0,
+    preferences TEXT DEFAULT '{}',
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(tenant_id, email)
@@ -147,3 +148,32 @@ CREATE TABLE IF NOT EXISTS agenda_events (
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_agenda_events_tenant ON agenda_events(tenant_id, start_time);
+
+-- ─── Custom Fields (011) ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS custom_fields (
+    id          TEXT PRIMARY KEY,
+    tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    field_name  TEXT NOT NULL,
+    field_label TEXT NOT NULL,
+    field_type  TEXT NOT NULL DEFAULT 'text',
+    options     TEXT,
+    required    INTEGER NOT NULL DEFAULT 0,
+    active      INTEGER NOT NULL DEFAULT 1,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, field_name)
+);
+CREATE INDEX IF NOT EXISTS idx_custom_fields_tenant ON custom_fields(tenant_id, active, sort_order);
+
+CREATE TABLE IF NOT EXISTS custom_field_values (
+    id              TEXT PRIMARY KEY,
+    tenant_id       TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    lead_id         TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+    custom_field_id TEXT NOT NULL REFERENCES custom_fields(id) ON DELETE CASCADE,
+    value           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(lead_id, custom_field_id)
+);
+CREATE INDEX IF NOT EXISTS idx_custom_field_values_lead ON custom_field_values(lead_id);

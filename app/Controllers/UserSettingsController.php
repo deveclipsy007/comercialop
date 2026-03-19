@@ -285,16 +285,237 @@ class UserSettingsController
     public function settings(): void
     {
         $tenantId = Session::get('tenant_id');
+        $userId = Session::get('id');
         $tenant = Database::selectFirst('SELECT * FROM tenants WHERE id = ?', [$tenantId]);
         $agencySettings = json_decode($tenant['settings'] ?? '{}', true);
-        
+
+        // User notification preferences
+        $user = User::findById((string) $userId);
+        $userPrefs = json_decode($user['preferences'] ?? '{}', true);
+
+        // Team members (all users linked to this tenant)
+        $teamMembers = Database::select(
+            'SELECT u.id, u.name, u.email, u.role, u.active, u.created_at, tu.role as tenant_role
+             FROM users u
+             JOIN tenant_user tu ON tu.user_id = u.id
+             WHERE tu.tenant_id = ?
+             ORDER BY u.name ASC',
+            [$tenantId]
+        );
+
+        // Custom fields for this tenant
+        $customFields = Database::select(
+            'SELECT * FROM custom_fields WHERE tenant_id = ? ORDER BY sort_order ASC, created_at ASC',
+            [$tenantId]
+        );
+
         View::render('settings/settings', [
-            'active' => 'settings', 
-            'pageTitle' => 'Configurações', 
+            'active' => 'settings',
+            'pageTitle' => 'Configurações',
             'pageSubtitle' => 'Preferências do sistema e personalização',
             'tenant' => $tenant,
-            'agencySettings' => $agencySettings
+            'agencySettings' => $agencySettings,
+            'userPrefs' => $userPrefs,
+            'teamMembers' => $teamMembers,
+            'customFields' => $customFields,
+            'currentUserId' => $userId,
+            'userRole' => Session::get('role'),
         ]);
+    }
+
+    public function saveSettings(): void
+    {
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token de segurança inválido.');
+            header('Location: /settings');
+            exit;
+        }
+
+        $tenantId = Session::get('tenant_id');
+        $timezone = trim($_POST['timezone'] ?? 'America/Sao_Paulo');
+
+        // Validate timezone
+        $validTimezones = \DateTimeZone::listIdentifiers();
+        if (!in_array($timezone, $validTimezones, true)) {
+            $timezone = 'America/Sao_Paulo';
+        }
+
+        // Merge into existing tenant settings
+        $tenant = Database::selectFirst('SELECT settings FROM tenants WHERE id = ?', [$tenantId]);
+        $settings = json_decode($tenant['settings'] ?? '{}', true);
+        $settings['timezone'] = $timezone;
+
+        Database::execute(
+            'UPDATE tenants SET settings = ?, updated_at = datetime("now") WHERE id = ?',
+            [json_encode($settings, JSON_UNESCAPED_UNICODE), $tenantId]
+        );
+
+        Session::flash('success', 'Configurações salvas com sucesso.');
+        header('Location: /settings');
+        exit;
+    }
+
+    public function saveNotifications(): void
+    {
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token de segurança inválido.');
+            header('Location: /settings#notifications');
+            exit;
+        }
+
+        $userId = Session::get('id');
+
+        $prefs = [
+            'notify_followup_due' => isset($_POST['notify_followup_due']) ? 1 : 0,
+            'notify_lead_assigned' => isset($_POST['notify_lead_assigned']) ? 1 : 0,
+            'notify_stage_change' => isset($_POST['notify_stage_change']) ? 1 : 0,
+            'notify_whatsapp_new' => isset($_POST['notify_whatsapp_new']) ? 1 : 0,
+            'notify_quota_warning' => isset($_POST['notify_quota_warning']) ? 1 : 0,
+        ];
+
+        // Try UPDATE, fall back to column not existing yet
+        try {
+            Database::execute(
+                'UPDATE users SET preferences = ?, updated_at = datetime("now") WHERE id = ?',
+                [json_encode($prefs, JSON_UNESCAPED_UNICODE), $userId]
+            );
+        } catch (\Exception $e) {
+            // Column might not exist yet — add it
+            try {
+                Database::execute('ALTER TABLE users ADD COLUMN preferences TEXT DEFAULT \'{}\'');
+                Database::execute(
+                    'UPDATE users SET preferences = ?, updated_at = datetime("now") WHERE id = ?',
+                    [json_encode($prefs, JSON_UNESCAPED_UNICODE), $userId]
+                );
+            } catch (\Exception $e2) {
+                error_log('[Settings] Failed to save notifications: ' . $e2->getMessage());
+                Session::flash('error', 'Erro ao salvar preferências de notificação.');
+                header('Location: /settings#notifications');
+                exit;
+            }
+        }
+
+        Session::flash('success', 'Preferências de notificação atualizadas.');
+        header('Location: /settings#notifications');
+        exit;
+    }
+
+    public function saveCustomField(): void
+    {
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token de segurança inválido.');
+            header('Location: /settings#custom-fields');
+            exit;
+        }
+
+        $tenantId = Session::get('tenant_id');
+        $fieldId = trim($_POST['field_id'] ?? '');
+        $fieldLabel = trim($_POST['field_label'] ?? '');
+        $fieldType = trim($_POST['field_type'] ?? 'text');
+        $options = trim($_POST['field_options'] ?? '');
+        $required = isset($_POST['field_required']) ? 1 : 0;
+
+        if (!$fieldLabel) {
+            Session::flash('error', 'O nome do campo é obrigatório.');
+            header('Location: /settings#custom-fields');
+            exit;
+        }
+
+        $validTypes = ['text', 'number', 'select', 'date', 'boolean'];
+        if (!in_array($fieldType, $validTypes, true)) {
+            $fieldType = 'text';
+        }
+
+        // Generate field_name from label (slug)
+        $fieldName = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fieldLabel));
+        $fieldName = trim($fieldName, '_');
+
+        // Parse options for select type
+        $optionsJson = null;
+        if ($fieldType === 'select' && $options !== '') {
+            $optionsList = array_map('trim', explode(',', $options));
+            $optionsList = array_filter($optionsList, fn($o) => $o !== '');
+            $optionsJson = json_encode(array_values($optionsList), JSON_UNESCAPED_UNICODE);
+        }
+
+        try {
+            if ($fieldId) {
+                // Update existing
+                Database::execute(
+                    'UPDATE custom_fields SET field_label = ?, field_type = ?, options = ?, required = ?, updated_at = datetime("now") WHERE id = ? AND tenant_id = ?',
+                    [$fieldLabel, $fieldType, $optionsJson, $required, $fieldId, $tenantId]
+                );
+                Session::flash('success', 'Campo atualizado com sucesso.');
+            } else {
+                // Check limit (max 20 custom fields per tenant)
+                $count = (int)(Database::selectFirst(
+                    'SELECT COUNT(*) as c FROM custom_fields WHERE tenant_id = ?',
+                    [$tenantId]
+                )['c'] ?? 0);
+
+                if ($count >= 20) {
+                    Session::flash('error', 'Limite de 20 campos personalizados atingido.');
+                    header('Location: /settings#custom-fields');
+                    exit;
+                }
+
+                // Get next sort order
+                $maxSort = (int)(Database::selectFirst(
+                    'SELECT COALESCE(MAX(sort_order), 0) as m FROM custom_fields WHERE tenant_id = ?',
+                    [$tenantId]
+                )['m'] ?? 0);
+
+                $newId = bin2hex(random_bytes(8));
+                Database::execute(
+                    'INSERT INTO custom_fields (id, tenant_id, field_name, field_label, field_type, options, required, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$newId, $tenantId, $fieldName, $fieldLabel, $fieldType, $optionsJson, $required, $maxSort + 1]
+                );
+                Session::flash('success', 'Campo personalizado criado.');
+            }
+        } catch (\Exception $e) {
+            error_log('[Settings] Custom field error: ' . $e->getMessage());
+            Session::flash('error', 'Erro ao salvar campo: ' . $e->getMessage());
+        }
+
+        header('Location: /settings#custom-fields');
+        exit;
+    }
+
+    public function deleteCustomField(): void
+    {
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token de segurança inválido.');
+            header('Location: /settings#custom-fields');
+            exit;
+        }
+
+        $tenantId = Session::get('tenant_id');
+        $fieldId = trim($_POST['field_id'] ?? '');
+
+        if (!$fieldId) {
+            Session::flash('error', 'Campo não identificado.');
+            header('Location: /settings#custom-fields');
+            exit;
+        }
+
+        try {
+            // Delete values first, then the field
+            Database::execute(
+                'DELETE FROM custom_field_values WHERE custom_field_id = ? AND tenant_id = ?',
+                [$fieldId, $tenantId]
+            );
+            Database::execute(
+                'DELETE FROM custom_fields WHERE id = ? AND tenant_id = ?',
+                [$fieldId, $tenantId]
+            );
+            Session::flash('success', 'Campo removido com sucesso.');
+        } catch (\Exception $e) {
+            error_log('[Settings] Delete custom field error: ' . $e->getMessage());
+            Session::flash('error', 'Erro ao remover campo.');
+        }
+
+        header('Location: /settings#custom-fields');
+        exit;
     }
 
     public function integrations(): void

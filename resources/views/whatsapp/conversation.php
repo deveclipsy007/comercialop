@@ -425,43 +425,106 @@ $scoreData     = $scoreAnalysis['analysis_data']     ?? [];
                     </button>
                 </div>
 
-                <!-- ═══ TAB: MENSAGEM ═══ -->
-                <div class="wa-tab-content p-5 space-y-5" id="tab-message">
-                    <div id="msg-result" class="hidden space-y-4">
-                        <div class="bg-zinc-800/30 rounded-xl p-4 border border-zinc-800/40">
-                            <div class="flex items-center justify-between mb-3">
-                                <span class="text-[9px] text-green-400 uppercase font-bold">Mensagem Gerada</span>
-                                <button onclick="Intelligence.copyMessage()" class="text-[10px] text-zinc-500 hover:text-green-400 transition-all flex items-center gap-1">
-                                    <span class="material-symbols-outlined text-[14px]">content_copy</span> Copiar
-                                </button>
-                            </div>
-                            <div id="msg-text" class="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap"></div>
-                        </div>
-                        <div class="flex gap-3">
-                            <div id="msg-tone" class="flex-1 bg-zinc-800/30 rounded-lg p-2.5 border border-zinc-800/40 text-center">
-                                <span class="text-[8px] text-zinc-600 uppercase font-bold block">Tom</span>
-                                <span class="text-[11px] font-bold text-zinc-300 msg-tone-val"></span>
-                            </div>
-                            <div id="msg-cta" class="flex-1 bg-zinc-800/30 rounded-lg p-2.5 border border-zinc-800/40 text-center">
-                                <span class="text-[8px] text-zinc-600 uppercase font-bold block">CTA</span>
-                                <span class="text-[11px] font-bold text-zinc-300 msg-cta-val"></span>
-                            </div>
-                        </div>
-                        <div id="msg-strategy" class="bg-green-500/5 rounded-lg p-3 border border-green-500/10">
-                            <span class="text-[9px] text-green-400 uppercase font-bold block mb-1">Estratégia</span>
-                            <p class="text-[11px] text-zinc-400 msg-strategy-val"></p>
-                        </div>
-                    </div>
-                    <div id="msg-empty" class="text-center py-16">
+                <!-- ═══ TAB: MENSAGEM (Semi-Assistida) ═══ -->
+                <div class="wa-tab-content p-5 space-y-4" id="tab-message">
+
+                    <!-- Estado: Sem mensagem -->
+                    <div id="msg-empty" class="text-center py-12">
                         <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center">
                             <span class="material-symbols-outlined text-2xl text-zinc-600">edit_note</span>
                         </div>
                         <p class="text-zinc-500 text-sm mb-1">Gere a próxima mensagem</p>
-                        <p class="text-zinc-600 text-xs mb-6">IA criará uma mensagem contextual baseada na conversa.</p>
+                        <p class="text-zinc-600 text-xs mb-5">IA criará uma mensagem contextual baseada na conversa.</p>
                     </div>
+
+                    <!-- Estado: Gerando mensagem -->
+                    <div id="msg-loading" class="hidden text-center py-12">
+                        <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-2xl text-green-400 animate-spin">progress_activity</span>
+                        </div>
+                        <p class="text-zinc-400 text-sm mb-1 animate-pulse">Analisando conversa...</p>
+                        <p class="text-zinc-600 text-xs">Gerando mensagem de continuidade comercial</p>
+                    </div>
+
+                    <!-- Estado: Mensagem pronta -->
+                    <div id="msg-result" class="hidden space-y-4">
+                        <!-- Metadata: Tom + CTA -->
+                        <div class="flex gap-3">
+                            <div class="flex-1 bg-zinc-800/30 rounded-lg p-2.5 border border-zinc-800/40 text-center">
+                                <span class="text-[8px] text-zinc-600 uppercase font-bold block">Tom</span>
+                                <span class="text-[11px] font-bold text-zinc-300 msg-tone-val"></span>
+                            </div>
+                            <div class="flex-1 bg-zinc-800/30 rounded-lg p-2.5 border border-zinc-800/40 text-center">
+                                <span class="text-[8px] text-zinc-600 uppercase font-bold block">CTA</span>
+                                <span class="text-[11px] font-bold text-zinc-300 msg-cta-val"></span>
+                            </div>
+                        </div>
+
+                        <!-- Mensagem editável -->
+                        <div class="bg-zinc-800/30 rounded-xl border border-zinc-800/40 overflow-hidden">
+                            <div class="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800/40 bg-zinc-800/20">
+                                <span class="text-[9px] text-green-400 uppercase font-bold flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-[12px]">smart_toy</span> Mensagem Gerada
+                                </span>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="Intelligence.copyMessage()" id="btn-copy" class="text-[10px] text-zinc-500 hover:text-green-400 transition-all flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[14px]">content_copy</span> Copiar
+                                    </button>
+                                </div>
+                            </div>
+                            <textarea id="msg-textarea" rows="6"
+                                class="w-full bg-transparent text-sm text-zinc-200 leading-relaxed p-4 resize-none outline-none border-none placeholder-zinc-600"
+                                placeholder="A mensagem gerada aparecerá aqui. Você pode editar antes de enviar."></textarea>
+                        </div>
+
+                        <!-- Estratégia -->
+                        <div id="msg-strategy" class="bg-green-500/5 rounded-lg p-3 border border-green-500/10">
+                            <span class="text-[9px] text-green-400 uppercase font-bold block mb-1">Estratégia</span>
+                            <p class="text-[11px] text-zinc-400 msg-strategy-val"></p>
+                        </div>
+
+                        <!-- Validação de contato e envio -->
+                        <div id="msg-validation" class="bg-zinc-800/20 rounded-xl border border-zinc-800/40 p-4 space-y-3">
+                            <span class="text-[9px] text-zinc-500 uppercase font-bold block">Validação de Envio</span>
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-zinc-500 flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-[14px]">call</span> Número
+                                    </span>
+                                    <span id="val-phone" class="text-xs font-mono text-zinc-400">—</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-zinc-500 flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-[14px]">wifi</span> Canal WhatsApp
+                                    </span>
+                                    <span id="val-channel" class="text-xs font-bold text-zinc-400">—</span>
+                                </div>
+                            </div>
+                            <div id="val-warning" class="hidden text-[11px] text-amber-400 bg-amber-500/5 border border-amber-500/10 rounded-lg p-2.5 flex items-start gap-2">
+                                <span class="material-symbols-outlined text-[14px] mt-0.5 flex-shrink-0">info</span>
+                                <span id="val-warning-text"></span>
+                            </div>
+                            <div id="val-error" class="hidden text-[11px] text-red-400 bg-red-500/5 border border-red-500/10 rounded-lg p-2.5 flex items-start gap-2">
+                                <span class="material-symbols-outlined text-[14px] mt-0.5 flex-shrink-0">error</span>
+                                <span id="val-error-text"></span>
+                            </div>
+                            <p class="text-[9px] text-zinc-600 italic">
+                                O envio é semiassistido — você será redirecionado para o WhatsApp com a mensagem pronta. Nenhum disparo automático será feito.
+                            </p>
+                        </div>
+
+                        <!-- Botão Enviar -->
+                        <button onclick="Intelligence.sendViaWhatsApp()" id="btn-send-wa" disabled
+                            class="wa-ai-btn w-full h-11 bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.685-1.228A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.395 0-4.6-.804-6.368-2.152l-.246-.194-3.296.864.88-3.216-.213-.254A9.937 9.937 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+                            Enviar pelo WhatsApp
+                        </button>
+                    </div>
+
+                    <!-- Botão Gerar -->
                     <button onclick="Intelligence.nextMessage()" id="btn-message" class="wa-ai-btn w-full h-10 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-900/20">
                         <span class="material-symbols-outlined text-[16px]">smart_toy</span>
-                        Gerar Mensagem
+                        <span id="btn-message-label">Gerar Mensagem</span>
                     </button>
                 </div>
             </div>
@@ -631,30 +694,147 @@ const Intelligence = {
         if (data) window.location.reload();
     },
 
+    whatsappUrl: '',
+
     async nextMessage() {
+        // Show loading state
+        document.getElementById('msg-empty').classList.add('hidden');
+        document.getElementById('msg-result').classList.add('hidden');
+        document.getElementById('msg-loading').classList.remove('hidden');
+
+        const btn = document.getElementById('btn-message');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Gerando...';
+
         const data = await this._call('next-message', 'btn-message');
-        if (!data) return;
+
+        document.getElementById('msg-loading').classList.add('hidden');
+
+        if (!data) {
+            document.getElementById('msg-empty').classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">smart_toy</span> <span id="btn-message-label">Gerar Mensagem</span>';
+            return;
+        }
 
         const result = data.result || {};
         this.generatedMessage = result.message || '';
 
-        document.getElementById('msg-text').textContent = this.generatedMessage;
+        // Populate editable textarea
+        document.getElementById('msg-textarea').value = this.generatedMessage;
         document.querySelector('.msg-tone-val').textContent = result.tone || 'N/D';
         document.querySelector('.msg-cta-val').textContent = result.cta_type || 'N/D';
         document.querySelector('.msg-strategy-val').textContent = result.strategy || '';
 
+        // Show result
         document.getElementById('msg-result').classList.remove('hidden');
-        document.getElementById('msg-empty').classList.add('hidden');
 
-        const btn = document.getElementById('btn-message');
+        // Re-enable generate button
         btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">smart_toy</span> Gerar Nova Mensagem';
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">smart_toy</span> <span id="btn-message-label">Gerar Nova Mensagem</span>';
+
+        // Validate and prepare send
+        this.validateSend();
+    },
+
+    async validateSend() {
+        const message = document.getElementById('msg-textarea').value.trim();
+        if (!message) {
+            document.getElementById('btn-send-wa').disabled = true;
+            return;
+        }
+
+        try {
+            const res = await fetch(`/whatsapp/conversation/${CID}/prepare-send`, {
+                method: 'POST',
+                body: new URLSearchParams({ '_csrf': CSRF, 'message': message })
+            });
+            const text = await res.text();
+            const j = text.indexOf('{');
+            const data = JSON.parse(j > 0 ? text.substring(j) : text);
+
+            if (!data.success) {
+                this.showValidationError(data.error || 'Erro na validação.');
+                return;
+            }
+
+            // Update phone display
+            const phoneEl = document.getElementById('val-phone');
+            if (data.formatted_phone) {
+                phoneEl.textContent = data.formatted_phone;
+                phoneEl.className = 'text-xs font-mono text-green-400';
+            } else {
+                phoneEl.textContent = 'Não encontrado';
+                phoneEl.className = 'text-xs font-mono text-red-400';
+            }
+
+            // Update channel status
+            const channelEl = document.getElementById('val-channel');
+            if (data.channel_connected) {
+                channelEl.textContent = data.connection_status;
+                channelEl.className = 'text-xs font-bold text-green-400';
+            } else {
+                channelEl.textContent = data.connection_status || 'Desconectado';
+                channelEl.className = 'text-xs font-bold text-amber-400';
+            }
+
+            // Warnings and errors
+            const warningEl = document.getElementById('val-warning');
+            const errorEl = document.getElementById('val-error');
+            warningEl.classList.add('hidden');
+            errorEl.classList.add('hidden');
+
+            if (data.validation_message && data.can_open_whatsapp_link) {
+                document.getElementById('val-warning-text').textContent = data.validation_message;
+                warningEl.classList.remove('hidden');
+            } else if (data.validation_message && !data.can_open_whatsapp_link) {
+                document.getElementById('val-error-text').textContent = data.validation_message;
+                errorEl.classList.remove('hidden');
+            }
+
+            // Send button
+            const sendBtn = document.getElementById('btn-send-wa');
+            sendBtn.disabled = !data.can_open_whatsapp_link;
+            this.whatsappUrl = data.whatsapp_url || '';
+
+        } catch (err) {
+            console.error('Validation error:', err);
+            this.showValidationError('Erro ao validar dados de envio.');
+        }
+    },
+
+    showValidationError(msg) {
+        const errorEl = document.getElementById('val-error');
+        document.getElementById('val-error-text').textContent = msg;
+        errorEl.classList.remove('hidden');
+        document.getElementById('btn-send-wa').disabled = true;
+    },
+
+    sendViaWhatsApp() {
+        // Re-validate with current textarea content (user may have edited)
+        const message = document.getElementById('msg-textarea').value.trim();
+        if (!message) {
+            alert('Digite ou gere uma mensagem antes de enviar.');
+            return;
+        }
+
+        if (this.whatsappUrl) {
+            // Re-build URL with potentially edited message
+            const urlBase = this.whatsappUrl.split('?text=')[0];
+            const finalUrl = urlBase + '?text=' + encodeURIComponent(message);
+            window.open(finalUrl, '_blank');
+
+            // Log action
+            error_log_action('whatsapp_send_redirect');
+        }
     },
 
     copyMessage() {
-        if (!this.generatedMessage) return;
-        navigator.clipboard.writeText(this.generatedMessage).then(() => {
-            const btn = event.currentTarget;
+        const message = document.getElementById('msg-textarea')?.value || this.generatedMessage;
+        if (!message) return;
+        navigator.clipboard.writeText(message).then(() => {
+            const btn = document.getElementById('btn-copy');
+            if (!btn) return;
             const orig = btn.innerHTML;
             btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">check</span> Copiado!';
             btn.classList.add('text-green-400');
@@ -666,4 +846,14 @@ const Intelligence = {
 // Backward compat (for old references)
 const Analyze = { run: () => Intelligence.summary() };
 const Link = { link: (id) => LeadLinks.link(id), unlink: () => LeadLinks.unlink('') };
+
+// Noop for logging (no server call needed)
+function error_log_action(action) { console.log('[Action]', action); }
+
+// Re-validate when user edits the message textarea
+let revalidateTimer = null;
+document.getElementById('msg-textarea')?.addEventListener('input', () => {
+    clearTimeout(revalidateTimer);
+    revalidateTimer = setTimeout(() => Intelligence.validateSend(), 800);
+});
 </script>
