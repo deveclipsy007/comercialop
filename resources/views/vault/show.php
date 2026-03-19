@@ -566,39 +566,199 @@ $score     = $lead['priority_score'] ?? 0;
         </div>
         <?php endif; ?>
 
-        <!-- SPIN & Scripts shortcut -->
+        <!-- Inteligência de Abordagem (inline) -->
         <div class="bg-surface border border-stroke rounded-cardLg p-7 shadow-soft">
-            <h2 class="text-xl font-bold text-text flex items-center gap-3 mb-6">
-                <div class="size-10 rounded-full bg-surface2 border border-stroke flex items-center justify-center">
-                    <span class="material-symbols-outlined text-text text-[20px]">forum</span>
-                </div>
-                Inteligência de Abordagem
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-text flex items-center gap-3">
+                    <div class="size-10 rounded-full bg-surface2 border border-stroke flex items-center justify-center">
+                        <span class="material-symbols-outlined text-lime text-[20px]">edit_note</span>
+                    </div>
+                    Scripts de Abordagem
+                </h2>
                 <a href="/spin?lead_id=<?= e($lead['id']) ?>"
-                   class="flex flex-col gap-4 p-5 bg-surface2 hover:bg-surface3 border border-stroke rounded-card transition-all group">
-                    <div class="flex items-center justify-between">
-                        <span class="material-symbols-outlined text-text text-2xl">psychology_alt</span>
-                        <span class="size-8 rounded-full bg-surface border border-stroke flex items-center justify-center text-muted group-hover:text-text transition-colors"><span class="material-symbols-outlined text-[16px]">chevron_right</span></span>
-                    </div>
-                    <div>
-                        <p class="text-sm font-bold text-text mb-1">Perguntas SPIN</p>
-                        <p class="text-xs text-subtle leading-relaxed">Framework estruturado de qualificação para descobrir dores reais.</p>
-                    </div>
-                </a>
-                <a href="/spin?lead_id=<?= e($lead['id']) ?>&tab=scripts"
-                   class="flex flex-col gap-4 p-5 bg-surface2 hover:bg-surface3 border border-stroke rounded-card transition-all group">
-                    <div class="flex items-center justify-between">
-                        <span class="material-symbols-outlined text-lime text-2xl">edit_note</span>
-                        <span class="size-8 rounded-full bg-surface border border-stroke flex items-center justify-center text-muted group-hover:text-lime transition-colors"><span class="material-symbols-outlined text-[16px]">chevron_right</span></span>
-                    </div>
-                    <div>
-                        <p class="text-sm font-bold text-text mb-1">Scripts de Abordagem</p>
-                        <p class="text-xs text-subtle leading-relaxed">Templates gerados por IA para WhatsApp, LinkedIn e E-mail frio.</p>
-                    </div>
+                   class="flex items-center gap-1.5 text-xs text-muted hover:text-lime font-bold transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                    SPIN Hub completo
                 </a>
             </div>
+
+            <!-- Tone + Generate -->
+            <div class="flex flex-wrap items-center gap-2 mb-4">
+                <span class="text-[10px] font-bold text-muted uppercase tracking-wider mr-1">Tom:</span>
+                <?php
+                $leadTones = [
+                    'consultivo' => 'Consultivo', 'direto' => 'Direto', 'elegante' => 'Elegante',
+                    'humano' => 'Humano', 'autoridade' => 'Autoridade', 'curto' => 'Curto',
+                ];
+                foreach ($leadTones as $tk => $tl): ?>
+                <button onclick="LeadScript.setTone('<?= $tk ?>')" data-ltone="<?= $tk ?>"
+                        class="lead-tone-btn px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border
+                               <?= $tk === 'consultivo' ? 'bg-lime/10 text-lime border-lime/20' : 'bg-surface2 text-subtle border-stroke hover:text-text' ?>">
+                    <?= $tl ?>
+                </button>
+                <?php endforeach; ?>
+            </div>
+
+            <!-- Custom instruction -->
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="leadScriptInstruction" placeholder="Instrucao personalizada (opcional): ex. foca na dor de perder clientes..."
+                       class="flex-1 bg-surface2 border border-stroke rounded-card px-4 py-2.5 text-sm text-text placeholder-subtle focus:outline-none focus:border-lime/30 transition-all">
+                <button onclick="LeadScript.generate()" id="leadScriptBtn"
+                        class="px-5 py-2.5 rounded-card bg-lime text-bg text-sm font-bold hover:brightness-110 transition-all flex items-center gap-2 shrink-0">
+                    <span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+                    Gerar
+                </button>
+            </div>
+
+            <!-- Script result area -->
+            <div id="leadScriptArea" class="hidden">
+                <!-- Channel tabs -->
+                <div class="flex gap-1.5 mb-3">
+                    <?php foreach (['whatsapp' => 'WhatsApp', 'linkedin' => 'LinkedIn', 'email' => 'E-mail', 'coldCall' => 'Ligacao'] as $chk => $chl): ?>
+                    <button onclick="LeadScript.showChannel('<?= $chk ?>')" data-lch="<?= $chk ?>"
+                            class="lead-ch-btn px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border
+                                   <?= $chk === 'whatsapp' ? 'bg-lime/10 text-lime border-lime/20' : 'bg-surface2 text-subtle border-stroke hover:text-text' ?>">
+                        <?= $chl ?>
+                    </button>
+                    <?php endforeach; ?>
+                </div>
+
+                <!-- Script display -->
+                <div class="relative">
+                    <div id="leadScriptText" class="bg-surface2 border border-stroke rounded-card px-5 py-4 text-[13px] text-text leading-relaxed min-h-[100px] whitespace-pre-wrap"></div>
+                    <button onclick="LeadScript.copy()" class="absolute top-3 right-3 size-7 rounded-lg bg-surface border border-stroke flex items-center justify-center text-muted hover:text-lime transition-all">
+                        <span class="material-symbols-outlined text-sm" id="leadCopyIcon">content_copy</span>
+                    </button>
+                </div>
+
+                <!-- Refinement chat -->
+                <div class="mt-3 pt-3 border-t border-stroke">
+                    <div class="flex flex-wrap gap-1.5 mb-2">
+                        <?php foreach (['Mais natural','Mais curto','Tom premium','Foca na dor','Melhora abertura','CTA forte'] as $qr): ?>
+                        <button onclick="LeadScript.quickRefine('<?= $qr ?>')"
+                                class="px-2 py-0.5 rounded text-[9px] font-bold bg-surface2 text-subtle border border-stroke hover:text-text hover:border-lime/20 transition-all">
+                            <?= $qr ?>
+                        </button>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="leadRefineInput" placeholder="Refinar: ex. deixa mais natural, traz conexao com a dor..."
+                               class="flex-1 bg-surface2 border border-stroke rounded-card px-3 py-2 text-xs text-text placeholder-subtle focus:outline-none focus:border-lime/30 transition-all"
+                               onkeydown="if(event.key==='Enter'){LeadScript.refine();event.preventDefault();}">
+                        <button onclick="LeadScript.refine()" id="leadRefineBtn"
+                                class="px-3 py-2 rounded-card bg-surface2 border border-stroke hover:border-lime/20 text-xs font-bold text-muted hover:text-lime transition-all flex items-center gap-1 shrink-0">
+                            <span class="material-symbols-outlined text-[14px]">auto_fix_high</span>
+                            Refinar
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <script>
+        const LeadScript = (() => {
+            const LEAD_ID = '<?= e($lead['id']) ?>';
+            let tone = 'consultivo';
+            let channel = 'whatsapp';
+            let scripts = {};
+
+            function setTone(t) {
+                tone = t;
+                document.querySelectorAll('.lead-tone-btn').forEach(b => {
+                    const active = b.dataset.ltone === t;
+                    b.className = b.className.replace(/bg-lime\/10 text-lime border-lime\/20|bg-surface2 text-subtle border-stroke hover:text-text/g, '');
+                    b.classList.add(...(active ? ['bg-lime/10','text-lime','border-lime/20'] : ['bg-surface2','text-subtle','border-stroke','hover:text-text']));
+                });
+            }
+
+            async function generate() {
+                const btn = document.getElementById('leadScriptBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<div class="ai-spinner" style="width:14px;height:14px;border-width:2px"></div><span>Gerando...</span>';
+
+                try {
+                    const res = await operonFetch('/spin', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            lead_id: LEAD_ID,
+                            tone: tone,
+                            instructions: document.getElementById('leadScriptInstruction').value.trim(),
+                            _csrf: getCsrfToken()
+                        })
+                    });
+                    if (res.error) { alert(res.error); return; }
+                    scripts = res.scripts || {};
+                    document.getElementById('leadScriptArea').classList.remove('hidden');
+                    showChannel('whatsapp');
+                } catch (e) { alert('Erro ao gerar scripts.'); }
+                finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">auto_awesome</span>Gerar';
+                }
+            }
+
+            function showChannel(ch) {
+                channel = ch;
+                document.getElementById('leadScriptText').textContent = scripts[ch] || 'Nao disponivel.';
+                document.querySelectorAll('.lead-ch-btn').forEach(b => {
+                    const active = b.dataset.lch === ch;
+                    b.className = b.className.replace(/bg-lime\/10 text-lime border-lime\/20|bg-surface2 text-subtle border-stroke hover:text-text/g, '');
+                    b.classList.add(...(active ? ['bg-lime/10','text-lime','border-lime/20'] : ['bg-surface2','text-subtle','border-stroke','hover:text-text']));
+                });
+            }
+
+            function copy() {
+                const text = document.getElementById('leadScriptText').textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    const icon = document.getElementById('leadCopyIcon');
+                    icon.textContent = 'check';
+                    setTimeout(() => { icon.textContent = 'content_copy'; }, 1500);
+                });
+            }
+
+            function quickRefine(instruction) {
+                document.getElementById('leadRefineInput').value = instruction;
+                refine();
+            }
+
+            async function refine() {
+                const input = document.getElementById('leadRefineInput');
+                const instruction = input.value.trim();
+                if (!instruction) return;
+
+                const currentScript = document.getElementById('leadScriptText').textContent;
+                if (!currentScript || currentScript === 'Nao disponivel.') return;
+
+                const btn = document.getElementById('leadRefineBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<div class="ai-spinner" style="width:12px;height:12px;border-width:2px"></div>';
+
+                try {
+                    const res = await operonFetch('/spin/refine', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            lead_id: LEAD_ID,
+                            channel: channel,
+                            current_script: currentScript,
+                            instruction: instruction,
+                            tone: tone,
+                            _csrf: getCsrfToken()
+                        })
+                    });
+                    if (res.error) { alert(res.error); return; }
+                    document.getElementById('leadScriptText').textContent = res.script;
+                    scripts[channel] = res.script;
+                    input.value = '';
+                } catch (e) { alert('Erro ao refinar.'); }
+                finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">auto_fix_high</span>Refinar';
+                }
+            }
+
+            return { setTone, generate, showChannel, copy, quickRefine, refine };
+        })();
+        </script>
 
         <!-- Linha do Tempo & Anexos (MOVED HERE) -->
         <style>

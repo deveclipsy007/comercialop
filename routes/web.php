@@ -82,9 +82,13 @@ $router->post('/intelligence/run', [\App\Controllers\DeepIntelligenceController:
 $router->post('/calls/upload', [\App\Controllers\CallController::class, 'upload']);
 $router->get('/calls/status', [\App\Controllers\CallController::class, 'status']);
 
-// ── SPIN Hub ─────────────────────────────────────────────────
-$router->get('/spin',  [SpinController::class, 'index']);
-$router->post('/spin', [SpinController::class, 'generate']);
+// ── SPIN Hub & Scripts de Abordagem ──────────────────────────
+$router->get('/spin',                   [SpinController::class, 'index']);
+$router->post('/spin',                  [SpinController::class, 'generate']);
+$router->post('/spin/refine',           [SpinController::class, 'refineScript']);
+$router->post('/spin/playbook/upload',  [SpinController::class, 'uploadPlaybook']);
+$router->post('/spin/playbook/delete',  [SpinController::class, 'deletePlaybook']);
+$router->post('/spin/playbook/toggle',  [SpinController::class, 'togglePlaybook']);
 
 // ── Admin ────────────────────────────────────────────────────
 $router->get('/admin/login',  [\App\Controllers\AdminAuthController::class, 'showLogin']);

@@ -461,6 +461,210 @@ PROMPT;
         return $this->executeJsonAI('script_variations', $tenantId, $systemPrompt, $userPrompt, $lead['id'] ?? null);
     }
 
+    // ─── Advanced Script Generation (with playbooks, tone, instructions) ──
+
+    public function generateAdvancedScripts(
+        array $lead,
+        string $tenantId,
+        string $tone = 'consultivo',
+        ?string $channel = null,
+        string $instructions = ''
+    ): array {
+        $agency   = $this->smartContext->loadCompanyProfile($tenantId);
+        $services = implode(', ', $agency['offer_services'] ?? []);
+        $diffs    = implode('; ', $agency['differentials'] ?? []);
+        $maturity = $lead['analysis']['digitalMaturity'] ?? 'Média';
+        $score    = $lead['analysis']['priorityScore'] ?? $lead['priority_score'] ?? 50;
+
+        // Load playbook context
+        $playbookContext = \App\Models\ApproachPlaybook::getActiveContext($tenantId, 2500);
+
+        // Build lead deep context
+        $leadContext = $this->buildLeadSnapshot($lead);
+
+        // Tone mapping
+        $toneDescriptions = [
+            'consultivo'  => 'Tom consultivo, que demonstra expertise e cria valor antes de vender. Faz perguntas estratégicas.',
+            'direto'      => 'Tom direto e objetivo, vai ao ponto sem rodeios. Proposição clara e CTA forte.',
+            'elegante'    => 'Tom elegante e premium, linguagem sofisticada, posicionamento de alto valor.',
+            'humano'      => 'Tom humano e empático, com linguagem natural, como se estivesse falando com um amigo de confiança.',
+            'autoridade'  => 'Tom de autoridade e especialista do setor, usa dados e referências para se posicionar como referência.',
+            'curto'       => 'Tom conciso e minimalista. Máximo de impacto com mínimo de palavras. Cada frase conta.',
+            'storytelling' => 'Tom narrativo que conecta com uma história relevante antes de apresentar a proposta.',
+        ];
+        $toneDesc = $toneDescriptions[$tone] ?? $toneDescriptions['consultivo'];
+
+        $systemPrompt = <<<PROMPT
+Você é um Copywriter Estratégico de Vendas B2B com vasta experiência em abordagem comercial high-ticket.
+
+CONTEXTO DA EMPRESA QUE VOCÊ REPRESENTA:
+- Empresa: {$agency['name']}
+- Oferta: {$agency['offer_title']}
+- Preço: {$agency['offer_base_price']}
+- Serviços: {$services}
+- Diferenciais: {$diffs}
+- Proposta de valor: {$agency['unique_proposal']}
+- Garantias: {$agency['guarantees']}
+
+TOM E ESTILO:
+{$toneDesc}
+
+PROMPT;
+
+        if (!empty($playbookContext)) {
+            $systemPrompt .= <<<PROMPT
+
+MATERIAL DE REFERÊNCIA (use como base de estilo, framework e princípios de abordagem):
+---
+{$playbookContext}
+---
+IMPORTANTE: Use os PRINCÍPIOS e o ESTILO deste material como referência, mas adapte ao contexto específico do lead e da empresa. Não copie o texto literalmente — aplique a essência.
+
+PROMPT;
+        }
+
+        if (!empty($instructions)) {
+            $systemPrompt .= <<<PROMPT
+
+INSTRUÇÃO PERSONALIZADA DO USUÁRIO:
+{$instructions}
+Siga essa orientação como diretriz prioritária na construção do script.
+
+PROMPT;
+        }
+
+        // Determine channels to generate
+        $channels = $channel ? [$channel] : ['whatsapp', 'linkedin', 'email', 'coldCall'];
+        $channelDescriptions = [
+            'whatsapp' => 'WhatsApp (informal, direto, máx 120 palavras, emojis contextuais permitidos)',
+            'linkedin' => 'LinkedIn InMail (profissional, conciso, máx 100 palavras)',
+            'email'    => 'E-mail frio (subject + corpo, máx 150 palavras, estruturado)',
+            'coldCall' => 'Ligação a frio (roteiro falado, natural, máx 130 palavras, com ganchos de abertura)',
+        ];
+
+        $channelList = implode("\n", array_map(fn($ch) => "- {$ch}: {$channelDescriptions[$ch]}", $channels));
+        $channelKeys = implode('","', $channels);
+
+        $userPrompt = <<<PROMPT
+CONTEXTO COMPLETO DO LEAD:
+{$leadContext}
+
+CANAIS PARA GERAR:
+{$channelList}
+
+REGRAS:
+1. Cada script deve ser INDIVIDUAL para este lead específico — mencione o nome, segmento, ou dor específica dele.
+2. Não use placeholders como [nome] ou [empresa]. Use os dados reais.
+3. Cruze: contexto do lead + oferta da empresa + material de referência + tom solicitado.
+4. Cada script deve ter: abertura com gancho, conexão com a dor/oportunidade, proposta de valor contextualizada, CTA claro.
+5. O script deve parecer escrito por um humano que estudou o lead, não um template genérico.
+
+Retorne APENAS JSON válido: {"{$channelKeys}":"script..."}
+PROMPT;
+
+        $result = $this->executeJsonAI('advanced_scripts', $tenantId, $systemPrompt, $userPrompt, $lead['id'] ?? null);
+
+        // Ensure all requested channels have a value
+        $output = [];
+        foreach ($channels as $ch) {
+            $output[$ch] = $result[$ch] ?? '';
+        }
+        return $output;
+    }
+
+    // ─── Script Refinement (iterative chat) ────────────────────────────
+
+    public function refineScript(
+        array $lead,
+        string $tenantId,
+        string $currentScript,
+        string $instruction,
+        string $tone = 'consultivo',
+        string $channel = 'whatsapp'
+    ): string {
+        $agency   = $this->smartContext->loadCompanyProfile($tenantId);
+        $playbookContext = \App\Models\ApproachPlaybook::getActiveContext($tenantId, 1500);
+
+        $systemPrompt = <<<PROMPT
+Você é um Copywriter Estratégico especializado em refinar scripts de abordagem comercial.
+
+CONTEXTO DA EMPRESA: {$agency['name']} — {$agency['offer_title']}
+LEAD: {$lead['name']} — {$lead['segment']}
+CANAL: {$channel}
+
+PROMPT;
+
+        if (!empty($playbookContext)) {
+            $systemPrompt .= "REFERÊNCIA DE ESTILO:\n{$playbookContext}\n\n";
+        }
+
+        $systemPrompt .= <<<PROMPT
+REGRAS:
+1. Mantenha o tom de "{$tone}" mas ajuste conforme a instrução do usuário.
+2. Preserve os dados contextuais do lead (nome, segmento, dores) que já estão no script.
+3. Aplique a melhoria de forma cirúrgica — não reescreva do zero a menos que solicitado.
+4. O resultado deve ser o script melhorado, pronto para uso. Apenas o texto do script, sem explicações.
+PROMPT;
+
+        $userPrompt = <<<PROMPT
+SCRIPT ATUAL:
+---
+{$currentScript}
+---
+
+INSTRUÇÃO DE REFINAMENTO:
+{$instruction}
+
+Melhore o script acima seguindo a instrução. Retorne apenas o script refinado, sem comentários ou explicações.
+PROMPT;
+
+        return $this->executeTextAI('script_refinement', $tenantId, $systemPrompt, $userPrompt, $lead['id'] ?? null);
+    }
+
+    /**
+     * Build a comprehensive lead context snapshot for AI prompts.
+     */
+    private function buildLeadSnapshot(array $lead): string
+    {
+        $parts = [];
+        $parts[] = "LEAD: {$lead['name']}";
+        if (!empty($lead['segment'])) $parts[] = "SEGMENTO: {$lead['segment']}";
+        if (!empty($lead['category'])) $parts[] = "CATEGORIA: {$lead['category']}";
+        $parts[] = "SCORE: " . ($lead['priority_score'] ?? 0) . "/100";
+
+        $analysis = $lead['analysis'] ?? [];
+        if (!empty($analysis['digitalMaturity'])) $parts[] = "MATURIDADE DIGITAL: {$analysis['digitalMaturity']}";
+        if (!empty($analysis['urgencyLevel']))     $parts[] = "URGÊNCIA: {$analysis['urgencyLevel']}";
+        if (!empty($analysis['summary']))          $parts[] = "DIAGNÓSTICO: {$analysis['summary']}";
+
+        if (!empty($analysis['diagnosis'])) {
+            $problems = is_array($analysis['diagnosis']) ? implode('; ', array_slice(array_map(fn($d) => is_string($d) ? $d : ($d['title'] ?? ''), $analysis['diagnosis']), 0, 4)) : '';
+            if ($problems) $parts[] = "PROBLEMAS DETECTADOS: {$problems}";
+        }
+        if (!empty($analysis['opportunities'])) {
+            $opps = is_array($analysis['opportunities']) ? implode('; ', array_slice(array_map(fn($o) => is_string($o) ? $o : ($o['title'] ?? ''), $analysis['opportunities']), 0, 4)) : '';
+            if ($opps) $parts[] = "OPORTUNIDADES: {$opps}";
+        }
+
+        $ctx = $lead['human_context'] ?? [];
+        if (!empty($ctx['temperature'])) $parts[] = "TEMPERATURA: {$ctx['temperature']}";
+        if (!empty($ctx['timingStatus'])) $parts[] = "TIMING: {$ctx['timingStatus']}";
+        if (!empty($ctx['objectionCategory'])) $parts[] = "OBJEÇÃO PRINCIPAL: {$ctx['objectionCategory']}";
+        if (!empty($ctx['notes'])) $parts[] = "OBSERVAÇÕES DO VENDEDOR: " . mb_substr($ctx['notes'], 0, 200);
+
+        if (!empty($lead['pipeline_status'])) $parts[] = "ESTÁGIO: " . stageLabel($lead['pipeline_status']);
+        if (!empty($lead['website'])) $parts[] = "WEBSITE: {$lead['website']}";
+        if (!empty($lead['phone'])) $parts[] = "TELEFONE: {$lead['phone']}";
+        if (!empty($lead['email'])) $parts[] = "EMAIL: {$lead['email']}";
+
+        $social = $lead['social_presence'] ?? [];
+        if (!empty($social['instagram'])) $parts[] = "INSTAGRAM: @{$social['instagram']}";
+
+        if (!empty($lead['rating'])) $parts[] = "AVALIAÇÃO GOOGLE: {$lead['rating']} ({$lead['review_count']} reviews)";
+
+        return implode("\n", $parts);
+    }
+
     // ─── Follow-up Message Generation ─────────────────────────────────
 
     public function generateFollowupMessage(array $followup, string $tenantId): string

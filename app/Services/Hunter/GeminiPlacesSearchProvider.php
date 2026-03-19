@@ -53,17 +53,30 @@ Não inclua textos explicativos, formatadores markdown (como ```json) ou qualque
 PROMPT;
 
         $provider = AIProviderFactory::make('hunter', $tenantId);
-        $meta = $provider->generateJsonWithMeta($systemPrompt, $userPrompt, ['google_search' => true]);
+        
+        try {
+            // Tentar com Google Search grounding (preferencial para Gemini)
+            $meta = $provider->generateJsonWithMeta($systemPrompt, $userPrompt, ['google_search' => true]);
+        } catch (\Throwable $e) {
+            error_log('[Hunter] Search with grounding failed, retrying without grounding: ' . $e->getMessage());
+            // Fallback: tentar sem grounding (pode ser problema de cota, região ou provedor não suportado)
+            $meta = $provider->generateJsonWithMeta($systemPrompt, $userPrompt, ['google_search' => false]);
+        }
+
         $response = $meta['parsed'] ?? [];
         $usage = $meta['usage'] ?? ['input' => 0, 'output' => 0];
 
         if (!empty($tenantId)) {
-            $tokens = new TokenService();
-            $tokens->consume(
-                'hunter', $tenantId, Session::get('id'),
-                $provider->getProviderName(), $provider->getModel(),
-                $usage['input'], $usage['output']
-            );
+            try {
+                $tokens = new TokenService();
+                $tokens->consume(
+                    'hunter', $tenantId, Session::get('id'),
+                    $provider->getProviderName(), $provider->getModel(),
+                    (int)($usage['input'] ?? 0), (int)($usage['output'] ?? 0)
+                );
+            } catch (\Throwable $tokenErr) {
+                error_log('[Hunter] Token tracking failed (non-fatal): ' . $tokenErr->getMessage());
+            }
         }
 
         if (AIResponseParser::hasError($response)) {

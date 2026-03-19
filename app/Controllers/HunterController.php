@@ -86,52 +86,55 @@ class HunterController
             return;
         }
 
-        // 1. Create Search Record
-        $searchId = \App\Models\HunterSearch::create($tenantId, [
-           'user_id' => $userId,
-           'term' => "{$segment} em {$city}",
-           'segment' => $segment,
-           'location' => $city,
-           'filters' => $body
-        ]);
-
-        // Token consumption is handled inside GeminiPlacesSearchProvider::search()
-        // via TokenService with real API token tracking
-
-        // 2. Perform Search
-        $provider = new \App\Services\Hunter\GeminiPlacesSearchProvider();
-        $results = $provider->search($segment, $city, $body);
-
-        if (empty($results)) {
-            \App\Models\HunterSearch::updateStatus($searchId, $tenantId, 'failed', 'Nenhum resultado retornado pelo provider.');
-            $this->jsonError('search_failed', 'A busca falhou ou não retornou empresas válidas.');
-            return;
-        }
-
-        // 3. Save Results
-        $savedIds = [];
-        foreach ($results as $item) {
-            $savedIds[] = \App\Models\HunterResult::create($tenantId, [
-                'search_id' => $searchId,
-                'name' => $item['name'] ?? 'Empresa Desconhecida',
-                'segment' => $item['segment'] ?? $segment,
-                'address' => $item['address'] ?? null,
-                'city' => $item['city'] ?? $city,
-                'phone' => $item['phone'] ?? null,
-                'website' => $item['website'] ?? null,
-                'instagram' => $item['instagram'] ?? null,
-                'email' => $item['email'] ?? null,
-                'google_rating' => $item['google_rating'] ?? null,
-                'google_reviews' => $item['google_reviews'] ?? null,
-                'data_source' => 'gemini_places'
+        try {
+            // 1. Create Search Record
+            $searchId = \App\Models\HunterSearch::create($tenantId, [
+                'user_id' => $userId,
+                'term' => "{$segment} em {$city}",
+                'segment' => $segment,
+                'location' => $city,
+                'filters' => $body
             ]);
+
+            // 2. Perform Search
+            $provider = new \App\Services\Hunter\GeminiPlacesSearchProvider();
+            $results = $provider->search($segment, $city, $body);
+
+            if (empty($results)) {
+                \App\Models\HunterSearch::updateStatus($searchId, $tenantId, 'failed', 'Nenhum resultado retornado pelo provider.');
+                $this->jsonError('search_failed', 'A busca falhou ou não retornou empresas válidas.');
+                return;
+            }
+
+            // 3. Save Results
+            $savedIds = [];
+            foreach ($results as $item) {
+                $savedIds[] = \App\Models\HunterResult::create($tenantId, [
+                    'search_id' => $searchId,
+                    'name' => $item['name'] ?? 'Empresa Desconhecida',
+                    'segment' => $item['segment'] ?? $segment,
+                    'address' => $item['address'] ?? null,
+                    'city' => $item['city'] ?? $city,
+                    'phone' => $item['phone'] ?? null,
+                    'website' => $item['website'] ?? null,
+                    'instagram' => $item['instagram'] ?? null,
+                    'email' => $item['email'] ?? null,
+                    'google_rating' => $item['google_rating'] ?? null,
+                    'google_reviews' => $item['google_reviews'] ?? null,
+                    'data_source' => 'gemini_places'
+                ]);
+            }
+
+            \App\Models\HunterSearch::updateStatus($searchId, $tenantId, 'finished');
+
+            // Retorna a lista de entidades salvas para o frontend
+            $dbResults = \App\Models\HunterResult::getBySearchId($searchId, $tenantId);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'search_id' => $searchId, 'results' => $dbResults]);
+        } catch (\Throwable $e) {
+            error_log('[HunterController] search error: ' . $e->getMessage());
+            $this->jsonError('server_error', 'Erro interno ao processar busca: ' . $e->getMessage());
         }
-
-        \App\Models\HunterSearch::updateStatus($searchId, $tenantId, 'finished');
-
-        // Retorna a lista de entidades salvas para o frontend
-        $dbResults = \App\Models\HunterResult::getBySearchId($searchId, $tenantId);
-        echo json_encode(['success' => true, 'search_id' => $searchId, 'results' => $dbResults]);
     }
 
     public function analyze(): void
@@ -155,22 +158,28 @@ class HunterController
             return;
         }
 
-        // 1. Enrich details (find social/website if missing)
-        $enricher = new \App\Services\Hunter\HunterEnrichmentService();
-        $enricher->enrich($resultId, $tenantId);
+        try {
+            // 1. Enrich details (find social/website if missing)
+            $enricher = new \App\Services\Hunter\HunterEnrichmentService();
+            $enricher->enrich($resultId, $tenantId);
 
-        // 2. AI Analysis
-        $analyzer = new \App\Services\Hunter\HunterAiAnalyzer();
-        $success = $analyzer->analyze($resultId, $tenantId);
+            // 2. AI Analysis
+            $analyzer = new \App\Services\Hunter\HunterAiAnalyzer();
+            $success = $analyzer->analyze($resultId, $tenantId);
 
-        if ($success) {
-            // Token consumption already handled inside HunterAiAnalyzer + HunterEnrichmentService
-            $fullResult = \App\Models\HunterResult::findById($resultId, $tenantId);
-            $analysis = \App\Models\HunterResultAnalysis::findByResultId($resultId, $tenantId);
-            
-            echo json_encode(['success' => true, 'result' => $fullResult, 'analysis' => $analysis]);
-        } else {
-            $this->jsonError('analysis_failed', 'Falha ao processar a análise via Inteligência Artificial.');
+            if ($success) {
+                // Token consumption already handled inside HunterAiAnalyzer + HunterEnrichmentService
+                $fullResult = \App\Models\HunterResult::findById($resultId, $tenantId);
+                $analysis = \App\Models\HunterResultAnalysis::findByResultId($resultId, $tenantId);
+                
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'result' => $fullResult, 'analysis' => $analysis]);
+            } else {
+                $this->jsonError('analysis_failed', 'Falha ao processar a análise via Inteligência Artificial.');
+            }
+        } catch (\Throwable $e) {
+            error_log('[HunterController] analyze error: ' . $e->getMessage());
+            $this->jsonError('server_error', 'Erro interno na análise: ' . $e->getMessage());
         }
     }
 

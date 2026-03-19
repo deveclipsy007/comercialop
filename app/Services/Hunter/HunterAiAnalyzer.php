@@ -86,12 +86,16 @@ PROMPT;
         $usage = $meta['usage'] ?? ['input' => 0, 'output' => 0];
 
         // Registrar consumo de tokens
-        $tokens = new TokenService();
-        $tokens->consume(
-            'hunter', $tenantId, Session::get('id'),
-            $provider->getProviderName(), $provider->getModel(),
-            $usage['input'], $usage['output']
-        );
+        try {
+            $tokens = new TokenService();
+            $tokens->consume(
+                'hunter', $tenantId, Session::get('id'),
+                $provider->getProviderName(), $provider->getModel(),
+                (int)($usage['input'] ?? 0), (int)($usage['output'] ?? 0)
+            );
+        } catch (\Throwable $e) {
+            error_log('[HunterAiAnalyzer] Token tracking failed: ' . $e->getMessage());
+        }
 
         if (AIResponseParser::hasError($response)) {
             error_log('[HunterAiAnalyzer] Falhou ao analisar lead ' . $resultId . ': ' . json_encode($response));
