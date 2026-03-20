@@ -113,6 +113,8 @@ $isAdmin = in_array($userRole, ['admin', 'owner'], true);
                             ['key' => 'notify_lead_assigned', 'label' => 'Lead atribuído a mim',      'desc' => 'Alertar quando um lead for atribuído a você.'],
                             ['key' => 'notify_stage_change',  'label' => 'Mudança de etapa no funil',  'desc' => 'Alertar quando um lead mudar de etapa no pipeline.'],
                             ['key' => 'notify_whatsapp_new',  'label' => 'Nova mensagem WhatsApp',     'desc' => 'Alertar quando uma nova conversa WhatsApp for recebida.'],
+                            ['key' => 'notify_agenda_today',  'label' => 'Agenda do dia',              'desc' => 'Mostrar no sino os compromissos e lembretes agendados para hoje.'],
+                            ['key' => 'notify_agenda_1h',     'label' => 'Compromisso em 1 hora',      'desc' => 'Destacar e avisar quando faltar até 1 hora para um compromisso ou lembrete.'],
                             ['key' => 'notify_quota_warning', 'label' => 'Limite de créditos',         'desc' => 'Alertar quando seus créditos estiverem próximos do limite (90%).'],
                         ];
                         foreach ($notifOptions as $opt):

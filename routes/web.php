@@ -13,6 +13,7 @@ use App\Controllers\AgendaController;
 use App\Controllers\KnowledgeController;
 use App\Controllers\UserSettingsController;
 use App\Controllers\WhatsAppController;
+use App\Controllers\MeridianController;
 use App\Controllers\ApiController;
 use App\Core\View;
 
@@ -41,7 +42,8 @@ $router->post('/vault/:id/note',    [LeadController::class, 'addNote']);
 $router->post('/vault/:id/attachment', [LeadController::class, 'uploadAttachment']);
 
 // ── Atlas de Vendas ──────────────────────────────────────────
-$router->get('/atlas', [AtlasController::class, 'index']);
+$router->get('/atlas',          [AtlasController::class, 'index']);
+$router->post('/atlas/geocode', [AtlasController::class, 'geocode']);
 
 // ── Hunter ───────────────────────────────────────────────────
 $router->get('/hunter',  [HunterController::class, 'index']);
@@ -49,6 +51,12 @@ $router->post('/hunter', [HunterController::class, 'search']);
 $router->post('/hunter/analyze', [HunterController::class, 'analyze']);
 $router->post('/hunter/save',    [HunterController::class, 'toggleSave']);
 $router->post('/hunter/import',  [HunterController::class, 'importCrm']);
+
+// ── Meridian (Análise de Nichos) ────────────────────────────────
+$router->get('/meridian',           [MeridianController::class, 'index']);
+$router->post('/meridian/analyze',  [MeridianController::class, 'analyze']);
+$router->post('/meridian/history',  [MeridianController::class, 'history']);
+$router->post('/meridian/delete',   [MeridianController::class, 'delete']);
 
 // ── Genesis (Importação) ─────────────────────────────────────
 $router->get('/genesis',  fn() => View::render('genesis/index', ['active' => 'genesis']));

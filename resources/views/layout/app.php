@@ -158,6 +158,7 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
                     'icon' => 'explore',
                     'items' => [
                         ['label' => 'Hunter',    'path' => '/hunter',    'key' => 'hunter',    'icon' => 'travel_explore'],
+                        ['label' => 'Meridian',  'path' => '/meridian',  'key' => 'meridian',  'icon' => 'target'],
                         ['label' => 'Atlas',     'path' => '/atlas',     'key' => 'atlas',     'icon' => 'map'],
                         ['label' => 'Genesis',   'path' => '/genesis',   'key' => 'genesis',   'icon' => 'upload_file'],
                     ]
@@ -278,9 +279,12 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
                     <div class="px-5 py-4 border-b border-stroke flex items-center justify-between">
                         <div>
                             <p class="text-xs font-bold text-text uppercase tracking-[0.12em]">Notificações</p>
-                            <p id="notificationSubtext" class="text-[10px] text-muted mt-1">Carregando alertas do WhatsApp...</p>
+                            <p id="notificationSubtext" class="text-[10px] text-muted mt-1">Carregando alertas da plataforma...</p>
                         </div>
-                        <a href="/whatsapp" class="text-[10px] font-bold text-lime hover:underline">Abrir WhatsApp</a>
+                        <div class="flex items-center gap-3 text-[10px] font-bold">
+                            <a href="/agenda" class="text-muted hover:text-lime hover:underline">Abrir Agenda</a>
+                            <a href="/whatsapp" class="text-lime hover:underline">Abrir WhatsApp</a>
+                        </div>
                     </div>
                     <div id="notificationList" class="max-h-[360px] overflow-y-auto custom-scrollbar">
                         <div class="px-5 py-5 text-sm text-muted">Carregando...</div>
@@ -387,6 +391,15 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
     </header>
 
     <!-- Mobile Navigation Overlay (Visible only on small screens when triggered) -->
+    <?php
+    // Flatten navGroups into a single list for mobile
+    $filteredNav = [];
+    foreach ($navGroups as $group) {
+        foreach ($group['items'] as $item) {
+            $filteredNav[] = $item;
+        }
+    }
+    ?>
     <div id="mobileNavOverlay" class="fixed inset-0 bg-bg z-40 flex-col hidden lg:hidden overflow-y-auto px-4 py-6 border-t border-stroke mt-[72px]">
         <div class="flex flex-col gap-3">
             <p class="text-[10px] font-bold text-subtle tracking-[0.2em] uppercase mb-2 px-2">Navegação Principal</p>
@@ -593,8 +606,9 @@ const notificationList = document.getElementById('notificationList');
 const notificationSubtext = document.getElementById('notificationSubtext');
 const waNotificationState = {
     initialized: false,
-    lastTotal: 0,
+    lastSignature: '',
     pollId: null,
+    inFlight: false,
 };
 
 function openNotificationMenu() {
@@ -630,10 +644,16 @@ function renderNotificationBadge(total) {
     }
 }
 
+function parseNotificationDate(dateStr) {
+    if (!dateStr) return null;
+    const normalized = String(dateStr).includes('T') ? String(dateStr) : String(dateStr).replace(' ', 'T');
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatNotificationTime(dateStr) {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return '';
+    const date = parseNotificationDate(dateStr);
+    if (!date) return '';
 
     const now = new Date();
     const sameDay = date.toDateString() === now.toDateString();
@@ -650,67 +670,135 @@ function formatNotificationTime(dateStr) {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+function formatNotificationSyncTime(dateStr) {
+    const date = parseNotificationDate(dateStr);
+    if (!date) return '';
+
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function getNotificationToneClasses(tone) {
+    switch (tone) {
+        case 'amber':
+            return {
+                icon: 'bg-amber-500/10 border border-amber-400/20 text-amber-300',
+                badge: 'bg-amber-500/10 border border-amber-400/20 text-amber-300',
+                chip: 'bg-amber-500/10 border border-amber-400/20 text-amber-300',
+            };
+        case 'blue':
+            return {
+                icon: 'bg-sky-500/10 border border-sky-400/20 text-sky-300',
+                badge: 'bg-sky-500/10 border border-sky-400/20 text-sky-300',
+                chip: 'bg-sky-500/10 border border-sky-400/20 text-sky-300',
+            };
+        case 'red':
+            return {
+                icon: 'bg-red-500/10 border border-red-400/20 text-red-300',
+                badge: 'bg-red-500/10 border border-red-400/20 text-red-300',
+                chip: 'bg-red-500/10 border border-red-400/20 text-red-300',
+            };
+        default:
+            return {
+                icon: 'bg-lime/10 border border-lime/20 text-lime',
+                badge: 'bg-lime/10 border border-lime/20 text-lime',
+                chip: 'bg-lime/10 border border-lime/20 text-lime',
+            };
+    }
+}
+
 function renderNotificationList(data) {
     if (!notificationList || !notificationSubtext) return;
 
-    if (data.has_integration === false) {
-        notificationSubtext.textContent = 'Conecte seu WhatsApp para receber alertas.';
-        notificationList.innerHTML = `
-            <div class="px-5 py-6 text-sm text-muted">
-                Nenhuma integração conectada no momento.
-                <div class="mt-3">
-                    <a href="/whatsapp" class="text-lime font-bold hover:underline">Configurar WhatsApp</a>
-                </div>
-            </div>`;
-        renderNotificationBadge(0);
-        return;
-    }
+    const total = Number(data.total || 0);
+    const whatsappCount = Number(data.counts?.whatsapp || 0);
+    const agendaCount = Number(data.counts?.agenda || 0);
+    const whatsappChannel = data.channels?.whatsapp || {};
+    const agendaChannel = data.channels?.agenda || {};
+    const hasWhatsAppIntegration = Boolean(
+        whatsappChannel.has_integration ?? data.has_integration ?? false
+    );
 
     if (data.enabled === false) {
-        notificationSubtext.textContent = 'Alertas de WhatsApp estão desativados.';
+        notificationSubtext.textContent = 'Os alertas do sino estão desativados.';
         notificationList.innerHTML = `
             <div class="px-5 py-6 text-sm text-muted">
-                Você desativou essa notificação nas preferências.
-                <div class="mt-3">
+                Você desativou as notificações da plataforma nas preferências.
+                <div class="mt-3 flex items-center gap-3">
                     <a href="/settings#notifications" class="text-lime font-bold hover:underline">Reativar notificações</a>
+                    <a href="/agenda" class="text-muted font-bold hover:text-lime hover:underline">Ver agenda</a>
                 </div>
             </div>`;
         renderNotificationBadge(0);
         return;
     }
 
-    const total = Number(data.total || 0);
     renderNotificationBadge(total);
-    notificationSubtext.textContent = total > 0
-        ? `${total} mensagem(ns) não lida(s) no WhatsApp`
-        : 'Nenhuma mensagem nova no momento.';
+    const syncTime = formatNotificationSyncTime(data.last_sync_at || data.sync_meta?.last_sync_at);
+    const summaryParts = [];
+    if (whatsappCount > 0) summaryParts.push(`${whatsappCount} no WhatsApp`);
+    if (agendaCount > 0) summaryParts.push(`${agendaCount} na agenda`);
+    const summaryLabel = summaryParts.length > 0 ? summaryParts.join(' • ') : `${total} alerta(s)`;
+
+    if (total > 0) {
+        notificationSubtext.textContent = `${summaryLabel}${syncTime ? ' • Atualizado às ' + syncTime : ''}`;
+    } else if (agendaChannel.enabled && whatsappChannel.enabled && !hasWhatsAppIntegration) {
+        notificationSubtext.textContent = `Agenda em dia${syncTime ? ' • Última checagem às ' + syncTime : ''}. Conecte o WhatsApp para ampliar os alertas.`;
+    } else if (agendaChannel.enabled && whatsappChannel.enabled) {
+        notificationSubtext.textContent = `WhatsApp e agenda em dia${syncTime ? ' • Última checagem às ' + syncTime : ''}.`;
+    } else if (agendaChannel.enabled) {
+        notificationSubtext.textContent = `Agenda em dia${syncTime ? ' • Última checagem às ' + syncTime : ''}.`;
+    } else if (whatsappChannel.enabled) {
+        notificationSubtext.textContent = hasWhatsAppIntegration
+            ? `Nenhuma mensagem nova no momento${syncTime ? ' • Última checagem às ' + syncTime : ''}.`
+            : 'Conecte seu WhatsApp para receber alertas por aqui.';
+    } else {
+        notificationSubtext.textContent = `Tudo em dia por aqui${syncTime ? ' • Última checagem às ' + syncTime : ''}.`;
+    }
 
     const items = Array.isArray(data.items) ? data.items : [];
     if (items.length === 0) {
-        notificationList.innerHTML = `<div class="px-5 py-6 text-sm text-muted">Tudo em dia por aqui.</div>`;
+        notificationList.innerHTML = `
+            <div class="px-5 py-6 text-sm text-muted">
+                Tudo em dia por aqui.
+                <div class="mt-3 flex items-center gap-3">
+                    <a href="/agenda" class="text-muted font-bold hover:text-lime hover:underline">Abrir agenda</a>
+                    <a href="/whatsapp" class="text-lime font-bold hover:underline">
+                        ${hasWhatsAppIntegration ? 'Abrir WhatsApp' : 'Configurar WhatsApp'}
+                    </a>
+                </div>
+            </div>`;
         return;
     }
 
     notificationList.innerHTML = items.map((item) => {
-        const label = item.display_name || item.phone || item.remote_jid || 'Conversa sem nome';
-        const preview = item.last_message_preview || 'Nova mensagem recebida';
-        const href = '/whatsapp?conversation=' + encodeURIComponent(item.id);
-        const unread = Number(item.unread_count || 0);
+        const tone = getNotificationToneClasses(item.tone);
+        const label = item.title || 'Nova notificação';
+        const preview = item.preview || 'Clique para abrir os detalhes.';
+        const href = item.href || '#';
+        const badgeCount = Number(item.badge_count || 0);
+        const badgeText = badgeCount > 0
+            ? (badgeCount > 99 ? '99+' : String(badgeCount))
+            : (item.status_badge ? escapeHtml(item.status_badge) : '');
         return `
             <a href="${href}" class="flex gap-3 px-5 py-4 border-b border-stroke/60 hover:bg-surface3 transition-colors last:border-b-0">
-                <div class="size-10 rounded-full bg-lime/10 border border-lime/20 text-lime flex items-center justify-center flex-shrink-0">
-                    <span class="material-symbols-outlined text-[18px]">chat</span>
+                <div class="size-10 rounded-full flex items-center justify-center flex-shrink-0 ${tone.icon}">
+                    <span class="material-symbols-outlined text-[18px]">${escapeHtml(item.icon || 'notifications')}</span>
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-start justify-between gap-3">
-                        <p class="text-sm font-bold text-text truncate">${escapeHtml(label)}</p>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                ${item.source_label ? `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] ${tone.chip}">${escapeHtml(item.source_label)}</span>` : ''}
+                                ${item.time ? `<span class="text-[10px] text-muted">${formatNotificationTime(item.time)}</span>` : ''}
+                            </div>
+                            <p class="text-sm font-bold text-text truncate mt-1">${escapeHtml(label)}</p>
+                        </div>
                         <div class="flex items-center gap-2 flex-shrink-0">
-                            <span class="text-[10px] text-muted">${formatNotificationTime(item.last_message_at)}</span>
-                            ${unread > 0 ? `<span class="min-w-[20px] h-5 px-1.5 rounded-full bg-lime/10 border border-lime/20 text-lime text-[10px] font-black flex items-center justify-center">${unread}</span>` : ''}
+                            ${badgeText ? `<span class="min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center ${tone.badge}">${badgeText}</span>` : ''}
                         </div>
                     </div>
                     <p class="text-xs text-muted mt-1 truncate">${escapeHtml(preview)}</p>
-                    ${item.lead_name ? `<p class="text-[10px] text-subtle mt-1">Lead: ${escapeHtml(item.lead_name)}</p>` : ''}
+                    ${item.meta ? `<p class="text-[10px] text-subtle mt-1">${escapeHtml(item.meta)}</p>` : ''}
                 </div>
             </a>`;
     }).join('');
@@ -722,9 +810,48 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
-function showWhatsAppNotificationToast(item, delta) {
-    if (!item || document.hidden) return;
-    if (window.location.pathname === '/whatsapp' && new URLSearchParams(window.location.search).get('conversation') === item.id) return;
+function getNotificationToastStorageKey(item) {
+    return 'operon:toast:' + String(item?.toast_key || item?.id || '');
+}
+
+function hasSeenNotificationToast(item) {
+    try {
+        return sessionStorage.getItem(getNotificationToastStorageKey(item)) === '1';
+    } catch (err) {
+        return false;
+    }
+}
+
+function markNotificationToastSeen(item) {
+    try {
+        sessionStorage.setItem(getNotificationToastStorageKey(item), '1');
+    } catch (err) {
+        // noop
+    }
+}
+
+function showNotificationToast(item) {
+    if (!item || document.hidden || item.should_toast === false || hasSeenNotificationToast(item)) return;
+
+    if (window.location.pathname === '/whatsapp' && item.source === 'whatsapp') {
+        const activeConversationId = window.Chat?.activeConvId || new URLSearchParams(window.location.search).get('conversation');
+        if (activeConversationId === String(item.entity_id || '').trim()) {
+            markNotificationToastSeen(item);
+            return;
+        }
+    }
+
+    if (window.location.pathname === '/agenda' && item.href) {
+        const currentParams = new URLSearchParams(window.location.search);
+        const currentEvent = currentParams.get('event');
+        const itemUrl = new URL(item.href, window.location.origin);
+        if (currentEvent && currentEvent === itemUrl.searchParams.get('event')) {
+            markNotificationToastSeen(item);
+            return;
+        }
+    }
+
+    markNotificationToastSeen(item);
 
     let container = document.getElementById('notificationToastContainer');
     if (!container) {
@@ -734,19 +861,19 @@ function showWhatsAppNotificationToast(item, delta) {
         document.body.appendChild(container);
     }
 
+    const tone = getNotificationToneClasses(item.tone);
     const toast = document.createElement('a');
-    toast.href = '/whatsapp?conversation=' + encodeURIComponent(item.id);
-    toast.className = 'w-[320px] max-w-[calc(100vw-2rem)] rounded-2xl border border-lime/20 bg-surface2/95 backdrop-blur px-4 py-3 shadow-soft hover:border-lime/40 transition-all';
+    toast.href = item.href || '#';
+    toast.className = 'w-[320px] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/10 bg-surface2/95 backdrop-blur px-4 py-3 shadow-soft hover:border-lime/40 transition-all';
     toast.innerHTML = `
         <div class="flex items-start gap-3">
-            <div class="size-10 rounded-full bg-lime/10 border border-lime/20 text-lime flex items-center justify-center flex-shrink-0">
-                <span class="material-symbols-outlined text-[18px]">notifications_active</span>
+            <div class="size-10 rounded-full flex items-center justify-center flex-shrink-0 ${tone.icon}">
+                <span class="material-symbols-outlined text-[18px]">${escapeHtml(item.icon || 'notifications_active')}</span>
             </div>
             <div class="min-w-0 flex-1">
-                <p class="text-xs font-black text-lime uppercase tracking-[0.12em]">Nova mensagem no WhatsApp</p>
-                <p class="text-sm font-bold text-text truncate mt-1">${escapeHtml(item.display_name || item.phone || 'Nova conversa')}</p>
-                <p class="text-xs text-muted truncate mt-1">${escapeHtml(item.last_message_preview || 'Clique para abrir a conversa.')}</p>
-                ${delta > 1 ? `<p class="text-[10px] text-subtle mt-2">+${delta - 1} outra(s) mensagem(ns) pendente(s)</p>` : ''}
+                <p class="text-xs font-black text-lime uppercase tracking-[0.12em]">${escapeHtml(item.toast_title || 'Nova notificação')}</p>
+                <p class="text-sm font-bold text-text truncate mt-1">${escapeHtml(item.title || item.source_label || 'Notificação')}</p>
+                <p class="text-xs text-muted truncate mt-1">${escapeHtml(item.preview || item.meta || 'Clique para abrir.')}</p>
             </div>
         </div>`;
 
@@ -759,25 +886,78 @@ function showWhatsAppNotificationToast(item, delta) {
     }, 4500);
 }
 
+function emitNotificationCenterEvent(data) {
+    window.dispatchEvent(new CustomEvent('operon:notification-center-updated', {
+        detail: data,
+    }));
+}
+
+function getWhatsAppNotificationPollInterval() {
+    if (document.hidden) return 60000;
+    if (window.location.pathname === '/whatsapp') return 12000;
+    if (window.location.pathname === '/agenda') return 15000;
+    return 20000;
+}
+
+function scheduleWhatsAppNotificationRefresh(delay) {
+    if (waNotificationState.pollId) {
+        window.clearTimeout(waNotificationState.pollId);
+    }
+
+    waNotificationState.pollId = window.setTimeout(() => {
+        refreshWhatsAppNotifications();
+    }, typeof delay === 'number' ? delay : getWhatsAppNotificationPollInterval());
+}
+
 async function refreshWhatsAppNotifications(options = {}) {
     if (!notificationBtn) return;
+    if (waNotificationState.inFlight) {
+        if (options.reschedule !== false) {
+            scheduleWhatsAppNotificationRefresh();
+        }
+        return;
+    }
+
+    waNotificationState.inFlight = true;
 
     try {
         const data = await operonFetch('/whatsapp/notifications', { method: 'GET' });
         renderNotificationList(data);
 
-        const total = Number(data.total || 0);
-        const shouldToast = options.toast !== false && waNotificationState.initialized && total > waNotificationState.lastTotal;
-        if (shouldToast && Array.isArray(data.items) && data.items[0]) {
-            showWhatsAppNotificationToast(data.items[0], total - waNotificationState.lastTotal);
+        const signature = JSON.stringify([
+            data.last_sync_at || data.sync_meta?.last_sync_at || '',
+            ...(Array.isArray(data.items) ? data.items.map((item) => [
+                item.id,
+                item.source,
+                item.badge_count,
+                item.status_badge,
+                item.time,
+                item.preview,
+                item.toast_key,
+            ]) : []),
+        ]);
+        if (options.toast !== false && waNotificationState.initialized && Array.isArray(data.items)) {
+            data.items
+                .filter((item) => item && item.should_toast)
+                .slice(0, 2)
+                .forEach((item) => showNotificationToast(item));
         }
 
-        waNotificationState.lastTotal = total;
+        if (!waNotificationState.initialized || signature !== waNotificationState.lastSignature) {
+            emitNotificationCenterEvent(data);
+        }
+
+        waNotificationState.lastSignature = signature;
         waNotificationState.initialized = true;
     } catch (err) {
         console.error('notification refresh failed:', err);
         if (!waNotificationState.initialized && notificationSubtext) {
-            notificationSubtext.textContent = 'Não foi possível carregar as notificações.';
+            notificationSubtext.textContent = 'Não foi possível carregar as notificações da plataforma.';
+        }
+    } finally {
+        waNotificationState.inFlight = false;
+        if (options.reschedule !== false) {
+            scheduleWhatsAppNotificationRefresh();
         }
     }
 }
@@ -800,10 +980,20 @@ if (notificationBtn && notificationMenu) {
         }
     });
 
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            refreshWhatsAppNotifications({ toast: false });
+            return;
+        }
+
+        scheduleWhatsAppNotificationRefresh(getWhatsAppNotificationPollInterval());
+    });
+
+    window.addEventListener('focus', () => {
+        refreshWhatsAppNotifications({ toast: false });
+    });
+
     refreshWhatsAppNotifications({ toast: false });
-    waNotificationState.pollId = window.setInterval(() => {
-        refreshWhatsAppNotifications();
-    }, 15000);
 }
 
 // Mobile Nav Toggle

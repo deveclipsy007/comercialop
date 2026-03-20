@@ -17,7 +17,7 @@ class HunterResultAnalysis
             Database::execute(
                 'UPDATE hunter_result_analysis SET 
                     executive_summary = ?, pain_points = ?, opportunities = ?, recommended_approach = ?, 
-                    icp_match_score = ?, priority_score = ?, priority_level = ?, updated_at = datetime("now")
+                    icp_match_score = ?, priority_score = ?, priority_level = ?, metadata = ?, updated_at = datetime("now")
                  WHERE id = ? AND tenant_id = ?',
                 [
                     $data['executive_summary'] ?? null,
@@ -27,6 +27,7 @@ class HunterResultAnalysis
                     $data['icp_match_score'] ?? 0,
                     $data['priority_score'] ?? 0,
                     $data['priority_level'] ?? 'cold',
+                    is_array($data['metadata'] ?? null) ? json_encode($data['metadata']) : null,
                     $existing['id'],
                     $tenantId
                 ]
@@ -37,8 +38,8 @@ class HunterResultAnalysis
             Database::execute(
                 'INSERT INTO hunter_result_analysis (
                     id, tenant_id, hunter_result_id, executive_summary, pain_points, opportunities, 
-                    recommended_approach, icp_match_score, priority_score, priority_level
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    recommended_approach, icp_match_score, priority_score, priority_level, metadata
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     $id,
                     $tenantId,
@@ -49,7 +50,8 @@ class HunterResultAnalysis
                     $data['recommended_approach'] ?? null,
                     $data['icp_match_score'] ?? 0,
                     $data['priority_score'] ?? 0,
-                    $data['priority_level'] ?? 'cold'
+                    $data['priority_level'] ?? 'cold',
+                    is_array($data['metadata'] ?? null) ? json_encode($data['metadata']) : null,
                 ]
             );
             return $id;
@@ -62,6 +64,7 @@ class HunterResultAnalysis
         if ($row) {
             $row['pain_points'] = json_decode($row['pain_points'] ?? '[]', true);
             $row['opportunities'] = json_decode($row['opportunities'] ?? '[]', true);
+            $row['metadata'] = json_decode($row['metadata'] ?? '{}', true) ?: [];
         }
         return $row;
     }

@@ -156,7 +156,7 @@ class GeminiProvider
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => json_encode($body),
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_TIMEOUT        => 120,
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
 

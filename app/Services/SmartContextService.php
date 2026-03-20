@@ -383,6 +383,122 @@ CONTEXT;
         return $context;
     }
 
+    /**
+     * Constrói contexto COMPLETO da empresa para análise estratégica de nicho.
+     * Não depende de lead — foco é o perfil da empresa vs. nicho de mercado.
+     */
+    public function buildNicheContext(string $tenantId): string
+    {
+        $agency = $this->loadCompanyProfile($tenantId);
+
+        $services = implode(', ', $agency['offer_services'] ?? []);
+        $diffs    = implode('; ', $agency['differentials'] ?? []);
+        $icps     = implode('; ', $agency['icp'] ?? []);
+
+        // Serviços detalhados
+        $servicesFull = $agency['services_full'] ?? [];
+        if (is_string($servicesFull)) $servicesFull = json_decode($servicesFull, true) ?? [];
+        $servicesDetailText = '';
+        if (!empty($servicesFull)) {
+            $lines = [];
+            foreach ($servicesFull as $svc) {
+                $line = '• ' . ($svc['name'] ?? '');
+                if (!empty($svc['description'])) $line .= ' — ' . $svc['description'];
+                if (!empty($svc['price_range'])) $line .= ' (' . $svc['price_range'] . ')';
+                $lines[] = $line;
+            }
+            $servicesDetailText = implode("\n", $lines);
+        }
+
+        // Cases de sucesso
+        $cases = $agency['cases'] ?? [];
+        if (is_string($cases)) $cases = json_decode($cases, true) ?? [];
+        $casesText = '';
+        if (!empty($cases)) {
+            $lines = [];
+            foreach (array_slice($cases, 0, 5) as $c) {
+                $line = '• ' . ($c['client'] ?? 'Cliente');
+                if (!empty($c['result'])) $line .= ': ' . $c['result'];
+                if (!empty($c['niche'])) $line .= ' (nicho: ' . $c['niche'] . ')';
+                $lines[] = $line;
+            }
+            $casesText = implode("\n", $lines);
+        }
+
+        // Objeções
+        $objections = $agency['objection_responses'] ?? [];
+        if (is_string($objections)) $objections = json_decode($objections, true) ?? [];
+        $objectionsText = '';
+        if (!empty($objections)) {
+            $lines = [];
+            foreach ($objections as $o) {
+                $lines[] = '• "' . ($o['objection'] ?? '') . '" → ' . ($o['response'] ?? '');
+            }
+            $objectionsText = implode("\n", $lines);
+        }
+
+        // Concorrentes
+        $competitors = $agency['competitors'] ?? [];
+        if (is_string($competitors)) $competitors = json_decode($competitors, true) ?? [];
+        $competitorsText = !empty($competitors) ? implode(', ', $competitors) : '';
+
+        // ICP pain points
+        $icpPains = $agency['icp_pain_points'] ?? [];
+        if (is_string($icpPains)) $icpPains = json_decode($icpPains, true) ?? [];
+
+        $context = "===== PERFIL ESTRATÉGICO DA EMPRESA (BASE OBRIGATÓRIA PARA ANÁLISE) =====\n";
+        $context .= "Empresa: {$agency['name']}\n";
+        if (!empty($agency['agency_niche'])) $context .= "Nicho de atuação: {$agency['agency_niche']}\n";
+        if (!empty($agency['agency_city'])) $context .= "Localização: {$agency['agency_city']}" . (!empty($agency['agency_state']) ? '/' . $agency['agency_state'] : '') . "\n";
+        if (!empty($agency['website_url'])) $context .= "Website: {$agency['website_url']}\n";
+        $context .= "Oferta principal: {$agency['offer_title']}\n";
+        $context .= "Faixa de preço: {$agency['offer_base_price']}\n";
+        $context .= "Proposta de valor única: {$agency['unique_proposal']}\n";
+
+        if ($servicesDetailText) {
+            $context .= "\n--- SERVIÇOS OFERECIDOS ---\n{$servicesDetailText}\n";
+        } else {
+            $context .= "Serviços: {$services}\n";
+        }
+
+        $context .= "\n--- DIFERENCIAIS ---\n• " . implode("\n• ", $agency['differentials'] ?? []) . "\n";
+
+        if (!empty($agency['guarantees'])) $context .= "Garantia: {$agency['guarantees']}\n";
+        if (!empty($agency['delivery_timeline'])) $context .= "Prazo de entrega: {$agency['delivery_timeline']}\n";
+        if (!empty($agency['awards_recognition'])) $context .= "Prêmios/Reconhecimentos: {$agency['awards_recognition']}\n";
+
+        $context .= "\n--- PERFIL DE CLIENTE IDEAL (ICP) ---\n";
+        if (!empty($agency['icp_profile'])) $context .= "{$agency['icp_profile']}\n";
+        $context .= "Segmentos alvo: {$icps}\n";
+        if (!empty($agency['icp_company_size'])) $context .= "Porte ideal: {$agency['icp_company_size']}\n";
+        if (!empty($agency['icp_ticket_range'])) $context .= "Ticket ideal: {$agency['icp_ticket_range']}\n";
+        if (!empty($icpPains)) $context .= "Dores típicas do ICP: " . implode('; ', $icpPains) . "\n";
+
+        if ($casesText) {
+            $context .= "\n--- CASES DE SUCESSO ---\n{$casesText}\n";
+        }
+
+        if ($objectionsText) {
+            $context .= "\n--- OBJEÇÕES COMUNS & RESPOSTAS ---\n{$objectionsText}\n";
+        }
+
+        if ($competitorsText) {
+            $context .= "\n--- CONCORRENTES MAPEADOS ---\n{$competitorsText}\n";
+        }
+
+        if (!empty($agency['pricing_justification'])) {
+            $context .= "\n--- JUSTIFICATIVA DE PREÇO ---\n{$agency['pricing_justification']}\n";
+        }
+
+        if (!empty($agency['custom_context'])) {
+            $context .= "\n--- CONTEXTO ESTRATÉGICO INTERNO ---\n{$agency['custom_context']}\n";
+        }
+
+        $context .= "=========================";
+
+        return $context;
+    }
+
     // ─── Fallbacks legados (comportamento original) ──────────────────────────
 
     private function buildOperonContextLegacy(array $lead, array $agencySettings = []): string

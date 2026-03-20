@@ -1,12 +1,13 @@
 <?php
 $pageTitle    = 'Chaves de API (Admin)';
-$pageSubtitle = 'Gestão de chaves de autenticação dos provedores de IA';
+$pageSubtitle = 'Gestão de chaves de autenticação para busca e inteligência';
 
 // Dados do controller: $keys (array mascarado), $envStatus (array provider => bool)
 $providers = [
     'gemini' => ['name' => 'Google Gemini', 'icon' => 'google', 'color' => 'lime', 'placeholder' => 'AIza...'],
     'openai' => ['name' => 'OpenAI GPT',   'icon' => 'neurology', 'color' => 'emerald-400', 'placeholder' => 'sk-...'],
     'grok'   => ['name' => 'xAI Grok',     'icon' => 'bolt',      'color' => 'orange-400',  'placeholder' => 'xai-...'],
+    'google_places' => ['name' => 'Google Maps Places', 'icon' => 'map', 'color' => 'sky-400', 'placeholder' => 'AIza...'],
 ];
 
 // Indexar chaves por provider para lookup rápido
@@ -22,7 +23,7 @@ foreach (($keys ?? []) as $k) {
     <div class="flex items-center justify-between">
         <div>
             <h2 class="text-xl font-black text-text">Chaves de API</h2>
-            <p class="text-sm text-subtle mt-0.5">Cadastre e gerencie as credenciais dos provedores de IA. Chaves armazenadas com criptografia AES-256.</p>
+            <p class="text-sm text-subtle mt-0.5">Cadastre e gerencie as credenciais dos provedores de IA e busca estruturada. Chaves armazenadas com criptografia AES-256.</p>
         </div>
         <a href="/admin/ai-config" class="flex items-center gap-2 text-xs text-muted bg-surface2 border border-stroke px-3 py-1.5 rounded-pill shadow-soft hover:text-text transition-colors">
             <span class="material-symbols-outlined text-[14px]">arrow_back</span>
@@ -41,7 +42,7 @@ foreach (($keys ?? []) as $k) {
     </div>
 
     <!-- Provider Cards -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <?php foreach ($providers as $providerId => $prov):
             $existing = $keysByProvider[$providerId] ?? null;
             $hasEnv = $envStatus[$providerId] ?? false;
@@ -158,7 +159,7 @@ foreach (($keys ?? []) as $k) {
                     <span class="size-6 bg-red-400/10 rounded-full flex items-center justify-center text-red-400 text-[11px] font-black">3</span>
                     <span class="font-bold text-text">Variável .env</span>
                 </div>
-                <p>Fallback final: GEMINI_API_KEY, OPENAI_API_KEY, GROK_API_KEY.</p>
+                <p>Fallback final: GEMINI_API_KEY, OPENAI_API_KEY, GROK_API_KEY e GOOGLE_MAPS_API_KEY.</p>
             </div>
         </div>
     </div>

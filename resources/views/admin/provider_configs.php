@@ -28,7 +28,7 @@ $operationLabels = [
     'spin_questions' => 'SPIN Questions',
     'copilot_message' => 'Copilot',
     'social_analysis' => 'Análise Social',
-    'hunter' => 'Hunter (Busca)',
+    'hunter' => 'Hunter (Análise IA)',
     'lead_offerings_analysis' => 'Deep: Proposta de Valor',
     'lead_clients_analysis' => 'Deep: Público-Alvo',
     'lead_competitors_analysis' => 'Deep: Concorrentes',
@@ -64,6 +64,7 @@ $operationLabels = [
             <span class="text-text font-bold">Roteamento Inteligente:</span>
             Operações sem configuração personalizada usam o provedor padrão definido na distribuição de carga (Gestão de I.A).
             Configure aqui para direcionar operações específicas para provedores diferentes.
+            A busca base do Hunter usa Google Maps Places pela chave configurada em Chaves de API; esta tela controla apenas a análise de IA sobre os leads já verificados.
         </div>
     </div>
 

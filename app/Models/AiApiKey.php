@@ -54,6 +54,7 @@ class AiApiKey
             'gemini' => 'GEMINI_API_KEY',
             'openai' => 'OPENAI_API_KEY',
             'grok'   => 'GROK_API_KEY',
+            'google_places' => 'GOOGLE_MAPS_API_KEY',
         ];
         return env($envMap[$provider] ?? '', '');
     }

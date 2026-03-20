@@ -301,18 +301,31 @@ class WhatsAppController
 
         set_time_limit(120);
 
-        $result = $this->sync->syncTenant($tenantId);
+        $integration = WhatsAppIntegration::findByTenant($tenantId);
+        $syncMeta = $this->runSmartSync($tenantId, $integration, [
+            'requested'    => true,
+            'force'        => true,
+            'trigger'      => 'manual_sync',
+            'min_interval' => 0,
+        ]);
 
-        if (!$result['success']) {
-            $this->jsonError($result['error'] ?? 'Falha na sincronização.');
+        if (($syncMeta['reason'] ?? '') === 'not_connected') {
+            $this->jsonError('Instância não conectada.');
+        }
+
+        if (($syncMeta['reason'] ?? '') === 'sync_failed') {
+            $this->jsonError($syncMeta['error'] ?? 'Falha na sincronização.');
         }
 
         $this->jsonSuccess([
-            'message'       => 'Sincronização concluída.',
-            'conversations' => $result['conversations_synced'] ?? 0,
-            'messages'      => $result['messages_synced']      ?? 0,
-            'contacts'      => $result['contacts_synced']      ?? 0,
-            'auto_links'    => $result['auto_links']           ?? 0,
+            'message'       => ($syncMeta['reason'] ?? '') === 'locked'
+                ? 'Já existe uma sincronização em andamento.'
+                : 'Sincronização concluída.',
+            'conversations' => $syncMeta['stats']['conversations_synced'] ?? 0,
+            'messages'      => $syncMeta['stats']['messages_synced']      ?? 0,
+            'contacts'      => $syncMeta['stats']['contacts_synced']      ?? 0,
+            'auto_links'    => $syncMeta['stats']['auto_links']           ?? 0,
+            'sync_meta'     => $syncMeta,
         ]);
     }
 
@@ -348,6 +361,15 @@ class WhatsAppController
     {
         Session::requireAuth();
         $tenantId = Session::get('tenant_id');
+        $integration = WhatsAppIntegration::findByTenant($tenantId);
+        $shouldRefresh = (int) ($_GET['refresh'] ?? 0) === 1;
+        $syncMeta = $shouldRefresh
+            ? $this->runSmartSync($tenantId, $integration, [
+                'requested'    => true,
+                'trigger'      => 'conversations',
+                'min_interval' => 10,
+            ])
+            : $this->syncMetaSnapshot($integration, ['reason' => 'idle']);
 
         $page    = max(1, (int) ($_GET['page'] ?? 1));
         $search  = trim($_GET['search'] ?? '');
@@ -372,6 +394,8 @@ class WhatsAppController
             'total'         => $total,
             'page'          => $page,
             'pages'         => (int) ceil($total / $limit),
+            'last_sync_at'  => $syncMeta['last_sync_at'] ?? ($integration['last_sync_at'] ?? null),
+            'sync_meta'     => $syncMeta,
         ]);
     }
 
@@ -385,37 +409,87 @@ class WhatsAppController
         $userId   = (string) Session::get('id');
         $user     = User::findById($userId);
         $prefs    = json_decode($user['preferences'] ?? '{}', true) ?: [];
-        $enabled  = (int) ($prefs['notify_whatsapp_new'] ?? 1) === 1;
         $integration = WhatsAppIntegration::findByTenant($tenantId);
+        $whatsappEnabled = (int) ($prefs['notify_whatsapp_new'] ?? 1) === 1;
+        $followupEnabled = (int) ($prefs['notify_followup_due'] ?? 1) === 1;
+        $agendaTodayEnabled = (int) ($prefs['notify_agenda_today'] ?? 1) === 1;
+        $agendaOneHourEnabled = (int) ($prefs['notify_agenda_1h'] ?? 1) === 1;
 
-        if (!$integration) {
-            $this->jsonSuccess([
-                'enabled'         => $enabled,
-                'has_integration' => false,
-                'total'           => 0,
-                'items'           => [],
+        $channels = [
+            'whatsapp' => [
+                'enabled' => $whatsappEnabled,
+                'has_integration' => (bool) $integration,
+                'total' => 0,
+                'items' => [],
+                'last_sync_at' => $integration['last_sync_at'] ?? null,
+            ],
+            'agenda' => [
+                'enabled' => $followupEnabled || $agendaTodayEnabled || $agendaOneHourEnabled,
+                'total' => 0,
+                'items' => [],
+            ],
+        ];
+
+        $syncMeta = $this->syncMetaSnapshot($integration, [
+            'reason' => $integration ? 'idle' : 'no_integration',
+            'trigger' => 'notifications',
+        ]);
+        $whatsappItems = [];
+
+        if ($whatsappEnabled && $integration) {
+            $syncMeta = $this->runSmartSync($tenantId, $integration, [
+                'requested'    => true,
+                'trigger'      => 'notifications',
+                'min_interval' => 15,
             ]);
+            $integration = WhatsAppIntegration::findByTenant($tenantId) ?? $integration;
+            WhatsAppConversation::recalculateUnreadByTenant($tenantId);
+
+            $channels['whatsapp']['last_sync_at'] = $syncMeta['last_sync_at'] ?? ($integration['last_sync_at'] ?? null);
+            $channels['whatsapp']['total'] = WhatsAppConversation::unreadCountByTenant($tenantId);
+            $whatsappItems = array_map(
+                fn(array $item): array => $this->mapWhatsAppNotificationItem($item),
+                WhatsAppConversation::latestUnreadByTenant($tenantId, 8)
+            );
+            $channels['whatsapp']['items'] = array_map(
+                fn(array $item): array => $this->stripNotificationSortMeta($item),
+                $whatsappItems
+            );
         }
 
-        if (!$enabled) {
-            $this->jsonSuccess([
-                'enabled'         => false,
-                'has_integration' => true,
-                'total'           => 0,
-                'items'           => [],
-            ]);
-        }
+        $agendaBundle = $this->buildAgendaNotificationBundle($tenantId, [
+            'followups' => $followupEnabled,
+            'today' => $agendaTodayEnabled,
+            'one_hour' => $agendaOneHourEnabled,
+        ]);
+        $channels['agenda']['total'] = $agendaBundle['total'];
+        $channels['agenda']['items'] = array_map(
+            fn(array $item): array => $this->stripNotificationSortMeta($item),
+            $agendaBundle['items']
+        );
 
-        $this->maybeAutoSyncNotifications($tenantId, $integration);
-        $integration = WhatsAppIntegration::findByTenant($tenantId) ?? $integration;
-        WhatsAppConversation::recalculateUnreadByTenant($tenantId);
+        $items = array_merge($whatsappItems, $agendaBundle['items']);
+        usort($items, function (array $a, array $b): int {
+            $left = [$a['_sort_group'] ?? 99, $a['_sort_time'] ?? PHP_INT_MAX, $a['title'] ?? ''];
+            $right = [$b['_sort_group'] ?? 99, $b['_sort_time'] ?? PHP_INT_MAX, $b['title'] ?? ''];
+            return $left <=> $right;
+        });
 
-        $items = WhatsAppConversation::latestUnreadByTenant($tenantId, 8);
         $this->jsonSuccess([
-            'enabled'         => true,
-            'has_integration' => true,
-            'total'           => WhatsAppConversation::unreadCountByTenant($tenantId),
-            'items'           => $items,
+            'enabled'         => $whatsappEnabled || $channels['agenda']['enabled'],
+            'has_integration' => (bool) $integration,
+            'total'           => $channels['whatsapp']['total'] + $channels['agenda']['total'],
+            'items'           => array_map(
+                fn(array $item): array => $this->stripNotificationSortMeta($item),
+                array_slice($items, 0, 10)
+            ),
+            'counts'          => [
+                'whatsapp' => $channels['whatsapp']['total'],
+                'agenda' => $channels['agenda']['total'],
+            ],
+            'channels'        => $channels,
+            'last_sync_at'    => $channels['whatsapp']['last_sync_at'],
+            'sync_meta'       => $syncMeta,
         ]);
     }
 
@@ -495,6 +569,15 @@ class WhatsAppController
     {
         Session::requireAuth();
         $tenantId = Session::get('tenant_id');
+        $integration = WhatsAppIntegration::findByTenant($tenantId);
+        $shouldRefresh = (int) ($_GET['refresh'] ?? 0) === 1;
+        $syncMeta = $shouldRefresh
+            ? $this->runSmartSync($tenantId, $integration, [
+                'requested'    => true,
+                'trigger'      => 'messages',
+                'min_interval' => 8,
+            ])
+            : $this->syncMetaSnapshot($integration, ['reason' => 'idle']);
 
         $conversation = WhatsAppConversation::findByIdAndTenant($id, $tenantId);
         if (!$conversation) {
@@ -515,6 +598,8 @@ class WhatsAppController
             'total'    => $total,
             'page'     => $page,
             'pages'    => (int) ceil($total / $limit),
+            'last_sync_at' => $syncMeta['last_sync_at'] ?? ($integration['last_sync_at'] ?? null),
+            'sync_meta'    => $syncMeta,
         ]);
     }
 
@@ -972,6 +1057,253 @@ class WhatsAppController
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
+    private function mapWhatsAppNotificationItem(array $item): array
+    {
+        $conversationId = (string) ($item['id'] ?? '');
+        $label = trim((string) ($item['display_name'] ?? $item['phone'] ?? $item['remote_jid'] ?? ''));
+        $preview = trim((string) ($item['last_message_preview'] ?? ''));
+        $lastMessageAt = $item['last_message_at'] ?? null;
+        $timestamp = $lastMessageAt ? strtotime((string) $lastMessageAt) : false;
+
+        return [
+            'id' => 'whatsapp:' . $conversationId,
+            'entity_id' => $conversationId,
+            'source' => 'whatsapp',
+            'source_label' => 'WhatsApp',
+            'title' => $label !== '' ? $label : 'Conversa sem nome',
+            'preview' => $preview !== '' ? $preview : 'Nova mensagem recebida.',
+            'meta' => !empty($item['lead_name'])
+                ? 'Lead: ' . $item['lead_name']
+                : (!empty($item['phone']) ? $item['phone'] : ''),
+            'href' => '/whatsapp?conversation=' . rawurlencode($conversationId),
+            'icon' => 'chat',
+            'tone' => 'lime',
+            'time' => $lastMessageAt,
+            'badge_count' => max(0, (int) ($item['unread_count'] ?? 0)),
+            'status_badge' => null,
+            'toast_key' => 'whatsapp:' . $conversationId . ':' . ($lastMessageAt ?? ''),
+            'toast_title' => 'Nova mensagem no WhatsApp',
+            'should_toast' => max(0, (int) ($item['unread_count'] ?? 0)) > 0,
+            '_sort_group' => 10,
+            '_sort_time' => $timestamp !== false ? (0 - $timestamp) : PHP_INT_MAX,
+        ];
+    }
+
+    private function buildAgendaNotificationBundle(string $tenantId, array $options): array
+    {
+        $followupsEnabled = (bool) ($options['followups'] ?? false);
+        $todayEnabled = (bool) ($options['today'] ?? false);
+        $oneHourEnabled = (bool) ($options['one_hour'] ?? false);
+
+        if (!$followupsEnabled && !$todayEnabled && !$oneHourEnabled) {
+            return [
+                'total' => 0,
+                'items' => [],
+            ];
+        }
+
+        $now = new \DateTimeImmutable('now');
+        $items = [];
+
+        if ($followupsEnabled) {
+            $followups = Database::select(
+                "SELECT f.*, l.name AS lead_name
+                 FROM followups f
+                 LEFT JOIN leads l ON l.id = f.lead_id
+                 WHERE f.tenant_id = ? AND f.completed = 0
+                 ORDER BY f.scheduled_at ASC
+                 LIMIT 40",
+                [$tenantId]
+            );
+
+            foreach ($followups as $followup) {
+                $mapped = $this->mapFollowupNotificationItem($followup, $now, $oneHourEnabled);
+                if ($mapped) {
+                    $items[] = $mapped;
+                }
+            }
+        }
+
+        if ($todayEnabled || $oneHourEnabled) {
+            $events = Database::select(
+                'SELECT * FROM agenda_events WHERE tenant_id = ? ORDER BY start_time ASC LIMIT 40',
+                [$tenantId]
+            );
+
+            foreach ($events as $event) {
+                $mapped = $this->mapAgendaEventNotificationItem($event, $now, $todayEnabled, $oneHourEnabled);
+                if ($mapped) {
+                    $items[] = $mapped;
+                }
+            }
+        }
+
+        usort($items, function (array $a, array $b): int {
+            $left = [$a['_sort_group'] ?? 99, $a['_sort_time'] ?? PHP_INT_MAX, $a['title'] ?? ''];
+            $right = [$b['_sort_group'] ?? 99, $b['_sort_time'] ?? PHP_INT_MAX, $b['title'] ?? ''];
+            return $left <=> $right;
+        });
+
+        return [
+            'total' => count($items),
+            'items' => array_slice($items, 0, 8),
+        ];
+    }
+
+    private function mapAgendaEventNotificationItem(
+        array $event,
+        \DateTimeImmutable $now,
+        bool $includeToday,
+        bool $includeOneHour
+    ): ?array {
+        try {
+            $startAt = new \DateTimeImmutable((string) ($event['start_time'] ?? ''));
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $state = $this->buildAgendaNotificationState($startAt, $now, $includeToday, $includeOneHour, false);
+        if (!$state) {
+            return null;
+        }
+
+        $entityId = (string) ($event['id'] ?? '');
+        $eventType = (string) ($event['event_type'] ?? 'reminder');
+        $label = $eventType === 'appointment' ? 'Compromisso' : 'Lembrete';
+        $description = trim((string) ($event['description'] ?? ''));
+        $preview = $description !== ''
+            ? $description
+            : ($state['category'] === 'due_soon'
+                ? 'Falta menos de 1 hora para este item da agenda.'
+                : 'Compromisso previsto para hoje na agenda.');
+
+        return [
+            'id' => 'agenda:' . $entityId,
+            'entity_id' => $entityId,
+            'source' => 'agenda',
+            'source_label' => 'Agenda',
+            'title' => trim((string) ($event['title'] ?? '')) ?: ($label . ' sem título'),
+            'preview' => $preview,
+            'meta' => $label,
+            'href' => '/agenda?event=' . rawurlencode($entityId) . '&type=' . rawurlencode($eventType),
+            'icon' => $eventType === 'appointment' ? 'event' : 'push_pin',
+            'tone' => $state['tone'],
+            'time' => $startAt->format('Y-m-d H:i:s'),
+            'badge_count' => null,
+            'status_badge' => $state['badge'],
+            'toast_key' => 'agenda:' . $entityId . ':' . $state['category'] . ':' . $startAt->format('YmdHi'),
+            'toast_title' => $label . ' em breve',
+            'should_toast' => $state['should_toast'],
+            '_sort_group' => $state['sort_group'],
+            '_sort_time' => $state['sort_time'],
+        ];
+    }
+
+    private function mapFollowupNotificationItem(
+        array $followup,
+        \DateTimeImmutable $now,
+        bool $includeOneHour
+    ): ?array {
+        try {
+            $startAt = new \DateTimeImmutable((string) ($followup['scheduled_at'] ?? ''));
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $state = $this->buildAgendaNotificationState($startAt, $now, true, $includeOneHour, true);
+        if (!$state) {
+            return null;
+        }
+
+        $entityId = (string) ($followup['id'] ?? '');
+        $leadName = trim((string) ($followup['lead_name'] ?? ''));
+        $description = trim((string) ($followup['description'] ?? ''));
+        $preview = $description !== ''
+            ? $description
+            : ($leadName !== '' ? 'Lead: ' . $leadName : 'Follow-up pendente na agenda comercial.');
+
+        return [
+            'id' => 'followup:' . $entityId,
+            'entity_id' => $entityId,
+            'source' => 'followup',
+            'source_label' => 'Follow-up',
+            'title' => 'Follow-up: ' . (trim((string) ($followup['title'] ?? '')) ?: 'Sem título'),
+            'preview' => $preview,
+            'meta' => $leadName !== '' ? 'Lead: ' . $leadName : 'Lead não identificado',
+            'href' => '/agenda?event=' . rawurlencode($entityId) . '&type=followup',
+            'icon' => 'notification_important',
+            'tone' => $state['tone'],
+            'time' => $startAt->format('Y-m-d H:i:s'),
+            'badge_count' => null,
+            'status_badge' => $state['badge'],
+            'toast_key' => 'followup:' . $entityId . ':' . $state['category'] . ':' . $startAt->format('YmdHi'),
+            'toast_title' => $state['category'] === 'due_soon' ? 'Follow-up em breve' : 'Follow-up pendente',
+            'should_toast' => $state['should_toast'],
+            '_sort_group' => $state['sort_group'],
+            '_sort_time' => $state['sort_time'],
+        ];
+    }
+
+    private function buildAgendaNotificationState(
+        \DateTimeImmutable $startAt,
+        \DateTimeImmutable $now,
+        bool $includeToday,
+        bool $includeOneHour,
+        bool $allowOverdue
+    ): ?array {
+        $diffSeconds = $startAt->getTimestamp() - $now->getTimestamp();
+        $isToday = $startAt->format('Y-m-d') === $now->format('Y-m-d');
+
+        if ($includeOneHour && $diffSeconds >= 0 && $diffSeconds <= 3600) {
+            if ($diffSeconds <= 300) {
+                $badge = 'Agora';
+            } elseif ($diffSeconds >= 3540) {
+                $badge = '1h';
+            } else {
+                $badge = (string) max(1, (int) ceil($diffSeconds / 60)) . 'm';
+            }
+
+            return [
+                'category' => 'due_soon',
+                'badge' => $badge,
+                'tone' => 'amber',
+                'sort_group' => 0,
+                'sort_time' => $startAt->getTimestamp(),
+                'should_toast' => true,
+            ];
+        }
+
+        if ($allowOverdue && $diffSeconds < 0) {
+            return [
+                'category' => 'overdue',
+                'badge' => 'Atrasado',
+                'tone' => 'red',
+                'sort_group' => 1,
+                'sort_time' => $startAt->getTimestamp(),
+                'should_toast' => false,
+            ];
+        }
+
+        if ($includeToday && $isToday && $diffSeconds >= 0) {
+            return [
+                'category' => 'today',
+                'badge' => 'Hoje',
+                'tone' => 'blue',
+                'sort_group' => 25,
+                'sort_time' => $startAt->getTimestamp(),
+                'should_toast' => false,
+            ];
+        }
+
+        return null;
+    }
+
+    private function stripNotificationSortMeta(array $item): array
+    {
+        unset($item['_sort_group'], $item['_sort_time']);
+        return $item;
+    }
+
     private function jsonSuccess(array $data, int $code = 200): never
     {
         // Limpar qualquer output buffered (warnings PHP, etc.) que possa corromper o JSON
@@ -991,24 +1323,110 @@ class WhatsAppController
         exit;
     }
 
-    private function maybeAutoSyncNotifications(string $tenantId, array $integration): void
+    private function syncMetaSnapshot(?array $integration, array $overrides = []): array
     {
+        return array_merge([
+            'requested'    => false,
+            'performed'    => false,
+            'reason'       => $integration ? 'idle' : 'no_integration',
+            'last_sync_at' => $integration['last_sync_at'] ?? null,
+        ], $overrides);
+    }
+
+    private function runSmartSync(string $tenantId, ?array $integration, array $options = []): array
+    {
+        $force = (bool) ($options['force'] ?? false);
+        $minInterval = max(0, (int) ($options['min_interval'] ?? 12));
+        $trigger = (string) ($options['trigger'] ?? 'background');
+        $meta = $this->syncMetaSnapshot($integration, [
+            'requested' => (bool) ($options['requested'] ?? true),
+            'trigger'   => $trigger,
+        ]);
+
+        if (!$integration) {
+            return $meta;
+        }
+
         if (($integration['status'] ?? '') !== 'connected') {
-            return;
+            $meta['reason'] = 'not_connected';
+            return $meta;
         }
 
         $lastSyncAt = $integration['last_sync_at'] ?? null;
-        if ($lastSyncAt) {
+        if (!$force && $lastSyncAt) {
             $lastSyncTs = strtotime((string) $lastSyncAt);
-            if ($lastSyncTs !== false && (time() - $lastSyncTs) < 12) {
-                return;
+            if ($lastSyncTs !== false && (time() - $lastSyncTs) < $minInterval) {
+                $meta['reason'] = 'throttled';
+                return $meta;
             }
         }
 
-        try {
-            $this->sync->syncTenant($tenantId);
-        } catch (\Throwable $e) {
-            error_log('[WhatsApp notifications] auto-sync falhou: ' . $e->getMessage());
+        $lock = $this->acquireSyncLock($tenantId);
+        if (!$lock['acquired']) {
+            $meta['reason'] = 'locked';
+            return $meta;
         }
+
+        try {
+            set_time_limit(120);
+            $result = $this->sync->syncTenant($tenantId);
+            $latestIntegration = WhatsAppIntegration::findByTenant($tenantId) ?? $integration;
+            $meta['last_sync_at'] = $latestIntegration['last_sync_at'] ?? ($result['last_sync_at'] ?? $meta['last_sync_at']);
+
+            if (!($result['success'] ?? false)) {
+                $meta['reason'] = 'sync_failed';
+                $meta['error'] = $result['error'] ?? 'Falha na sincronização.';
+                return $meta;
+            }
+
+            $meta['performed'] = true;
+            $meta['reason'] = 'synced';
+            $meta['stats'] = [
+                'conversations_synced' => (int) ($result['conversations_synced'] ?? 0),
+                'messages_synced'      => (int) ($result['messages_synced'] ?? 0),
+                'contacts_synced'      => (int) ($result['contacts_synced'] ?? 0),
+                'auto_links'           => (int) ($result['auto_links'] ?? 0),
+            ];
+            return $meta;
+        } catch (\Throwable $e) {
+            error_log('[WhatsApp smart sync] falhou: ' . $e->getMessage());
+            $meta['reason'] = 'sync_failed';
+            $meta['error'] = $e->getMessage();
+            return $meta;
+        } finally {
+            $this->releaseSyncLock($lock['handle'] ?? null);
+        }
+    }
+
+    private function acquireSyncLock(string $tenantId): array
+    {
+        $lockDir = STORAGE_PATH . '/locks';
+        if (!is_dir($lockDir)) {
+            @mkdir($lockDir, 0775, true);
+        }
+
+        $safeTenantId = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $tenantId);
+        $lockPath = $lockDir . '/whatsapp-sync-' . $safeTenantId . '.lock';
+        $handle = @fopen($lockPath, 'c+');
+        if (!$handle) {
+            return ['acquired' => false, 'handle' => null];
+        }
+
+        if (!@flock($handle, LOCK_EX | LOCK_NB)) {
+            @fclose($handle);
+            return ['acquired' => false, 'handle' => null];
+        }
+
+        return ['acquired' => true, 'handle' => $handle];
+    }
+
+    private function releaseSyncLock(mixed $handle): void
+    {
+        if (!is_resource($handle)) {
+            return;
+        }
+
+        @flock($handle, LOCK_UN);
+        @fclose($handle);
     }
 }

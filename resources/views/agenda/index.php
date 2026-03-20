@@ -60,8 +60,14 @@
                     $isPast = strtotime($ev['start_time']) < time();
                     $eventDate = date('Y-m-d', strtotime($ev['start_time']));
                     $displayDate = $eventDate === $todayDate ? 'Hoje' : date('d/m/Y', strtotime($ev['start_time']));
+                    $cardDomId = 'agenda-item-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', ($ev['type'] ?? 'event') . '-' . ($ev['id'] ?? ''));
                 ?>
-                <div class="bg-surface2 border border-stroke rounded-card p-5 flex flex-col gap-3 hover:bg-surface3 transition-all <?= $isPast ? 'opacity-50 grayscale hover:grayscale-0' : '' ?> group">
+                <div
+                    id="<?= $cardDomId ?>"
+                    data-agenda-event-id="<?= e($ev['id']) ?>"
+                    data-agenda-event-type="<?= e($ev['type']) ?>"
+                    class="agenda-event-card bg-surface2 border border-stroke rounded-card p-5 flex flex-col gap-3 hover:bg-surface3 transition-all <?= $isPast ? 'opacity-50 grayscale hover:grayscale-0' : '' ?> group"
+                >
                     <div class="flex items-start justify-between">
                         <div class="flex items-center gap-3.5">
                             <?php 
@@ -162,16 +168,43 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     filter: invert(0.6);
     cursor: pointer;
 }
+
+.agenda-event-card.is-notification-target {
+    border-color: rgba(190, 242, 100, 0.55);
+    box-shadow: 0 0 0 1px rgba(190, 242, 100, 0.25), 0 0 24px rgba(163, 230, 53, 0.18);
+    background: rgba(163, 230, 53, 0.06);
+}
+
+.agenda-target-day {
+    box-shadow: inset 0 0 0 1px rgba(190, 242, 100, 0.3);
+    background: rgba(163, 230, 53, 0.04);
+}
 </style>
 
 <script>
 // Dados brutos vindos do PHP convertidos para Object JavaScript
 const allEvents = <?= $eventsJson ?? '[]' ?>;
+const agendaQuery = new URLSearchParams(window.location.search);
+const targetAgendaEventId = agendaQuery.get('event');
+const targetAgendaEventType = agendaQuery.get('type');
+const notificationTargetEvent = targetAgendaEventId
+    ? allEvents.find((event) => String(event.id) === targetAgendaEventId && (!targetAgendaEventType || String(event.type) === targetAgendaEventType))
+    : null;
+const notificationTargetDate = notificationTargetEvent?.start_time
+    ? String(notificationTargetEvent.start_time).slice(0, 10)
+    : '';
 
 // Setup do Calendário Visual
 const calendarGrid = document.getElementById('calendarGrid');
 const currentMonthLabel = document.getElementById('currentMonthLabel');
 let currentDate = new Date();
+
+if (notificationTargetEvent?.start_time) {
+    const targetDate = new Date(String(notificationTargetEvent.start_time).replace(' ', 'T'));
+    if (!Number.isNaN(targetDate.getTime())) {
+        currentDate = targetDate;
+    }
+}
 
 function renderCalendar() {
     calendarGrid.innerHTML = '';
@@ -216,6 +249,7 @@ function createCell(y, m, d, isMuted, isToday = false) {
     // Ajuste de virada de ano e mes para gerar ISO date string correto 'Y-m-d'
     const cleanDate = new Date(y, m, d);
     const cellDateStr = cleanDate.toLocaleDateString('en-CA'); // retorna formato yyyy-mm-dd
+    const isNotificationTargetDay = notificationTargetDate !== '' && cellDateStr === notificationTargetDate;
     
     // Filtrar eventos pro dia atual iterado
     const dayEvents = allEvents.filter(ev => ev.start_time.startsWith(cellDateStr));
@@ -223,6 +257,7 @@ function createCell(y, m, d, isMuted, isToday = false) {
     // UI Create
     const cell = document.createElement('div');
     cell.className = `min-h-[110px] p-2 bg-surface relative group cursor-pointer hover:bg-surface2 transition-colors 
+        ${isNotificationTargetDay ? 'agenda-target-day' : ''}
         ${isMuted ? 'opacity-30' : ''}`;
     
     // Click action -> Abrir modal preenchendo o dia
@@ -292,6 +327,26 @@ function closeEventModal() {
     eventModal.classList.add('hidden');
 }
 
+function focusNotificationTarget() {
+    if (!targetAgendaEventId) return;
+
+    const targetCard = Array.from(document.querySelectorAll('[data-agenda-event-id]')).find((element) => {
+        const matchesId = element.dataset.agendaEventId === targetAgendaEventId;
+        const matchesType = !targetAgendaEventType || element.dataset.agendaEventType === targetAgendaEventType;
+        return matchesId && matchesType;
+    });
+
+    if (!targetCard) return;
+
+    targetCard.classList.add('is-notification-target');
+    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    window.setTimeout(() => {
+        targetCard.classList.remove('is-notification-target');
+    }, 4200);
+}
+
 // Init
 renderCalendar();
+focusNotificationTarget();
 </script>

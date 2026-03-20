@@ -31,6 +31,7 @@ class KnowledgeContextBuilder
         'spin_questions'        => 'dores problemas implicações necessidades cliente {segment}',
         'copilot_message'       => 'serviços oferta ICP diferenciais argumentos vendas',
         'followup'              => 'follow-up próxima ação argumentos objeções {segment}',
+        'meridian_niche'        => 'nicho mercado ICP segmentos oferta diferenciais posicionamento {segment}',
         'default'               => 'empresa serviços ICP oferta diferenciais {segment} {city}',
     ];
 

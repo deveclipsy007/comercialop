@@ -130,10 +130,10 @@ $savedResultsJson = json_encode($savedResults ?? []);
         <!-- Topbar Action -->
         <div class="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-surface/50 backdrop-blur-md">
             <div class="flex items-center gap-4">
-                <button class="tab-btn active px-4 py-1.5 rounded-lg border border-transparent text-sm font-bold text-muted transition-all" onclick="switchTab('new')">
+                <button class="tab-btn active px-4 py-1.5 rounded-lg border border-transparent text-sm font-bold text-muted transition-all" onclick="switchTab('new', this)">
                     Novos (<span id="countNew">0</span>)
                 </button>
-                <button class="tab-btn px-4 py-1.5 rounded-lg border border-transparent text-sm font-bold text-muted hover:text-text transition-all" onclick="switchTab('saved')">
+                <button class="tab-btn px-4 py-1.5 rounded-lg border border-transparent text-sm font-bold text-muted hover:text-text transition-all" onclick="switchTab('saved', this)">
                     Salvos (<span id="countSaved"><?= count($savedResults ?? []) ?></span>)
                 </button>
             </div>
@@ -146,6 +146,7 @@ $savedResultsJson = json_encode($savedResults ?? []);
 
         <!-- Content Area -->
         <div class="flex-1 overflow-y-auto p-6 hide-scrollbar relative">
+            <div id="resultsAudit" class="hidden mb-4 rounded-2xl border border-lime/20 bg-lime/5 p-4"></div>
             <div id="resultsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <!-- Initial Empty State -->
                 <div class="col-span-full h-64 flex flex-col items-center justify-center text-center">
@@ -208,13 +209,17 @@ $savedResultsJson = json_encode($savedResults ?? []);
             </div>
         </div>
 
-        <!-- Contact Info -->
+        <!-- Verified Lead Data -->
         <div>
-            <h3 class="text-[11px] font-bold text-subtle uppercase tracking-wider mb-3">Informações de Contato</h3>
+            <h3 class="text-[11px] font-bold text-subtle uppercase tracking-wider mb-3">Dados Verificados</h3>
             <div class="grid grid-cols-1 gap-2 text-sm">
                 <div class="flex items-start gap-3 p-3 bg-surface border border-white/5 rounded-xl">
                     <span class="material-symbols-outlined text-muted text-[18px] shrink-0">location_on</span>
                     <span class="text-slate-300" id="drawerAddress">-</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-surface border border-white/5 rounded-xl">
+                    <span class="material-symbols-outlined text-muted text-[18px]">category</span>
+                    <span class="text-slate-300" id="drawerCategory">-</span>
                 </div>
                 <div class="flex items-center gap-3 p-3 bg-surface border border-white/5 rounded-xl">
                     <span class="material-symbols-outlined text-muted text-[18px]">call</span>
@@ -232,7 +237,37 @@ $savedResultsJson = json_encode($savedResults ?? []);
                     <span class="material-symbols-outlined text-muted text-[18px]">tag</span>
                     <a href="#" target="_blank" class="text-[#E1306C] hover:underline" id="drawerInsta">-</a>
                 </div>
+                <div class="flex items-center gap-3 p-3 bg-surface border border-white/5 rounded-xl">
+                    <span class="material-symbols-outlined text-muted text-[18px]">pin_drop</span>
+                    <a href="#" target="_blank" class="text-lime hover:underline truncate" id="drawerMaps">-</a>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-surface border border-white/5 rounded-xl">
+                    <span class="material-symbols-outlined text-muted text-[18px]">star</span>
+                    <span class="text-slate-300" id="drawerGoogleStats">-</span>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-surface border border-white/5 rounded-xl">
+                    <span class="material-symbols-outlined text-muted text-[18px] shrink-0">schedule</span>
+                    <span class="text-slate-300" id="drawerHours">-</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-surface border border-white/5 rounded-xl">
+                    <span class="material-symbols-outlined text-muted text-[18px]">verified</span>
+                    <span class="text-slate-300" id="drawerStatusLine">-</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-surface border border-white/5 rounded-xl">
+                    <span class="material-symbols-outlined text-muted text-[18px]">source_environment</span>
+                    <span class="text-slate-300 text-xs leading-relaxed" id="drawerSourceInfo">-</span>
+                </div>
             </div>
+        </div>
+
+        <div>
+            <h3 class="text-[11px] font-bold text-subtle uppercase tracking-wider mb-3">Sinais Verificados</h3>
+            <div id="drawerPresenceSignals" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div>
+            <h3 class="text-[11px] font-bold text-subtle uppercase tracking-wider mb-3">Notas para Importação</h3>
+            <ul id="drawerImportNotes" class="text-xs text-slate-400 space-y-2 list-disc pl-4"></ul>
         </div>
 
         <!-- AI Analysis Area -->
@@ -250,11 +285,11 @@ $savedResultsJson = json_encode($savedResults ?? []);
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <h4 class="text-xs font-bold text-red-400 mb-2">Dores Prováveis</h4>
+                        <h4 class="text-xs font-bold text-red-400 mb-2">Lacunas Confirmadas</h4>
                         <ul class="text-xs text-slate-400 space-y-1.5 list-disc pl-4" id="drawerPains"></ul>
                     </div>
                     <div>
-                        <h4 class="text-xs font-bold text-lime mb-2">Oportunidades</h4>
+                        <h4 class="text-xs font-bold text-lime mb-2">Oportunidades com Evidência</h4>
                         <ul class="text-xs text-slate-400 space-y-1.5 list-disc pl-4" id="drawerOpps"></ul>
                     </div>
                 </div>
@@ -268,11 +303,11 @@ $savedResultsJson = json_encode($savedResults ?? []);
                 <div class="size-12 rounded-full bg-operon-energy/10 border border-operon-energy/20 text-operon-energy flex items-center justify-center mx-auto mb-3">
                     <span class="material-symbols-outlined">network_node</span>
                 </div>
-                <h4 class="text-sm font-bold text-white mb-1">Analisar Potencial</h4>
-                <p class="text-xs text-subtle mb-4">A IA vai cruzar os dados dessa empresa com o seu ICP e gerar um diagnóstico de vendas.</p>
+                <h4 class="text-sm font-bold text-white mb-1">Enriquecer e Analisar</h4>
+                <p class="text-xs text-subtle mb-4">O Hunter vai atualizar os dados verificados e só depois gerar uma análise comercial baseada em evidência.</p>
                 <button onclick="runAnalysis()" id="btnRunAnalysis" class="px-5 py-2.5 rounded-xl bg-operon-energy/20 text-operon-energy text-sm font-bold border border-operon-energy/30 hover:bg-operon-energy/30 transition-all flex items-center justify-center gap-2 mx-auto w-full disabled:opacity-50 disabled:cursor-not-allowed">
                     <span class="material-symbols-outlined text-[16px]">bolt</span>
-                    Gerar Análise (Consome Token)
+                    Enriquecer Lead (Consome Token)
                 </button>
             </div>
         </div>
@@ -298,6 +333,7 @@ let currentResults = [];
 let savedResults = <?= $savedResultsJson ?>;
 let activeTab = 'new'; // 'new' or 'saved'
 let activeResultId = null;
+let lastSearchMeta = null;
 
 const csrf = '<?= csrf_token() ?>';
 
@@ -305,10 +341,224 @@ const csrf = '<?= csrf_token() ?>';
 const grid = document.getElementById('resultsGrid');
 const loading = document.getElementById('loadingOverlay');
 
-function switchTab(tab) {
+function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value ?? '';
+    return div.innerHTML;
+}
+
+function escapeAttr(value) {
+    return escapeHtml(value);
+}
+
+function normalizeArray(value) {
+    return Array.isArray(value) ? value : [];
+}
+
+function normalizeExternalUrl(url) {
+    if (!url) return null;
+    const value = String(url).trim();
+    if (!value) return null;
+    if (/^https?:\/\//i.test(value)) return value;
+    return 'https://' + value;
+}
+
+function getFieldStatus(item, key) {
+    return item?.field_statuses?.[key] || 'not_found';
+}
+
+function getFieldChip(label, status) {
+    const confirmed = status === 'confirmed';
+    const classes = confirmed
+        ? 'bg-lime/10 text-lime border border-lime/20'
+        : 'bg-surface border border-stroke text-muted';
+    return `<span class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${classes}">${escapeHtml(label)}: ${confirmed ? 'confirmado' : 'ausente'}</span>`;
+}
+
+function getAuditStatChip(label, count, total) {
+    const confirmed = Number(count || 0) > 0;
+    const classes = confirmed
+        ? 'bg-lime/10 text-lime border border-lime/20'
+        : 'bg-surface border border-stroke text-muted';
+    return `<span class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${classes}">${escapeHtml(label)}: ${escapeHtml(String(count || 0))}/${escapeHtml(String(total || 0))}</span>`;
+}
+
+function getPresenceSignalMarkup(item) {
+    const presence = item?.digital_presence || {};
+    const signals = Object.values(presence);
+    if (!signals.length) {
+        return '<span class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold bg-surface border border-stroke text-muted">Sem sinais estruturados</span>';
+    }
+
+    return signals.map((signal) => {
+        const confirmed = signal?.status === 'confirmed';
+        const classes = confirmed
+            ? 'bg-lime/10 text-lime border border-lime/20'
+            : 'bg-surface border border-stroke text-muted';
+        return `<span class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${classes}">${escapeHtml(signal?.label || 'Sinal')}</span>`;
+    }).join('');
+}
+
+function getImportNotesMarkup(item) {
+    const notes = normalizeArray(item?.import_notes);
+    if (!notes.length) {
+        return '<li>Nenhuma observação adicional.</li>';
+    }
+
+    return notes.map((note) => `<li>${escapeHtml(note)}</li>`).join('');
+}
+
+function buildSourceInfo(item) {
+    const source = item?.verification?.source_label || item?.verification?.source || 'Fonte não informada';
+    const verifiedAt = item?.verification?.verified_at
+        ? new Date(item.verification.verified_at).toLocaleString('pt-BR')
+        : null;
+    const websiteScan = item?.website_scan?.verified_at
+        ? ' | site verificado em ' + new Date(item.website_scan.verified_at).toLocaleString('pt-BR')
+        : '';
+    return verifiedAt ? `${source} • ${verifiedAt}${websiteScan}` : `${source}${websiteScan}`;
+}
+
+function setDrawerLink(id, text, href, emptyText) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    if (text && href) {
+        el.textContent = text;
+        el.href = href;
+        el.target = '_blank';
+        el.classList.remove('pointer-events-none', 'text-subtle');
+        return;
+    }
+
+    el.textContent = emptyText;
+    el.href = '#';
+    el.removeAttribute('target');
+    el.classList.add('pointer-events-none', 'text-subtle');
+}
+
+function applyResultToDrawer(item) {
+    document.getElementById('drawerTitle').innerText = item.name || 'Empresa';
+    document.getElementById('drawerSubtitle').innerText = item.category || item.segment || 'Lead local';
+    document.getElementById('drawerAddress').innerText = item.address || 'Endereço não encontrado';
+    document.getElementById('drawerCategory').innerText = item.category || item.segment || 'Categoria não encontrada';
+    document.getElementById('drawerPhone').innerText = item.phone || 'Telefone não encontrado';
+
+    setDrawerLink('drawerWebsite', item.website, normalizeExternalUrl(item.website), 'Site não encontrado');
+    setDrawerLink('drawerEmail', item.email, item.email ? 'mailto:' + item.email : null, 'Email não encontrado');
+    setDrawerLink(
+        'drawerInsta',
+        item.instagram,
+        item.instagram ? (item.instagram.startsWith('http') ? item.instagram : `https://instagram.com/${String(item.instagram).replace('@', '')}`) : null,
+        'Instagram não encontrado'
+    );
+    setDrawerLink('drawerMaps', item.google_maps_url ? 'Abrir no Google Maps' : null, item.google_maps_url, 'Link do Maps não encontrado');
+
+    document.getElementById('drawerGoogleStats').innerText = item.google_rating
+        ? `${Number(item.google_rating).toFixed(1)} • ${Number(item.google_reviews || 0)} avaliações`
+        : 'Sem avaliações verificadas';
+    document.getElementById('drawerHours').innerText = item.opening_hours_text || 'Horário não encontrado';
+    document.getElementById('drawerStatusLine').innerText = item.status_label || 'Status não encontrado';
+    document.getElementById('drawerSourceInfo').innerText = buildSourceInfo(item);
+    document.getElementById('drawerPresenceSignals').innerHTML = getPresenceSignalMarkup(item);
+    document.getElementById('drawerImportNotes').innerHTML = getImportNotesMarkup(item);
+}
+
+function renderAuditSummary() {
+    const audit = document.getElementById('resultsAudit');
+    if (!audit) return;
+
+    if (activeTab !== 'new' || !lastSearchMeta || !currentResults.length) {
+        audit.innerHTML = '';
+        audit.classList.add('hidden');
+        return;
+    }
+
+    const counts = lastSearchMeta.confirmed_counts || {};
+    const total = Number(lastSearchMeta.total_results || 0);
+    const rules = normalizeArray(lastSearchMeta.rules);
+
+    audit.innerHTML = `
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="space-y-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center gap-1 rounded-full border border-lime/20 bg-lime/10 px-2 py-1 text-[10px] font-bold text-lime">${escapeHtml(lastSearchMeta.source_label || 'Google Maps')}</span>
+                    <span class="text-xs font-bold text-white">${escapeHtml(String(lastSearchMeta.total_results || 0))} leads verificados</span>
+                </div>
+                <p class="text-sm text-slate-200">
+                    Busca auditável para <span class="font-bold text-white">${escapeHtml(lastSearchMeta.search_term || '')}</span>
+                    em <span class="font-bold text-white">${escapeHtml(lastSearchMeta.location || '')}</span>
+                    dentro de <span class="font-bold text-white">${escapeHtml(String(lastSearchMeta.radius_km || 0))} km</span>.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    ${getAuditStatChip('Site', counts.website, total)}
+                    ${getAuditStatChip('Telefone', counts.phone, total)}
+                    ${getAuditStatChip('Email', counts.email, total)}
+                    ${getAuditStatChip('Maps', counts.google_maps_url, total)}
+                    ${getAuditStatChip('Horário', counts.opening_hours, total)}
+                </div>
+            </div>
+            <div class="max-w-md rounded-xl border border-white/10 bg-black/20 p-3">
+                <p class="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted">Regras de Exibição</p>
+                <ul class="space-y-1 text-xs text-slate-400">
+                    ${rules.map((rule) => `<li>${escapeHtml(rule)}</li>`).join('')}
+                </ul>
+            </div>
+        </div>
+    `;
+
+    audit.classList.remove('hidden');
+}
+
+function resetDrawerAnalysis() {
+    const btn = document.getElementById('btnRunAnalysis');
+    document.getElementById('drawerAiBox').classList.add('hidden');
+    document.getElementById('drawerAiAnalyzeBtn').classList.remove('hidden');
+    document.getElementById('drawerScore').innerText = '-';
+    document.getElementById('drawerPriority').innerHTML = '<span class="size-2 rounded-full bg-slate-500"></span> Sem análise';
+    document.getElementById('drawerSummary').innerText = '';
+    document.getElementById('drawerApproach').innerText = '';
+    document.getElementById('drawerPains').innerHTML = '';
+    document.getElementById('drawerOpps').innerHTML = '';
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">bolt</span> Enriquecer Lead (Consome Token)';
+    }
+}
+
+function applyAnalysisToDrawer(analysis) {
+    if (!analysis) {
+        resetDrawerAnalysis();
+        return;
+    }
+
+    document.getElementById('drawerAiAnalyzeBtn').classList.add('hidden');
+    document.getElementById('drawerAiBox').classList.remove('hidden');
+    document.getElementById('drawerScore').innerText = analysis.icp_match_score || 0;
+
+    const prioColors = {hot: 'bg-red-500', warm: 'bg-yellow-500', cold: 'bg-blue-500'};
+    const prioTextColors = {hot: 'text-red-400', warm: 'text-yellow-400', cold: 'text-blue-400'};
+    const prioLabels = {hot: 'Hot Lead', warm: 'Positivo', cold: 'Baixo Potencial'};
+    const level = analysis.priority_level || 'cold';
+
+    document.getElementById('drawerPriority').innerHTML = `<span class="size-2 rounded-full ${prioColors[level]}"></span> <span class="${prioTextColors[level] || prioTextColors.cold}">${prioLabels[level]}</span>`;
+    document.getElementById('drawerSummary').innerText = analysis.executive_summary || 'Sem resumo disponível.';
+    document.getElementById('drawerApproach').innerText = analysis.recommended_approach || 'Sem abordagem sugerida.';
+    document.getElementById('drawerPains').innerHTML = (analysis.pain_points || [])
+        .map((point) => `<li>${escapeHtml(point)}</li>`)
+        .join('') || '<li>Nenhuma lacuna confirmada.</li>';
+    document.getElementById('drawerOpps').innerHTML = (analysis.opportunities || [])
+        .map((item) => `<li>${escapeHtml(item)}</li>`)
+        .join('') || '<li>Nenhuma oportunidade destacada.</li>';
+}
+
+function switchTab(tab, triggerEl = null) {
     activeTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active', 'text-white'));
-    event.currentTarget.classList.add('active', 'text-white');
+    const targetButton = triggerEl || document.querySelectorAll('.tab-btn')[tab === 'saved' ? 1 : 0];
+    if (targetButton) {
+        targetButton.classList.add('active', 'text-white');
+    }
     renderGrid();
 }
 
@@ -326,11 +576,14 @@ function renderGrid() {
                 <p class="text-sm text-subtle">Sua área de empresas ${activeTab === 'new' ? 'novas' : 'salvas'} está vazia.</p>
             </div>
         `;
+        renderAuditSummary();
         return;
     }
 
     data.forEach(item => {
-        const rating = item.google_rating ? `<span class="text-yellow-400 text-xs font-bold flex items-center gap-0.5"><span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' 1">star</span> ${item.google_rating}</span>` : '';
+        const rating = item.google_rating
+            ? `<span class="text-yellow-400 text-xs font-bold flex items-center gap-0.5"><span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' 1">star</span> ${escapeHtml(Number(item.google_rating).toFixed(1))} <span class="text-[10px] text-subtle">(${escapeHtml(Number(item.google_reviews || 0))})</span></span>`
+            : '<span class="text-xs text-muted font-bold">Sem nota Google</span>';
         
         let priorityBadge = '';
         if (item.priority_level) {
@@ -338,8 +591,13 @@ function renderGrid() {
             const labels = {hot: 'Hot', warm: 'Warm', cold: 'Cold'};
             priorityBadge = `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${colors[item.priority_level] || colors.cold}">${labels[item.priority_level] || 'Cold'}</span>`;
         }
-
-        const isSaved = item.is_saved == 1;
+        const statusChip = item.status_label
+            ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-500/10 text-sky-300 border border-sky-400/20">${escapeHtml(item.status_label)}</span>`
+            : `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-surface border border-stroke text-muted">Status não encontrado</span>`;
+        const mapsAction = item.google_maps_url
+            ? `<a href="${escapeAttr(item.google_maps_url)}" target="_blank" onclick="event.stopPropagation()" class="inline-flex items-center gap-1 text-[10px] font-bold text-lime hover:underline">Maps</a>`
+            : `<span class="text-[10px] font-bold text-muted">Maps não encontrado</span>`;
+        const cityState = [item.city, item.state].filter(Boolean).join(' / ') || 'Localização não encontrada';
 
         grid.innerHTML += `
             <div class="bg-surface2 border border-stroke rounded-2xl p-5 hover:border-lime/30 hover:bg-surface3 transition-all cursor-pointer group relative overflow-hidden flex flex-col h-full" onclick="openDrawer('${item.id}', '${activeTab}')">
@@ -348,24 +606,37 @@ function renderGrid() {
 
                 <div class="flex items-start justify-between mb-3 relative z-10 pr-6">
                     <div>
-                        <h4 class="text-white font-bold text-sm leading-tight group-hover:text-lime transition-colors">${item.name}</h4>
-                        <p class="text-[11px] text-muted">${item.segment || 'Sem segmento'}</p>
+                        <h4 class="text-white font-bold text-sm leading-tight group-hover:text-lime transition-colors">${escapeHtml(item.name)}</h4>
+                        <p class="text-[11px] text-muted">${escapeHtml(item.category || item.segment || 'Categoria não encontrada')}</p>
                     </div>
                 </div>
                 
-                <div class="flex-1 flex flex-col gap-2 mt-2">
-                    <div class="flex items-center gap-4">
+                <div class="flex-1 flex flex-col gap-3 mt-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-lime/10 text-lime border border-lime/20">Google Maps</span>
+                        ${statusChip}
                         ${rating}
                         ${priorityBadge}
                     </div>
-                    ${item.phone ? `<div class="text-xs text-slate-400 font-mono flex items-center gap-1 truncate"><span class="material-symbols-outlined text-[12px]">call</span> ${item.phone}</div>` : ''}
-                    <div class="text-xs text-slate-500 truncate flex items-center gap-1 mt-auto">
-                        <span class="material-symbols-outlined text-[12px]">location_on</span> ${item.city || 'Desconhecida'}
+                    <p class="text-xs text-slate-400 leading-relaxed min-h-[32px]">${escapeHtml(item.address || 'Endereço não encontrado')}</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${getFieldChip('Site', getFieldStatus(item, 'website'))}
+                        ${getFieldChip('Telefone', getFieldStatus(item, 'phone'))}
+                        ${getFieldChip('Email', getFieldStatus(item, 'email'))}
+                    </div>
+                    <div class="text-xs text-slate-500 truncate flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[12px]">location_on</span> ${escapeHtml(cityState)}
+                    </div>
+                    <div class="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
+                        <span class="text-[10px] text-subtle">${escapeHtml(item.google_reviews ? item.google_reviews + ' avaliações confirmadas' : 'Sem reviews confirmados')}</span>
+                        ${mapsAction}
                     </div>
                 </div>
             </div>
         `;
     });
+
+    renderAuditSummary();
 }
 
 function updateCounts() {
@@ -378,6 +649,7 @@ async function runSearch() {
     const btn = document.getElementById('btnHunterSearch');
     const segment = document.getElementById('h_segment').value.trim();
     const state = document.getElementById('h_state').value.trim();
+    const stateUfValue = document.getElementById('h_state_uf').value.trim();
     const city = document.getElementById('h_city').value.trim();
 
     if(!segment || !city || !state) {
@@ -388,7 +660,8 @@ async function runSearch() {
     const payload = {
         _csrf: csrf,
         segment: segment,
-        city: city + ', ' + state,
+        city: city,
+        state: stateUfValue || state,
         radius: document.getElementById('h_radius').value
     };
 
@@ -401,7 +674,8 @@ async function runSearch() {
     btn.disabled = true;
     document.getElementById('radarIcon').className = 'ai-spinner size-[18px]';
     document.getElementById('radarIcon').innerText = '';
-    document.getElementById('btnHunterLabel').innerText = 'Varrendo Radares...';
+    document.getElementById('btnHunterLabel').innerText = 'Consultando Google Maps...';
+    document.getElementById('loadingText').innerText = 'Consultando Google Maps e validando campos confirmados';
 
     loading.classList.remove('hidden');
     loading.classList.add('flex');
@@ -417,9 +691,10 @@ async function runSearch() {
         if (data.error) throw new Error(data.message || data.error);
         if (data.success && data.results) {
             currentResults = data.results;
+            lastSearchMeta = data.meta || null;
             activeTab = 'new';
-            document.querySelectorAll('.tab-btn')[0].click(); // force switch to new
             updateCounts();
+            switchTab('new');
         }
     } catch (e) {
         alert(e.message || "Erro na busca.");
@@ -428,6 +703,7 @@ async function runSearch() {
         document.getElementById('radarIcon').className = 'material-symbols-outlined text-[18px]';
         document.getElementById('radarIcon').innerText = 'travel_explore';
         document.getElementById('btnHunterLabel').innerText = 'Acionar Radar';
+        document.getElementById('loadingText').innerText = 'Extraindo dados e indexando potenciais leads';
 
         loading.classList.add('hidden');
         loading.classList.remove('flex');
@@ -441,38 +717,7 @@ function openDrawer(id, tab) {
     const item = sourceArr.find(i => i.id === id);
     if(!item) return;
 
-    // Populate data
-    document.getElementById('drawerTitle').innerText = item.name;
-    document.getElementById('drawerSubtitle').innerText = item.segment || 'Empresa Local';
-    document.getElementById('drawerAddress').innerText = item.address || 'Não cadastrado';
-    document.getElementById('drawerPhone').innerText = item.phone || 'Nenhum contato base';
-    
-    if(item.website) {
-        let el = document.getElementById('drawerWebsite');
-        el.innerText = item.website;
-        el.href = item.website.startsWith('http') ? item.website : 'https://' + item.website;
-    } else {
-        document.getElementById('drawerWebsite').innerText = 'Sem site';
-        document.getElementById('drawerWebsite').href = '#';
-    }
-
-    if(item.email) {
-        let el = document.getElementById('drawerEmail');
-        el.innerText = item.email;
-        el.href = 'mailto:' + item.email;
-    } else {
-        document.getElementById('drawerEmail').innerText = 'Não encontrado';
-        document.getElementById('drawerEmail').href = '#';
-    }
-
-    if(item.instagram) {
-        let el = document.getElementById('drawerInsta');
-        el.innerText = item.instagram;
-        el.href = item.instagram.startsWith('http') ? item.instagram : `https://instagram.com/${item.instagram.replace('@','')}`;
-    } else {
-        document.getElementById('drawerInsta').innerText = 'Não encontrado';
-        document.getElementById('drawerInsta').href = '#';
-    }
+    applyResultToDrawer(item);
 
     // Save state
     const isSaved = item.is_saved == 1;
@@ -489,12 +734,7 @@ function openDrawer(id, tab) {
         btnImp.innerHTML = '<span class="material-symbols-outlined">login</span> Importar para Vault';
     }
 
-    // AI Box State
-    // We don't have analysis yet synchronously, so we hide it and show "Analyze" button
-    document.getElementById('drawerAiBox').classList.add('hidden');
-    document.getElementById('drawerAiAnalyzeBtn').classList.remove('hidden');
-    document.getElementById('drawerScore').innerText = '-';
-    document.getElementById('drawerPriority').innerHTML = '<span class="size-2 rounded-full bg-slate-500"></span> Desconhecida';
+    applyAnalysisToDrawer(item.analysis || null);
 
     // Open
     document.getElementById('drawerBackdrop').classList.add('open');
@@ -510,7 +750,7 @@ async function runAnalysis() {
     if(!activeResultId) return;
     const btn = document.getElementById('btnRunAnalysis');
     btn.disabled = true;
-    btn.innerHTML = '<div class="ai-spinner"></div> Gerando Diagnóstico...';
+    btn.innerHTML = '<div class="ai-spinner"></div> Atualizando dados verificados...';
 
     try {
         const res = await fetch('/hunter/analyze', {
@@ -523,48 +763,23 @@ async function runAnalysis() {
         if (data.error) throw new Error(data.message || data.error);
         
         if (data.success) {
-            // Update UI with enriched data
             const r = data.result;
-            if(r.phone) document.getElementById('drawerPhone').innerText = r.phone;
-            if(r.website && r.website !== 'Sem site') {
-                document.getElementById('drawerWebsite').innerText = r.website;
-                document.getElementById('drawerWebsite').href = r.website.startsWith('http') ? r.website : 'https://' + r.website;
-            }
-            if(r.instagram && r.instagram !== 'Não encontrado') {
-                document.getElementById('drawerInsta').innerText = r.instagram;
-                document.getElementById('drawerInsta').href = r.instagram.startsWith('http') ? r.instagram : `https://instagram.com/${r.instagram.replace('@','')}`;
-            }
-
-            // Update AI Stats
-            const a = data.analysis;
-            document.getElementById('drawerAiAnalyzeBtn').classList.add('hidden');
-            document.getElementById('drawerAiBox').classList.remove('hidden');
-            
-            document.getElementById('drawerScore').innerText = a.icp_match_score || 0;
-            
-            const prioColors = {hot: 'bg-red-500', warm: 'bg-yellow-500', cold: 'bg-blue-500'};
-            const prioLabels = {hot: 'Hot Lead', warm: 'Positivo', cold: 'Baixo Potencial'};
-            const level = a.priority_level || 'cold';
-            document.getElementById('drawerPriority').innerHTML = `<span class="size-2 rounded-full ${prioColors[level]}"></span> <span class="text-${prioColors[level].replace('bg-','')}">${prioLabels[level]}</span>`;
-
-            document.getElementById('drawerSummary').innerText = a.executive_summary;
-            document.getElementById('drawerApproach').innerText = a.recommended_approach;
-            
-            let htmlP = '';
-            (a.pain_points || []).forEach(p => htmlP += `<li>${p}</li>`);
-            document.getElementById('drawerPains').innerHTML = htmlP;
-
-            let htmlO = '';
-            (a.opportunities || []).forEach(o => htmlO += `<li>${o}</li>`);
-            document.getElementById('drawerOpps').innerHTML = htmlO;
-
-            // Sync with memory arrays
-            updateItemInArrays(r);
+            const a = data.analysis || null;
+            const enrichedResult = {
+                ...r,
+                analysis: a,
+                priority_level: a?.priority_level || r.priority_level || null,
+                priority_score: a?.priority_score || r.priority_score || 0,
+                icp_match_score: a?.icp_match_score || r.icp_match_score || 0,
+            };
+            updateItemInArrays(enrichedResult);
+            applyResultToDrawer(enrichedResult);
+            applyAnalysisToDrawer(a);
         }
     } catch (e) {
         alert(e.message || "Erro na análise.");
         btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined">bolt</span> Tentar Novamente';
+        btn.innerHTML = '<span class="material-symbols-outlined">bolt</span> Enriquecer Lead (Consome Token)';
     }
 }
 
@@ -650,6 +865,8 @@ function updateItemInArrays(updatedItem) {
             arr[index] = {...arr[index], ...updatedItem};
         }
     });
+
+    renderAuditSummary();
 }
 
 // ── Estado / Cidade Autocomplete (IBGE API) ──

@@ -370,6 +370,8 @@ class UserSettingsController
             'notify_lead_assigned' => isset($_POST['notify_lead_assigned']) ? 1 : 0,
             'notify_stage_change' => isset($_POST['notify_stage_change']) ? 1 : 0,
             'notify_whatsapp_new' => isset($_POST['notify_whatsapp_new']) ? 1 : 0,
+            'notify_agenda_today' => isset($_POST['notify_agenda_today']) ? 1 : 0,
+            'notify_agenda_1h' => isset($_POST['notify_agenda_1h']) ? 1 : 0,
             'notify_quota_warning' => isset($_POST['notify_quota_warning']) ? 1 : 0,
         ];
 

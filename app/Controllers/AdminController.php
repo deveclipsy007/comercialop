@@ -411,6 +411,7 @@ class AdminController
             'gemini' => !empty($_ENV['GEMINI_API_KEY'] ?? getenv('GEMINI_API_KEY')),
             'openai' => !empty($_ENV['OPENAI_API_KEY'] ?? getenv('OPENAI_API_KEY')),
             'grok'   => !empty($_ENV['GROK_API_KEY'] ?? getenv('GROK_API_KEY')),
+            'google_places' => !empty($_ENV['GOOGLE_MAPS_API_KEY'] ?? getenv('GOOGLE_MAPS_API_KEY')),
         ];
 
         View::render('admin/ai_keys', [
@@ -438,7 +439,7 @@ class AdminController
         $plainKey = trim($_POST['api_key'] ?? '');
         $label    = trim($_POST['label'] ?? '');
 
-        if (!in_array($provider, ['gemini', 'openai', 'grok'], true)) {
+        if (!in_array($provider, ['gemini', 'openai', 'grok', 'google_places'], true)) {
             Session::flash('error', 'Provedor inválido.');
             View::redirect('/admin/ai-keys');
             return;
@@ -511,7 +512,7 @@ class AdminController
         $provider = trim($_POST['provider'] ?? '');
         $tenantId = Session::adminTenantId();
 
-        if (!in_array($provider, ['gemini', 'openai', 'grok'], true)) {
+        if (!in_array($provider, ['gemini', 'openai', 'grok', 'google_places'], true)) {
             ob_end_clean();
             echo json_encode(['success' => false, 'message' => 'Provedor inválido.']);
             return;
@@ -528,6 +529,15 @@ class AdminController
             }
 
             // Criar o provider ESPECÍFICO com a chave encontrada
+            if ($provider === 'google_places') {
+                $service = new \App\Services\Hunter\GooglePlacesService($key, $tenantId);
+                $result = $service->testConnection();
+
+                ob_end_clean();
+                echo json_encode($result);
+                return;
+            }
+
             if ($provider === 'gemini') {
                 $model = config('services.gemini.model', 'gemini-2.0-flash');
                 $ai = new \App\Services\AI\GeminiProvider($key, $model);

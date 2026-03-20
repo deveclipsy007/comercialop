@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => WA.init());
         <!-- Sidebar Footer (Stats) -->
         <div class="p-3 border-t border-zinc-800 flex-shrink-0 flex items-center justify-between text-[10px] text-zinc-600 uppercase tracking-wider">
             <span id="wa-total-count"><?= $totalConversations ?> conversas</span>
-            <span>Sync: <?= $integration['last_sync_at'] ? date('d/m H:i', strtotime($integration['last_sync_at'])) : 'Nunca' ?></span>
+            <span id="wa-sync-status">Auto-sync: <?= $integration['last_sync_at'] ? date('d/m H:i', strtotime($integration['last_sync_at'])) : 'Iniciando' ?></span>
         </div>
     </div>
 
@@ -258,9 +258,12 @@ document.addEventListener('DOMContentLoaded', () => WA.init());
 
             <!-- Sync hint bar -->
             <div id="wa-chat-syncbar" class="hidden px-6 py-2 border-t border-zinc-800 bg-zinc-900/50 flex-shrink-0">
-                <div class="flex items-center justify-center gap-2 text-xs text-zinc-500">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Mostrando mensagens sincronizadas. <button onclick="Chat.sync()" class="text-green-500 hover:underline">Sincronizar mais</button>
+                <div class="flex items-center justify-between gap-3 text-xs text-zinc-500 w-full">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span id="wa-chat-sync-label" class="truncate">Sincronização automática ativa.</span>
+                    </div>
+                    <button onclick="Chat.sync(true)" class="text-green-500 hover:underline flex-shrink-0">Atualizar agora</button>
                 </div>
             </div>
         </div>
@@ -347,24 +350,55 @@ const Chat = {
     activeConvId: null,
     searchTimeout: null,
     pendingConvId: <?= json_encode($_GET['conversation'] ?? null) ?>,
+    autoRefreshTimer: null,
+    chatSyncLabelTimer: null,
+    refreshInFlight: false,
+    lastStatusCheckAt: 0,
+    lastConversationSignature: '',
+    lastMessageSignatureByConv: {},
 
     // ─── Init ───
     init() {
-        this.checkStatus();
-        this.loadConversations();
+        this.bindEvents();
+        this.refreshWorkspace({ source: 'init', sync: true });
+    },
 
-        // Search debounce
+    bindEvents() {
         document.getElementById('wa-search').addEventListener('input', (e) => {
             clearTimeout(this.searchTimeout);
-            this.searchTimeout = setTimeout(() => this.loadConversations(e.target.value), 300);
+            this.searchTimeout = setTimeout(() => {
+                this.loadConversations(e.target.value, { sync: false, source: 'search' });
+            }, 300);
         });
 
-        // Close settings dropdown on outside click
         document.addEventListener('click', (e) => {
             const dd = document.getElementById('wa-settings-dropdown');
             if (!dd.classList.contains('hidden') && !dd.contains(e.target)) {
                 dd.classList.add('hidden');
             }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                this.refreshWorkspace({ source: 'visibility', sync: true });
+                return;
+            }
+
+            this.stopAutoRefresh();
+        });
+
+        window.addEventListener('focus', () => {
+            if (!document.hidden) {
+                this.refreshWorkspace({ source: 'focus', sync: true });
+            }
+        });
+
+        window.addEventListener('operon:notification-center-updated', (event) => {
+            if (window.location.pathname !== '/whatsapp' || document.hidden) return;
+
+            const detail = event.detail || {};
+            this.updateSyncStatus(detail.sync_meta || detail);
+            this.refreshWorkspace({ source: 'notification-event', sync: false });
         });
     },
 
@@ -374,8 +408,184 @@ const Chat = {
         return JSON.parse(i > 0 ? text.substring(i) : text);
     },
 
+    parseDateValue(dateStr) {
+        if (!dateStr) return null;
+        const normalized = String(dateStr).includes('T') ? String(dateStr) : String(dateStr).replace(' ', 'T');
+        const parsed = new Date(normalized);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    },
+
+    getSearchTerm() {
+        return document.getElementById('wa-search')?.value?.trim() || '';
+    },
+
+    getAutoRefreshInterval() {
+        return this.activeConvId ? 9000 : 12000;
+    },
+
+    scheduleAutoRefresh(delay = null) {
+        this.stopAutoRefresh();
+        if (document.hidden) return;
+
+        this.autoRefreshTimer = setTimeout(() => {
+            this.refreshWorkspace({ source: 'timer', sync: true });
+        }, typeof delay === 'number' ? delay : this.getAutoRefreshInterval());
+    },
+
+    stopAutoRefresh() {
+        if (this.autoRefreshTimer) {
+            clearTimeout(this.autoRefreshTimer);
+            this.autoRefreshTimer = null;
+        }
+    },
+
+    formatSyncStamp(dateStr) {
+        const parsed = this.parseDateValue(dateStr);
+        if (!parsed) return '';
+        return parsed.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    conversationSignature(list) {
+        return JSON.stringify((list || []).map((item) => [
+            item.id,
+            item.last_message_at || '',
+            item.last_message_preview || '',
+            Number(item.unread_count || 0),
+            item.display_name || '',
+        ]));
+    },
+
+    messageSignature(list) {
+        return JSON.stringify((list || []).map((item) => [
+            item.id || item.remote_id || '',
+            Number(item.timestamp || 0),
+            item.body || '',
+            item.direction || '',
+            item.status || '',
+        ]));
+    },
+
+    setChatSyncLabel(message, tone = 'muted', stickyMs = 2600) {
+        const label = document.getElementById('wa-chat-sync-label');
+        if (!label) return;
+
+        label.textContent = message;
+        label.classList.remove('text-zinc-500', 'text-green-400', 'text-yellow-400', 'text-red-400');
+
+        const toneClass = {
+            muted: 'text-zinc-500',
+            success: 'text-green-400',
+            warning: 'text-yellow-400',
+            error: 'text-red-400',
+        }[tone] || 'text-zinc-500';
+
+        label.classList.add(toneClass);
+
+        if (this.chatSyncLabelTimer) {
+            clearTimeout(this.chatSyncLabelTimer);
+            this.chatSyncLabelTimer = null;
+        }
+
+        if (stickyMs > 0) {
+            this.chatSyncLabelTimer = setTimeout(() => {
+                this.resetChatSyncLabel();
+            }, stickyMs);
+        }
+    },
+
+    resetChatSyncLabel() {
+        const footer = document.getElementById('wa-sync-status');
+        const stamp = footer?.dataset?.lastSyncLabel || '';
+        this.setChatSyncLabel(
+            stamp ? `Atualização automática ativa. Última checagem às ${stamp}.` : 'Sincronização automática ativa.',
+            'muted',
+            0
+        );
+    },
+
+    updateSyncStatus(meta = {}) {
+        const footer = document.getElementById('wa-sync-status');
+        if (!footer) return;
+
+        const stamp = meta.last_sync_at ? this.formatSyncStamp(meta.last_sync_at) : '';
+        footer.dataset.lastSyncLabel = stamp;
+
+        if (meta.reason === 'not_connected') {
+            footer.textContent = 'WhatsApp offline';
+            this.setChatSyncLabel('Instância desconectada. Reconecte para atualizar mensagens.', 'warning');
+            return;
+        }
+
+        if (meta.reason === 'sync_failed') {
+            footer.textContent = stamp ? `Auto-sync: ${stamp}` : 'Auto-sync com falha';
+            this.setChatSyncLabel('Não foi possível atualizar agora. Tentaremos novamente.', 'error');
+            return;
+        }
+
+        if (meta.reason === 'locked') {
+            footer.textContent = stamp ? `Auto-sync: ${stamp} • outra aba` : 'Auto-sync em andamento';
+            this.setChatSyncLabel('Outra aba já está sincronizando. Atualizando a interface com os dados disponíveis.', 'warning');
+            return;
+        }
+
+        if (meta.reason === 'synced') {
+            footer.textContent = stamp ? `Auto-sync: ${stamp}` : 'Auto-sync: agora';
+            return;
+        }
+
+        if (meta.reason === 'throttled') {
+            footer.textContent = stamp ? `Auto-sync: ${stamp}` : 'Auto-sync ativo';
+            return;
+        }
+
+        footer.textContent = stamp ? `Auto-sync: ${stamp}` : 'Auto-sync ativo';
+    },
+
+    async refreshWorkspace(options = {}) {
+        if (this.refreshInFlight) {
+            this.scheduleAutoRefresh(2500);
+            return;
+        }
+
+        this.refreshInFlight = true;
+        if (!document.hidden) {
+            this.setChatSyncLabel('Verificando novas mensagens...', 'muted', 0);
+        }
+
+        try {
+            await this.checkStatus({ force: options.source === 'init' });
+            await this.loadConversations(this.getSearchTerm(), {
+                sync: options.sync === true,
+                source: options.source || 'background',
+                background: options.source !== 'init',
+            });
+
+            if (this.activeConvId) {
+                await this.loadMessages(this.activeConvId, {
+                    sync: false,
+                    source: options.source || 'background',
+                    background: options.source !== 'init',
+                    preserveScroll: true,
+                });
+            } else {
+                this.resetChatSyncLabel();
+            }
+        } catch (err) {
+            console.error('refreshWorkspace error:', err);
+            this.setChatSyncLabel('Não foi possível atualizar automaticamente agora.', 'error');
+        } finally {
+            this.refreshInFlight = false;
+            this.scheduleAutoRefresh();
+        }
+    },
+
     // ─── Status ───
-    async checkStatus() {
+    async checkStatus(options = {}) {
+        const now = Date.now();
+        if (!options.force && (now - this.lastStatusCheckAt) < 45000) {
+            return;
+        }
+
         try {
             const res = await fetch('/whatsapp/status');
             const data = this.parseJson(await res.text());
@@ -387,19 +597,29 @@ const Chat = {
             } else {
                 dot.innerHTML = '<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-600"></span>';
             }
+            this.lastStatusCheckAt = now;
         } catch (e) { console.error(e); }
     },
 
     // ─── Load Conversations ───
-    async loadConversations(search = '') {
+    async loadConversations(search = '', options = {}) {
         const container = document.getElementById('wa-contact-list');
         try {
-            const url = '/whatsapp/conversations' + (search ? '?search=' + encodeURIComponent(search) : '');
+            const query = new URLSearchParams();
+            if (search) query.set('search', search);
+            if (options.sync) query.set('refresh', '1');
+            const url = '/whatsapp/conversations' + (query.toString() ? '?' + query.toString() : '');
             const res = await fetch(url);
             const data = this.parseJson(await res.text());
+            const previousConversations = this.conversations;
+            const previousUnread = new Map(previousConversations.map((item) => [item.id, Number(item.unread_count || 0)]));
+            this.updateSyncStatus(data.sync_meta || {});
 
             this.conversations = data.conversations || [];
             document.getElementById('wa-total-count').textContent = (data.total || 0) + ' conversas';
+            const nextSignature = this.conversationSignature(this.conversations);
+            const conversationsChanged = this.lastConversationSignature !== '' && nextSignature !== this.lastConversationSignature;
+            this.lastConversationSignature = nextSignature;
 
             if (this.conversations.length === 0) {
                 container.innerHTML = `
@@ -408,8 +628,11 @@ const Chat = {
                             <svg class="w-8 h-8 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                         </div>
                         <p class="text-zinc-500 text-sm mb-1">${search ? 'Nenhum resultado para "' + search + '"' : 'Nenhuma conversa sincronizada.'}</p>
-                        ${!search ? '<button onclick="Chat.sync()" class="text-green-500 text-xs hover:underline mt-2">Sincronizar Agora</button>' : ''}
+                        ${!search ? '<button onclick="Chat.sync(true)" class="text-green-500 text-xs hover:underline mt-2">Atualizar agora</button>' : ''}
                     </div>`;
+                if (!options.background) {
+                    this.resetChatSyncLabel();
+                }
                 return;
             }
 
@@ -447,6 +670,10 @@ const Chat = {
 
             container.innerHTML = html;
 
+            if (this.activeConvId && !this.conversations.some((c) => c.id === this.activeConvId)) {
+                this.closeChat();
+            }
+
             if (this.pendingConvId) {
                 const targetId = this.pendingConvId;
                 this.pendingConvId = null;
@@ -454,9 +681,25 @@ const Chat = {
                     await this.openConversation(targetId);
                 }
             }
+
+            const newUnreadItems = this.conversations.filter((item) => {
+                return Number(item.unread_count || 0) > Number(previousUnread.get(item.id) || 0);
+            });
+
+            if (options.background && newUnreadItems.length > 0) {
+                const highlight = newUnreadItems[0];
+                const label = highlight.display_name || highlight.phone || 'uma conversa';
+                const plural = newUnreadItems.length > 1
+                    ? `${newUnreadItems.length} conversas receberam mensagens novas.`
+                    : `Nova mensagem recebida em ${label}.`;
+                this.setChatSyncLabel(plural, 'success');
+            } else if (!options.background || conversationsChanged) {
+                this.resetChatSyncLabel();
+            }
         } catch (err) {
             console.error('loadConversations error:', err);
             container.innerHTML = '<div class="p-6 text-center text-red-500 text-sm">Erro ao carregar conversas</div>';
+            this.setChatSyncLabel('Erro ao atualizar a lista de conversas.', 'error');
         }
     },
 
@@ -494,19 +737,36 @@ const Chat = {
             leadBadge.classList.add('hidden');
         }
 
-        // Load messages
+        await this.loadMessages(convId, { sync: false, source: 'open', background: false });
+        document.getElementById('wa-chat-syncbar').classList.remove('hidden');
+        this.scheduleAutoRefresh(7000);
+    },
+
+    async loadMessages(convId, options = {}) {
         const msgContainer = document.getElementById('wa-messages');
-        msgContainer.innerHTML = `
-            <div class="flex items-center justify-center py-16">
-                <svg class="w-6 h-6 text-zinc-700 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                </svg>
-            </div>`;
+        const shouldShowLoader = !options.background;
+
+        if (shouldShowLoader) {
+            msgContainer.innerHTML = `
+                <div class="flex items-center justify-center py-16">
+                    <svg class="w-6 h-6 text-zinc-700 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>`;
+        }
 
         try {
-            const res = await fetch(`/whatsapp/conversation/${convId}/messages`);
+            const query = new URLSearchParams();
+            if (options.sync) query.set('refresh', '1');
+            const url = `/whatsapp/conversation/${convId}/messages` + (query.toString() ? '?' + query.toString() : '');
+            const prevScrollTop = msgContainer.scrollTop;
+            const prevScrollHeight = msgContainer.scrollHeight;
+            const wasNearBottom = (prevScrollHeight - prevScrollTop - msgContainer.clientHeight) < 80;
+
+            const res = await fetch(url);
             const data = this.parseJson(await res.text());
+            this.updateSyncStatus(data.sync_meta || {});
 
             if (!data.messages || data.messages.length === 0) {
                 msgContainer.innerHTML = `
@@ -515,19 +775,23 @@ const Chat = {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                         </svg>
                         <p class="text-sm">Nenhuma mensagem sincronizada.</p>
-                        <button onclick="Chat.sync()" class="text-green-500 text-xs hover:underline mt-2">Sincronizar</button>
+                        <button onclick="Chat.sync(true)" class="text-green-500 text-xs hover:underline mt-2">Atualizar agora</button>
                     </div>`;
                 document.getElementById('wa-chat-syncbar').classList.add('hidden');
                 return;
             }
 
-            // Messages come DESC from API, reverse to ASC for display
             const messages = [...data.messages].reverse();
+            const signature = this.messageSignature(messages);
+            const previousSignature = this.lastMessageSignatureByConv[convId] || '';
+            const hasFreshMessages = previousSignature !== '' && previousSignature !== signature;
+            this.lastMessageSignatureByConv[convId] = signature;
+
             let html = '';
             let currentDate = '';
 
             messages.forEach(msg => {
-                const date = new Date(msg.timestamp * 1000);
+                const date = new Date(Number(msg.timestamp || 0) * 1000);
                 const dateStr = date.toLocaleDateString('pt-BR');
                 const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
@@ -553,20 +817,31 @@ const Chat = {
             });
 
             msgContainer.innerHTML = html;
-            // Scroll to bottom
-            msgContainer.scrollTop = msgContainer.scrollHeight;
+
+            if (wasNearBottom || !options.preserveScroll) {
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+            } else {
+                const delta = msgContainer.scrollHeight - prevScrollHeight;
+                msgContainer.scrollTop = prevScrollTop + Math.max(delta, 0);
+            }
 
             const currentConv = this.conversations.find(c => c.id === convId);
             if (currentConv && Number(currentConv.unread_count || 0) > 0) {
                 currentConv.unread_count = 0;
-                await this.loadConversations(document.getElementById('wa-search').value);
+                await this.loadConversations(this.getSearchTerm(), { sync: false, source: 'mark-read', background: true });
             }
 
-            // Show sync bar
             document.getElementById('wa-chat-syncbar').classList.remove('hidden');
+
+            if (options.background && hasFreshMessages) {
+                this.setChatSyncLabel('Nova mensagem carregada automaticamente nesta conversa.', 'success');
+            } else if (!options.background) {
+                this.resetChatSyncLabel();
+            }
         } catch (err) {
-            console.error('openConversation error:', err);
+            console.error('loadMessages error:', err);
             msgContainer.innerHTML = '<div class="p-6 text-center text-red-500 text-sm">Erro ao carregar mensagens</div>';
+            this.setChatSyncLabel('Erro ao carregar mensagens desta conversa.', 'error');
         }
     },
 
@@ -576,15 +851,17 @@ const Chat = {
         document.getElementById('wa-chat-view').classList.add('hidden');
         document.getElementById('wa-empty-state').classList.remove('hidden');
         document.querySelectorAll('.wa-contact').forEach(el => el.classList.remove('active'));
+        this.resetChatSyncLabel();
     },
 
     // ─── Sync ───
-    async sync() {
+    async sync(force = true) {
         const btn = document.getElementById('btn-sync');
         if (btn) {
             btn.disabled = true;
             btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
         }
+        this.setChatSyncLabel(force ? 'Sincronizando manualmente...' : 'Atualizando...', 'warning', 0);
 
         try {
             const res = await fetch('/whatsapp/sync', {
@@ -592,25 +869,26 @@ const Chat = {
                 body: new URLSearchParams({ '_csrf': this.csrf })
             });
             const data = this.parseJson(await res.text());
+            this.updateSyncStatus(data.sync_meta || {});
 
             if (data.success) {
-                // Reload conversations list
-                await this.loadConversations(document.getElementById('wa-search').value);
-                // If a conversation is open, reload its messages
+                await this.loadConversations(this.getSearchTerm(), { sync: false, source: 'manual-sync', background: true });
                 if (this.activeConvId) {
-                    await this.openConversation(this.activeConvId);
+                    await this.loadMessages(this.activeConvId, { sync: false, source: 'manual-sync', background: true, preserveScroll: true });
                 }
+                this.setChatSyncLabel(data.message || 'Atualização concluída.', 'success');
             } else {
-                alert('Erro na sincronização: ' + (data.error || 'Erro desconhecido'));
+                this.setChatSyncLabel('Erro na sincronização: ' + (data.error || 'Erro desconhecido'), 'error');
             }
         } catch (err) {
             console.error('sync error:', err);
-            alert('Erro de rede ao sincronizar.');
+            this.setChatSyncLabel('Erro de rede ao sincronizar.', 'error');
         } finally {
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>';
             }
+            this.scheduleAutoRefresh(9000);
         }
     },
 
@@ -700,7 +978,8 @@ const Chat = {
 
     formatTime(dateStr) {
         if (!dateStr) return '';
-        const d = new Date(dateStr);
+        const d = this.parseDateValue(dateStr);
+        if (!d) return '';
         const now = new Date();
         const diff = now - d;
 
@@ -715,6 +994,7 @@ const Chat = {
     }
 };
 
+window.Chat = Chat;
 document.addEventListener('DOMContentLoaded', () => Chat.init());
 </script>
 

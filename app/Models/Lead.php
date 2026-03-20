@@ -90,8 +90,9 @@ class Lead
                                 cnpj_data, pagespeed_data,
                                 google_maps_url, rating, review_count, reviews,
                                 opening_hours, closing_hours, category, enrichment_data,
+                                latitude, longitude, geocoded_at,
                                 created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))',
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))',
             [
                 $id,
                 $tenantId,
@@ -118,6 +119,9 @@ class Lead
                 $data['closing_hours'] ?? null,
                 $data['category'] ?? null,
                 isset($data['enrichment_data'])? json_encode($data['enrichment_data']): null,
+                isset($data['latitude']) ? (float)$data['latitude'] : null,
+                isset($data['longitude']) ? (float)$data['longitude'] : null,
+                isset($data['latitude']) ? date('Y-m-d H:i:s') : null,
             ]
         );
         return $id;
@@ -131,7 +135,8 @@ class Lead
                        'next_followup_at', 'analysis', 'human_context', 'social_presence',
                        'tags', 'cnpj_data', 'pagespeed_data',
                        'google_maps_url', 'rating', 'review_count', 'reviews',
-                       'opening_hours', 'closing_hours', 'category', 'enrichment_data'];
+                       'opening_hours', 'closing_hours', 'category', 'enrichment_data',
+                       'latitude', 'longitude', 'geocoded_at'];
 
         $sets   = [];
         $params = [];
