@@ -57,6 +57,19 @@ class App
         $uri    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         $uri    = rtrim($uri, '/') ?: '/';
 
+        // CORS preflight para Extension API (OPTIONS não tem rota registrada)
+        if ($method === 'OPTIONS' && str_starts_with($uri, '/api/ext/')) {
+            $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+            if (str_starts_with($origin, 'chrome-extension://') || $origin === '') {
+                header('Access-Control-Allow-Origin: ' . ($origin ?: '*'));
+                header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+                header('Access-Control-Allow-Headers: Content-Type, Authorization');
+                header('Access-Control-Max-Age: 86400');
+            }
+            http_response_code(204);
+            return;
+        }
+
         $this->router->dispatch($method, $uri);
     }
 

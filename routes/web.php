@@ -195,3 +195,15 @@ $router->get('/copilot', function() {
 $router->get('/api/tokens',          [ApiController::class, 'tokens']);
 $router->get('/api/leads',           [ApiController::class, 'leads']);
 $router->post('/api/copilot',        [ApiController::class, 'copilot']);
+
+// ── Operon Capture — Extension API (Bearer Token Auth) ──────
+use App\Controllers\ExtensionApiController;
+
+$router->post('/api/ext/auth',       [ExtensionApiController::class, 'auth']);
+$router->post('/api/ext/logout',     [ExtensionApiController::class, 'logout']);
+$router->post('/api/ext/capture',    [ExtensionApiController::class, 'capture']);
+$router->post('/api/ext/capture-bulk', [ExtensionApiController::class, 'captureBulk']);
+$router->post('/api/ext/check',      [ExtensionApiController::class, 'check']);
+$router->post('/api/ext/check-bulk', [ExtensionApiController::class, 'checkBulk']);
+$router->get('/api/ext/me',          [ExtensionApiController::class, 'me']);
+$router->get('/api/ext/segments',    [ExtensionApiController::class, 'segments']);
