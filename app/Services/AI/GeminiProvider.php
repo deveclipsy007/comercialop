@@ -51,13 +51,22 @@ class GeminiProvider
         }
 
         $url = $this->endpoint . $this->model . ':generateContent?key=' . $this->apiKey;
+        $userParts = [['text' => $userPrompt]];
+
+        $images = is_array($options['images'] ?? null) ? $options['images'] : [];
+        foreach ($images as $imageUrl) {
+            $imagePart = $this->buildInlineImagePart((string) $imageUrl);
+            if ($imagePart !== null) {
+                $userParts[] = $imagePart;
+            }
+        }
 
         $body = [
             'system_instruction' => [
                 'parts' => [['text' => $systemPrompt]],
             ],
             'contents' => [
-                ['role' => 'user', 'parts' => [['text' => $userPrompt]]],
+                ['role' => 'user', 'parts' => $userParts],
             ],
             'generationConfig' => [
                 'temperature'     => $options['temperature'] ?? 0.7,
@@ -196,6 +205,25 @@ class GeminiProvider
     private function logCall(string $provider, string $model, int $latencyMs, bool $success): void
     {
         error_log(sprintf('[AI] %s/%s latency=%dms status=%s', $provider, $model, $latencyMs, $success ? 'ok' : 'error'));
+    }
+
+    private function buildInlineImagePart(string $imageUrl): ?array
+    {
+        $imageUrl = trim($imageUrl);
+        if ($imageUrl === '') {
+            return null;
+        }
+
+        if (!preg_match('#^data:(image/[\w.+-]+);base64,(.+)$#', $imageUrl, $matches)) {
+            return null;
+        }
+
+        return [
+            'inline_data' => [
+                'mime_type' => $matches[1],
+                'data'      => $matches[2],
+            ],
+        ];
     }
 
     /**

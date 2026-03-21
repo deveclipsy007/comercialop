@@ -238,7 +238,7 @@ async function handleBulkMode() {
 
   if (!extractResult?.data || extractResult.data.length === 0) {
     loadingEl.style.display = 'none';
-    showError(errorEl, 'Nenhum resultado encontrado na página. Faça uma busca no Google Maps primeiro.');
+    showError(errorEl, extractResult?.message || 'Nenhum resultado encontrado na página. Faça uma busca no Google Maps primeiro.');
     return;
   }
 

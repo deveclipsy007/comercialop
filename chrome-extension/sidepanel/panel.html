@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operon Intelligence</title>
+  <link rel="stylesheet" href="panel.css">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- LOGIN SCREEN                                               -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div id="loginScreen" class="screen screen-login">
+    <div class="login-container">
+      <div class="login-logo">
+        <div class="logo-ring">
+          <span class="material-symbols-outlined logo-icon">radar</span>
+        </div>
+        <h1>Operon Intelligence</h1>
+        <p class="login-subtitle">Cockpit Operacional</p>
+      </div>
+
+      <form id="loginForm" class="login-form">
+        <div class="field">
+          <label>Servidor</label>
+          <div class="input-icon">
+            <span class="material-symbols-outlined">dns</span>
+            <input type="url" id="serverUrl" placeholder="https://sua-plataforma.com" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <div class="input-icon">
+            <span class="material-symbols-outlined">mail</span>
+            <input type="email" id="loginEmail" placeholder="seu@email.com" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>Senha</label>
+          <div class="input-icon">
+            <span class="material-symbols-outlined">lock</span>
+            <input type="password" id="loginPassword" placeholder="••••••••" required>
+          </div>
+        </div>
+        <div id="loginError" class="msg msg-error" style="display:none;"></div>
+        <button type="submit" class="btn-primary" id="btnLogin">
+          <span class="material-symbols-outlined">login</span>
+          Conectar
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- MAIN COCKPIT                                               -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div id="mainScreen" class="screen" style="display:none;">
+
+    <!-- ── Header ── -->
+    <header class="cockpit-header">
+      <div class="header-left">
+        <span class="material-symbols-outlined logo-sm">radar</span>
+        <span class="header-brand">Operon</span>
+      </div>
+      <div class="header-right">
+        <div class="page-context" id="pageContext" title="Página atual">
+          <span class="material-symbols-outlined icon-xs" id="pageContextIcon">language</span>
+          <span id="pageContextLabel" class="context-label">Web</span>
+        </div>
+        <button class="btn-icon" id="btnRefresh" title="Atualizar contexto">
+          <span class="material-symbols-outlined">refresh</span>
+        </button>
+        <button class="btn-icon" id="btnLogout" title="Sair">
+          <span class="material-symbols-outlined">logout</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── User Bar ── -->
+    <div class="user-bar">
+      <span class="material-symbols-outlined icon-xs">person</span>
+      <span id="userName" class="user-name">Usuário</span>
+      <span class="dot">·</span>
+      <span id="tenantName" class="tenant-name">Empresa</span>
+    </div>
+
+    <!-- ── Tab Content ── -->
+    <div class="tab-content">
+
+      <!-- ─── HUB (Home) ─── -->
+      <div id="tabHub" class="tab-pane active">
+        <div class="section-title">
+          <span class="material-symbols-outlined text-lime">dashboard</span>
+          Central de Operações
+        </div>
+
+        <!-- Quick context card -->
+        <div class="context-card" id="hubContextCard">
+          <div class="context-card-header">
+            <span class="material-symbols-outlined">captive_portal</span>
+            <span id="hubPageTitle">Carregando página...</span>
+          </div>
+          <p id="hubPageUrl" class="context-url"></p>
+        </div>
+
+        <div class="ops-summary-card" id="hubOpsSummary">
+          <div class="ops-summary-header">
+            <span class="material-symbols-outlined">radar</span>
+            <div>
+              <strong id="hubEntityName">Lendo a aba atual...</strong>
+              <span id="hubLeadState" class="text-muted text-xs">Monitorando a navegação automaticamente</span>
+            </div>
+          </div>
+          <div class="ops-pill-row">
+            <span class="ops-pill" id="hubContactState">Sem sinais ainda</span>
+            <span class="ops-pill" id="hubSourceState">Fonte: web</span>
+            <span class="ops-pill" id="hubActionState">Próximo passo: analisar</span>
+          </div>
+          <p class="ops-insight" id="hubInsight">Assim que a extensão ler a página, este card mostra a leitura operacional ao vivo para você decidir o próximo movimento.</p>
+          <div class="ops-summary-footer">
+            <span class="text-muted text-xs" id="hubSyncState">Cockpit persistente: acompanha a aba ativa sem recarregar toda a experiência.</span>
+          </div>
+        </div>
+
+        <!-- Action Grid -->
+        <div class="action-grid">
+          <button class="action-card" data-action="capture">
+            <div class="action-icon" style="--accent: #a3e635;">
+              <span class="material-symbols-outlined">person_add</span>
+            </div>
+            <span class="action-label">Captar Lead</span>
+            <span class="action-desc">Extrair e salvar no Vault</span>
+          </button>
+
+          <button class="action-card" data-action="bulk">
+            <div class="action-icon" style="--accent: #38bdf8;">
+              <span class="material-symbols-outlined">groups</span>
+            </div>
+            <span class="action-label">Captura em Massa</span>
+            <span class="action-desc">Extrair todos os resultados</span>
+          </button>
+
+          <button class="action-card" data-action="analyze">
+            <div class="action-icon" style="--accent: #c084fc;">
+              <span class="material-symbols-outlined">analytics</span>
+            </div>
+            <span class="action-label">Analisar Página</span>
+            <span class="action-desc">Inteligência comercial</span>
+          </button>
+
+          <button class="action-card" data-action="copilot">
+            <div class="action-icon" style="--accent: #fb923c;">
+              <span class="material-symbols-outlined">smart_toy</span>
+            </div>
+            <span class="action-label">Copiloto</span>
+            <span class="action-desc">Assistente estratégico</span>
+          </button>
+
+          <button class="action-card" data-action="qualify">
+            <div class="action-icon" style="--accent: #34d399;">
+              <span class="material-symbols-outlined">verified</span>
+            </div>
+            <span class="action-label">Qualificar</span>
+            <span class="action-desc">Avaliar oportunidade</span>
+          </button>
+
+          <button class="action-card" data-action="visual">
+            <div class="action-icon" style="--accent: #f472b6;">
+              <span class="material-symbols-outlined">visibility</span>
+            </div>
+            <span class="action-label">Análise Visual</span>
+            <span class="action-desc">Leitura visual da página</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ─── CAPTURE ─── -->
+      <div id="tabCapture" class="tab-pane">
+        <div class="tab-header">
+          <button class="btn-back" data-back="hub">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <span class="tab-title">Captar Lead</span>
+          <span class="source-badge" id="captureSourceBadge">
+            <span class="material-symbols-outlined icon-xs">language</span>
+            <span id="captureSourceName">Web</span>
+          </span>
+        </div>
+
+        <form id="captureForm" class="form-group">
+          <div class="field">
+            <label>Nome *</label>
+            <input type="text" id="capName" placeholder="Nome da empresa ou contato" required>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label>Segmento *</label>
+              <input type="text" id="capSegment" list="segmentList" placeholder="Ex: Odontologia" required>
+              <datalist id="segmentList"></datalist>
+            </div>
+            <div class="field">
+              <label>Categoria</label>
+              <input type="text" id="capCategory" placeholder="Ex: Clínica">
+            </div>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label>Telefone</label>
+              <input type="tel" id="capPhone" placeholder="(11) 99999-0000">
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input type="email" id="capEmail" placeholder="contato@email.com">
+            </div>
+          </div>
+          <div class="field">
+            <label>Website</label>
+            <input type="url" id="capWebsite" placeholder="https://...">
+          </div>
+          <div class="field">
+            <label>Endereço</label>
+            <input type="text" id="capAddress" placeholder="Rua, Cidade - Estado">
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label>Cargo</label>
+              <input type="text" id="capCargo" placeholder="Ex: Diretor">
+            </div>
+            <div class="field">
+              <label>Rating</label>
+              <input type="text" id="capRating" placeholder="4.5" readonly>
+            </div>
+          </div>
+          <div class="field">
+            <label>Observações</label>
+            <textarea id="capNotes" rows="2" placeholder="Notas rápidas sobre o lead..."></textarea>
+          </div>
+
+          <!-- Duplicate Warning -->
+          <div id="duplicateWarning" class="msg msg-warn" style="display:none;">
+            <span class="material-symbols-outlined">warning</span>
+            <div>
+              <strong>Lead já existe no Vault</strong>
+              <p id="duplicateInfo"></p>
+              <div class="msg-actions">
+                <a id="duplicateLink" href="#" target="_blank" class="link-lime">Ver lead</a>
+                <button type="button" id="btnForceCreate" class="btn-sm">Criar mesmo assim</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="captureError" class="msg msg-error" style="display:none;"></div>
+          <div id="captureSuccess" class="msg msg-success" style="display:none;">
+            <span class="material-symbols-outlined">check_circle</span>
+            <div>
+              <strong>Lead capturado!</strong>
+              <a id="successLink" href="#" target="_blank" class="link-lime">Abrir no Vault →</a>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary" id="btnCapture">
+            <span class="material-symbols-outlined" id="captureIcon">person_add</span>
+            <span id="captureLabel">Capturar Lead</span>
+          </button>
+        </form>
+
+        <div class="extract-hint" id="extractHint" style="display:none;">
+          <span class="material-symbols-outlined icon-xs text-lime">auto_fix_high</span>
+          <span>Dados pré-preenchidos automaticamente</span>
+        </div>
+      </div>
+
+      <!-- ─── BULK CAPTURE ─── -->
+      <div id="tabBulk" class="tab-pane">
+        <div class="tab-header">
+          <button class="btn-back" data-back="hub">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <span class="tab-title">Captura em Massa</span>
+          <span class="source-badge">
+            <span class="material-symbols-outlined icon-xs">map</span>
+            <span>Google Maps</span>
+          </span>
+        </div>
+
+        <div class="bulk-stats">
+          <div class="bulk-stat">
+            <span class="material-symbols-outlined icon-xs text-lime">groups</span>
+            <span id="bulkTotalCount">0</span> encontrados
+          </div>
+          <div class="bulk-stat">
+            <span class="material-symbols-outlined icon-xs" style="color:var(--amber);">content_copy</span>
+            <span id="bulkDuplicateCount">0</span> duplicados
+          </div>
+          <div class="bulk-stat">
+            <span class="material-symbols-outlined icon-xs" style="color:var(--emerald);">check_circle</span>
+            <span id="bulkNewCount">0</span> novos
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom:10px;">
+          <label>Segmento para todos *</label>
+          <input type="text" id="bulkSegment" list="segmentList" placeholder="Ex: Odontologia">
+        </div>
+
+        <div class="bulk-actions-bar">
+          <label class="checkbox-label">
+            <input type="checkbox" id="bulkSelectAll" checked>
+            <span>Selecionar todos</span>
+          </label>
+          <span class="text-muted text-xs"><span id="bulkSelectedCount">0</span> selecionados</span>
+        </div>
+
+        <div class="bulk-table-wrapper" id="bulkTableWrapper" style="display:none;">
+          <table class="bulk-table">
+            <thead>
+              <tr>
+                <th class="col-check"></th>
+                <th>Nome</th>
+                <th class="col-rating">★</th>
+                <th class="col-status">Status</th>
+              </tr>
+            </thead>
+            <tbody id="bulkTableBody"></tbody>
+          </table>
+        </div>
+
+        <div id="bulkLoading" class="loading-state">
+          <span class="material-symbols-outlined spin text-lime">progress_activity</span>
+          <span id="bulkLoadingText">Extraindo resultados...</span>
+        </div>
+
+        <div id="bulkError" class="msg msg-error" style="display:none;"></div>
+        <div id="bulkSuccess" class="msg msg-success" style="display:none;">
+          <span class="material-symbols-outlined">check_circle</span>
+          <div>
+            <strong id="bulkSuccessTitle">Leads capturados!</strong>
+            <span id="bulkSuccessDetail" class="text-muted"></span>
+          </div>
+        </div>
+
+        <button type="button" class="btn-primary" id="btnBulkCapture" disabled>
+          <span class="material-symbols-outlined" id="bulkCaptureIcon">rocket_launch</span>
+          <span id="bulkCaptureLabel">Enviar para o Vault</span>
+        </button>
+      </div>
+
+      <!-- ─── ANALYZE ─── -->
+      <div id="tabAnalyze" class="tab-pane">
+        <div class="tab-header">
+          <button class="btn-back" data-back="hub">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <span class="tab-title">Análise de Página</span>
+        </div>
+
+        <!-- Pre-analysis card -->
+        <div id="analyzePreview" class="analysis-preview">
+          <div class="preview-site">
+            <span class="material-symbols-outlined">captive_portal</span>
+            <div>
+              <strong id="analyzePageTitle">Carregando...</strong>
+              <span id="analyzePageUrl" class="text-muted text-xs"></span>
+            </div>
+          </div>
+          <p class="preview-desc" id="analyzePageDesc"></p>
+
+          <button type="button" class="btn-primary" id="btnAnalyzePage">
+            <span class="material-symbols-outlined">analytics</span>
+            Analisar esta Página
+          </button>
+
+          <div class="analyze-options">
+            <label class="checkbox-label">
+              <input type="checkbox" id="analyzeDeep" checked>
+              <span>Análise profunda (cruzar com contexto da empresa)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="analyzeLoading" class="loading-state" style="display:none;">
+          <span class="material-symbols-outlined spin text-lime">progress_activity</span>
+          <div class="loading-steps" id="analyzeSteps">
+            <span class="step-active">Lendo conteúdo da página...</span>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div id="analyzeResults" style="display:none;">
+          <div class="analysis-card" id="analysisContent">
+            <!-- Populated by JS with structured analysis -->
+          </div>
+
+          <div class="analysis-actions">
+            <button type="button" class="btn-action" id="btnSaveAnalysis">
+              <span class="material-symbols-outlined">save</span>
+              Salvar no Vault + Contexto
+            </button>
+            <button type="button" class="btn-action" id="btnCaptureFromAnalysis">
+              <span class="material-symbols-outlined">person_add</span>
+              Captar como Lead
+            </button>
+            <button type="button" class="btn-action" id="btnCopilotFromAnalysis">
+              <span class="material-symbols-outlined">smart_toy</span>
+              Discutir no Copiloto
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── COPILOT ─── -->
+      <div id="tabCopilot" class="tab-pane">
+        <div class="tab-header">
+          <button class="btn-back" data-back="hub">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <span class="tab-title">Copiloto Estratégico</span>
+          <button class="btn-icon btn-sm-icon" id="btnClearChat" title="Limpar conversa">
+            <span class="material-symbols-outlined">delete_sweep</span>
+          </button>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="copilot-quick" id="copilotQuick">
+          <button class="quick-chip" data-prompt="Analise esta página e me diga se faz sentido abordar comercialmente.">
+            <span class="material-symbols-outlined icon-xs">analytics</span> Analisar página
+          </button>
+          <button class="quick-chip" data-prompt="Resuma este site em 3 frases. Qual o negócio, o posicionamento e a maturidade digital?">
+            <span class="material-symbols-outlined icon-xs">summarize</span> Resumir site
+          </button>
+          <button class="quick-chip" data-prompt="Sugira uma hipótese de abordagem comercial para este lead baseado no que você vê nesta página.">
+            <span class="material-symbols-outlined icon-xs">handshake</span> Hipótese de abordagem
+          </button>
+          <button class="quick-chip" data-prompt="Quais as possíveis dores e oportunidades que você identifica nesta página?">
+            <span class="material-symbols-outlined icon-xs">psychology</span> Dores e oportunidades
+          </button>
+          <button class="quick-chip" data-prompt="Compare este lead com o perfil ideal da minha empresa. Qual o grau de encaixe?">
+            <span class="material-symbols-outlined icon-xs">compare</span> Encaixe com ICP
+          </button>
+          <button class="quick-chip" data-prompt="Me sugira próximos passos estratégicos para essa oportunidade.">
+            <span class="material-symbols-outlined icon-xs">route</span> Próximos passos
+          </button>
+        </div>
+
+        <!-- Chat messages -->
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-welcome">
+            <span class="material-symbols-outlined" style="font-size:32px;color:var(--lime);">smart_toy</span>
+            <p>Olá! Sou seu copiloto estratégico. Posso analisar páginas, qualificar leads e te ajudar com abordagens comerciais — tudo em tempo real.</p>
+          </div>
+        </div>
+
+        <!-- Chat input -->
+        <div class="chat-input-area">
+          <div class="chat-context-tag" id="chatContextTag" style="display:none;">
+            <span class="material-symbols-outlined icon-xs">link</span>
+            <span id="chatContextName">Página atual</span>
+            <button class="btn-remove-context" id="btnRemoveContext">×</button>
+          </div>
+          <div class="chat-input-row">
+            <textarea id="chatInput" rows="1" placeholder="Pergunte algo ao copiloto..." maxlength="2000"></textarea>
+            <button type="button" class="btn-send" id="btnSendChat">
+              <span class="material-symbols-outlined">send</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── QUALIFY ─── -->
+      <div id="tabQualify" class="tab-pane">
+        <div class="tab-header">
+          <button class="btn-back" data-back="hub">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <span class="tab-title">Qualificação Rápida</span>
+        </div>
+
+        <div id="qualifyPreview" class="analysis-preview">
+          <div class="preview-site">
+            <span class="material-symbols-outlined">captive_portal</span>
+            <div>
+              <strong id="qualifyPageTitle">Carregando...</strong>
+              <span id="qualifyPageUrl" class="text-muted text-xs"></span>
+            </div>
+          </div>
+
+          <button type="button" class="btn-primary" id="btnQualify">
+            <span class="material-symbols-outlined">verified</span>
+            Qualificar esta Oportunidade
+          </button>
+        </div>
+
+        <div id="qualifyLoading" class="loading-state" style="display:none;">
+          <span class="material-symbols-outlined spin text-lime">progress_activity</span>
+          <span>Avaliando oportunidade...</span>
+        </div>
+
+        <div id="qualifyResults" style="display:none;">
+          <div class="qualify-scores" id="qualifyScores">
+            <!-- Populated by JS -->
+          </div>
+          <div class="analysis-card" id="qualifyContent">
+            <!-- Populated by JS -->
+          </div>
+          <div class="analysis-actions">
+            <button type="button" class="btn-action" id="btnCaptureFromQualify">
+              <span class="material-symbols-outlined">person_add</span>
+              Captar como Lead
+            </button>
+            <button type="button" class="btn-action" id="btnCopilotFromQualify">
+              <span class="material-symbols-outlined">smart_toy</span>
+              Discutir no Copiloto
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── VISUAL ANALYSIS ─── -->
+      <div id="tabVisual" class="tab-pane">
+        <div class="tab-header">
+          <button class="btn-back" data-back="hub">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <span class="tab-title">Análise Visual</span>
+        </div>
+
+        <div id="visualPreview" class="analysis-preview">
+          <div class="preview-site">
+            <span class="material-symbols-outlined">visibility</span>
+            <div>
+              <strong id="visualPageTitle">Carregando...</strong>
+              <span id="visualPageUrl" class="text-muted text-xs"></span>
+            </div>
+          </div>
+          <p class="text-muted text-xs" style="margin:8px 0;">Captura e analisa a aparência visual da página usando IA multimodal para avaliar posicionamento, maturidade digital e qualidade percebida.</p>
+
+          <button type="button" class="btn-primary" id="btnVisualAnalyze">
+            <span class="material-symbols-outlined">photo_camera</span>
+            Capturar e Analisar Visualmente
+          </button>
+        </div>
+
+        <div id="visualLoading" class="loading-state" style="display:none;">
+          <span class="material-symbols-outlined spin text-lime">progress_activity</span>
+          <div class="loading-steps" id="visualSteps">
+            <span class="step-active">Capturando screenshot...</span>
+          </div>
+        </div>
+
+        <!-- Screenshot preview -->
+        <div id="visualScreenshot" style="display:none;">
+          <img id="screenshotImg" class="screenshot-preview" alt="Screenshot da página">
+        </div>
+
+        <div id="visualResults" style="display:none;">
+          <div class="analysis-card" id="visualContent">
+            <!-- Populated by JS -->
+          </div>
+          <div class="analysis-actions">
+            <button type="button" class="btn-action" id="btnSaveVisual">
+              <span class="material-symbols-outlined">save</span>
+              Salvar no Vault + Contexto
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- .tab-content -->
+
+    <!-- ── Bottom Navigation ── -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="hub">
+        <span class="material-symbols-outlined">dashboard</span>
+        <span>Hub</span>
+      </button>
+      <button class="nav-item" data-tab="capture">
+        <span class="material-symbols-outlined">person_add</span>
+        <span>Captar</span>
+      </button>
+      <button class="nav-item" data-tab="analyze">
+        <span class="material-symbols-outlined">analytics</span>
+        <span>Analisar</span>
+      </button>
+      <button class="nav-item" data-tab="copilot">
+        <span class="material-symbols-outlined">smart_toy</span>
+        <span>Copiloto</span>
+      </button>
+      <button class="nav-item" data-tab="qualify">
+        <span class="material-symbols-outlined">verified</span>
+        <span>Qualificar</span>
+      </button>
+    </nav>
+
+  </div><!-- #mainScreen -->
+
+  <script src="panel.js" type="module"></script>
+</body>
+</html>

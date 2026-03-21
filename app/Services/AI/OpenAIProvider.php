@@ -61,11 +61,30 @@ class OpenAIProvider
             return ['text' => $this->mockResponse($options), 'usage' => $emptyUsage];
         }
 
+        $userContent = $userPrompt;
+        $images = is_array($options['images'] ?? null) ? $options['images'] : [];
+        if (!empty($images)) {
+            $userContent = [['type' => 'text', 'text' => $userPrompt]];
+            foreach ($images as $imageUrl) {
+                $imageUrl = trim((string) $imageUrl);
+                if ($imageUrl === '') {
+                    continue;
+                }
+                $userContent[] = [
+                    'type' => 'image_url',
+                    'image_url' => [
+                        'url' => $imageUrl,
+                        'detail' => $options['image_detail'] ?? 'low',
+                    ],
+                ];
+            }
+        }
+
         $body = [
             'model'    => $this->model,
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user',   'content' => $userPrompt],
+                ['role' => 'user',   'content' => $userContent],
             ],
             'temperature' => $options['temperature'] ?? 0.7,
             'max_tokens'  => $options['max_tokens'] ?? 4096,

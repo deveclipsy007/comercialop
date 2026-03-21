@@ -8,16 +8,19 @@ use App\Core\Database;
 use App\Core\Helpers;
 use App\Models\ApiToken;
 use App\Models\Lead;
+use App\Services\Extension\ExtensionCockpitService;
 use App\Services\Extension\ExtensionAuthService;
 use App\Services\Extension\LeadNormalizationService;
 
 class ExtensionApiController
 {
     private ?array $auth = null;
+    private ExtensionCockpitService $cockpit;
 
     public function __construct()
     {
         header('Content-Type: application/json; charset=utf-8');
+        $this->cockpit = new ExtensionCockpitService();
 
         // CORS para extensões Chrome
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
@@ -74,7 +77,7 @@ class ExtensionApiController
             'expires_at'   => $result['expires_at'],
             'user'         => $result['user'],
             'tenant_id'    => $result['tenant_id'],
-            'platform_url' => env('APP_URL', ''),
+            'platform_url' => $this->resolvePlatformUrl(),
         ]);
     }
 
@@ -107,6 +110,7 @@ class ExtensionApiController
             'role'        => $this->auth['role'],
             'tenant_id'   => $this->auth['tenant_id'],
             'tenant_name' => $tenant['name'] ?? '',
+            'platform_url' => $this->resolvePlatformUrl(),
         ]);
     }
 
@@ -385,6 +389,139 @@ class ExtensionApiController
         ]);
     }
 
+    // ─── POST /api/ext/analyze-page ─────────────────────────────
+    public function analyzePage(): void
+    {
+        if (!$this->requireToken()) return;
+
+        try {
+            $body = $this->readJsonBody();
+            $analysis = $this->cockpit->analyzePage(
+                $this->auth['tenant_id'],
+                $this->auth['user_id'],
+                $body
+            );
+
+            echo json_encode([
+                'success' => true,
+                'analysis' => $analysis,
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(422);
+            echo json_encode([
+                'error' => true,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    // ─── POST /api/ext/qualify ─────────────────────────────────
+    public function qualify(): void
+    {
+        if (!$this->requireToken()) return;
+
+        try {
+            $body = $this->readJsonBody();
+            $qualification = $this->cockpit->qualifyPage(
+                $this->auth['tenant_id'],
+                $this->auth['user_id'],
+                $body
+            );
+
+            echo json_encode([
+                'success' => true,
+                'qualification' => $qualification,
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(422);
+            echo json_encode([
+                'error' => true,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    // ─── POST /api/ext/analyze-visual ──────────────────────────
+    public function analyzeVisual(): void
+    {
+        if (!$this->requireToken()) return;
+
+        try {
+            $body = $this->readJsonBody();
+            $analysis = $this->cockpit->analyzeVisual(
+                $this->auth['tenant_id'],
+                $this->auth['user_id'],
+                $body
+            );
+
+            echo json_encode([
+                'success' => true,
+                'analysis' => $analysis,
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(422);
+            echo json_encode([
+                'error' => true,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    // ─── POST /api/ext/copilot ─────────────────────────────────
+    public function copilot(): void
+    {
+        if (!$this->requireToken()) return;
+
+        try {
+            $body = $this->readJsonBody();
+            $reply = $this->cockpit->copilotReply(
+                $this->auth['tenant_id'],
+                $this->auth['user_id'],
+                $body
+            );
+
+            echo json_encode([
+                'success' => true,
+                'reply' => $reply,
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(422);
+            echo json_encode([
+                'error' => true,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    // ─── POST /api/ext/save-analysis ───────────────────────────
+    public function saveAnalysis(): void
+    {
+        if (!$this->requireToken()) return;
+
+        try {
+            $body = $this->readJsonBody();
+            $result = $this->cockpit->saveAnalysisPackage(
+                $this->auth['tenant_id'],
+                $this->auth['user_id'],
+                $body
+            );
+
+            echo json_encode([
+                'success' => true,
+                'lead_id' => $result['lead_id'],
+                'url' => $result['url'],
+                'created' => $result['created'],
+                'message' => $result['message'],
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(422);
+            echo json_encode([
+                'error' => true,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
     // ─── Helpers ────────────────────────────────────────────────
 
     /**
@@ -439,5 +576,21 @@ class ExtensionApiController
                 }
             }
         }
+    }
+
+    private function resolvePlatformUrl(): string
+    {
+        $configured = trim((string) env('APP_URL', ''));
+        if ($configured !== '') {
+            return rtrim($configured, '/');
+        }
+
+        $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        if ($host === '') {
+            return '';
+        }
+
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        return $scheme . '://' . $host;
     }
 }

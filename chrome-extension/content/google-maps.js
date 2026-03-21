@@ -6,6 +6,12 @@
  */
 
 (() => {
+  if (window.__operonGoogleMapsExtractorLoaded) {
+    return;
+  }
+
+  window.__operonGoogleMapsExtractorLoaded = true;
+
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'EXTRACT') {
       // Tenta primeiro o painel de detalhes, depois lista de resultados

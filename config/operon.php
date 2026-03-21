@@ -37,6 +37,11 @@ return [
         'wa_next_message'                 => ['input' => 1,  'output' => 4,  'total' => 5],
         'wa_strategic'                    => ['input' => 4,  'output' => 8,  'total' => 12],
         'wa_interest_score'               => ['input' => 3,  'output' => 5,  'total' => 8],
+        // Extension cockpit
+        'extension_page_analysis'         => ['input' => 2,  'output' => 6,  'total' => 8],
+        'extension_qualification'         => ['input' => 2,  'output' => 4,  'total' => 6],
+        'extension_visual_analysis'       => ['input' => 3,  'output' => 6,  'total' => 9],
+        'extension_copilot'               => ['input' => 1,  'output' => 3,  'total' => 4],
         'default'                         => ['input' => 1,  'output' => 2,  'total' => 3],
     ],
 

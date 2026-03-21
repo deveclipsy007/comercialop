@@ -5,6 +5,12 @@
  */
 
 (() => {
+  if (window.__operonLinkedinExtractorLoaded) {
+    return;
+  }
+
+  window.__operonLinkedinExtractorLoaded = true;
+
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'EXTRACT') {
       const url = window.location.href;

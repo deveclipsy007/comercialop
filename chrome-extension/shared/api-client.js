@@ -1,5 +1,5 @@
 /**
- * Operon Capture — API Client
+ * Operon Intelligence — API Client
  * Comunicação com a plataforma via Bearer Token
  */
 
@@ -11,27 +11,20 @@ class OperonAPI {
    */
   async request(method, endpoint, body = null) {
     const serverUrl = await getServerUrl();
-    if (!serverUrl) {
-      throw new Error('Servidor não configurado');
-    }
+    if (!serverUrl) throw new Error('Servidor não configurado');
 
     const token = await getToken();
     const headers = { 'Content-Type': 'application/json' };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const options = { method, headers };
     if (body && method !== 'GET') {
       options.body = JSON.stringify(body);
     }
 
-    const url = `${serverUrl}${endpoint}`;
-
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(`${serverUrl}${endpoint}`, options);
 
-      // Token expirado/inválido
       if (response.status === 401) {
         await clearAuth();
         return { error: true, auth_expired: true, message: 'Sessão expirada. Faça login novamente.' };
@@ -41,26 +34,22 @@ class OperonAPI {
         return { error: true, message: 'Muitas tentativas. Aguarde alguns minutos.' };
       }
 
-      const data = await response.json();
-      return data;
+      return await response.json();
     } catch (err) {
       return { error: true, network_error: true, message: 'Erro de conexão com o servidor.' };
     }
   }
 
-  // ── Auth ──
+  // ═══ AUTH ═══
   async login(serverUrl, email, password) {
-    const headers = { 'Content-Type': 'application/json' };
-    const url = `${serverUrl}/api/ext/auth`;
-
     try {
-      const response = await fetch(url, {
+      const response = await fetch(`${serverUrl}/api/ext/auth`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       return await response.json();
-    } catch (err) {
+    } catch {
       return { error: true, message: 'Não foi possível conectar ao servidor.' };
     }
   }
@@ -69,7 +58,7 @@ class OperonAPI {
     return this.request('POST', '/api/ext/logout');
   }
 
-  // ── Data ──
+  // ═══ DATA ═══
   async getMe() {
     return this.request('GET', '/api/ext/me');
   }
@@ -92,6 +81,27 @@ class OperonAPI {
 
   async checkBulkDuplicates(leads) {
     return this.request('POST', '/api/ext/check-bulk', { leads });
+  }
+
+  // ═══ AI ANALYSIS ═══
+  async analyzePage(data) {
+    return this.request('POST', '/api/ext/analyze-page', data);
+  }
+
+  async qualifyPage(data) {
+    return this.request('POST', '/api/ext/qualify', data);
+  }
+
+  async analyzeVisual(data) {
+    return this.request('POST', '/api/ext/analyze-visual', data);
+  }
+
+  async copilotChat(data) {
+    return this.request('POST', '/api/ext/copilot', data);
+  }
+
+  async saveAnalysis(data) {
+    return this.request('POST', '/api/ext/save-analysis', data);
   }
 }
 

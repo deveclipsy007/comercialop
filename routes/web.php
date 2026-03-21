@@ -205,5 +205,10 @@ $router->post('/api/ext/capture',    [ExtensionApiController::class, 'capture'])
 $router->post('/api/ext/capture-bulk', [ExtensionApiController::class, 'captureBulk']);
 $router->post('/api/ext/check',      [ExtensionApiController::class, 'check']);
 $router->post('/api/ext/check-bulk', [ExtensionApiController::class, 'checkBulk']);
+$router->post('/api/ext/analyze-page', [ExtensionApiController::class, 'analyzePage']);
+$router->post('/api/ext/qualify',    [ExtensionApiController::class, 'qualify']);
+$router->post('/api/ext/analyze-visual', [ExtensionApiController::class, 'analyzeVisual']);
+$router->post('/api/ext/copilot',    [ExtensionApiController::class, 'copilot']);
+$router->post('/api/ext/save-analysis', [ExtensionApiController::class, 'saveAnalysis']);
 $router->get('/api/ext/me',          [ExtensionApiController::class, 'me']);
 $router->get('/api/ext/segments',    [ExtensionApiController::class, 'segments']);

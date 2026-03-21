@@ -4,6 +4,12 @@
  */
 
 (() => {
+  if (window.__operonGenericExtractorLoaded) {
+    return;
+  }
+
+  window.__operonGenericExtractorLoaded = true;
+
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'EXTRACT') {
       const data = extractGeneric();
