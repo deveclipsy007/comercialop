@@ -409,7 +409,7 @@ const LeadInfographic = (() => {
         teal:    '#2DD4BF',
     };
 
-    const stageColors = { new: C.blue, contacted: C.amber, qualified: C.cyan, proposal: C.purple, closed_won: C.lime, closed_lost: C.red };
+    const stageColors = { new: C.blue, analyzed: C.green, contacted: C.amber, qualified: C.cyan, proposal: C.purple, closed_won: C.lime, closed_lost: C.red };
     const tempColors  = { HOT: C.red, WARM: C.amber, COLD: C.blue };
     const tempLabels  = { HOT: 'Quente', WARM: 'Morno', COLD: 'Frio' };
     const timingLabels = { IMMEDIATE: 'Imediato', SHORT_TERM: 'Curto Prazo', LONG_TERM: 'Longo Prazo' };

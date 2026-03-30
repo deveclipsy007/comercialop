@@ -146,6 +146,7 @@ if (!function_exists('stageLabel')) {
     {
         return match ($stage) {
             'new'         => 'Prospecção',
+            'analyzed'    => 'Analisados',
             'contacted'   => 'Contactado',
             'qualified'   => 'Qualificado',
             'proposal'    => 'Proposta',
@@ -161,6 +162,7 @@ if (!function_exists('stageBadgeClass')) {
     {
         return match ($stage) {
             'new'         => 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+            'analyzed'    => 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
             'contacted'   => 'bg-blue-500/20 text-blue-400 border-blue-500/30',
             'qualified'   => 'bg-violet-500/20 text-violet-400 border-violet-500/30',
             'proposal'    => 'bg-amber-500/20 text-amber-400 border-amber-500/30',

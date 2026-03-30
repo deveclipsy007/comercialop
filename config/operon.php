@@ -28,6 +28,8 @@ return [
         'lead_offerings_analysis'         => ['input' => 1,  'output' => 2,  'total' => 3],
         'lead_clients_analysis'           => ['input' => 1,  'output' => 2,  'total' => 3],
         'lead_competitors_analysis'       => ['input' => 1,  'output' => 2,  'total' => 3],
+        'lead_social_analysis'            => ['input' => 2,  'output' => 3,  'total' => 5],
+        'lead_social_discovery'           => ['input' => 1,  'output' => 2,  'total' => 3],
         'lead_sales_potential_analysis'   => ['input' => 1,  'output' => 2,  'total' => 3],
         // RAG / Knowledge operations
         'knowledge_index'                 => ['input' => 0,  'output' => 0,  'total' => 2],  // por chunk indexado

@@ -3,7 +3,7 @@
  * Gerencia auth, mensagens, Side Panel, extração profunda, screenshot e fila offline
  */
 
-import { getToken, isAuthenticated, saveAuth, clearAuth, getServerUrl, addToQueue, getQueue, clearQueue } from '../shared/storage.js';
+import { isAuthenticated, saveAuth, clearAuth, addToQueue, getQueue, clearQueue, updateAuthContext } from '../shared/storage.js';
 import { api } from '../shared/api-client.js';
 
 // ── Abrir Side Panel ao clicar no ícone ──
@@ -184,7 +184,15 @@ async function handleMessage(msg, sender) {
     }
 
     case 'GET_ME': {
-      return await api.getMe();
+      const result = await api.getMe();
+      await syncStoredAuthContext(result);
+      return result;
+    }
+
+    case 'SWITCH_TENANT': {
+      const result = await api.switchTenant(msg.tenantId);
+      await syncStoredAuthContext(result);
+      return result;
     }
 
     case 'RETRY_QUEUE': {
@@ -194,6 +202,20 @@ async function handleMessage(msg, sender) {
     default:
       return { error: true, message: 'Tipo de mensagem desconhecido.' };
   }
+}
+
+async function syncStoredAuthContext(result) {
+  if (!result?.success) return;
+
+  await updateAuthContext({
+    user: {
+      id: result.user_id,
+      name: result.user_name,
+      email: result.email,
+      role: result.tenant_role || result.role || 'agent',
+    },
+    tenant_id: result.tenant_id,
+  });
 }
 
 async function getActiveTab() {

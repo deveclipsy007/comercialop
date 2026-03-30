@@ -374,6 +374,7 @@ PROMPT;
             'email' => $leadCandidate['email'] ?: null,
             'address' => $leadCandidate['address'] ?: null,
             'category' => $leadCandidate['category'] ?: null,
+            'pipeline_status' => Lead::STAGE_ANALYZED,
             'social_presence' => !empty($socialPresence) ? $socialPresence : null,
             'human_context' => $this->mergeHumanContext([], $contextSummary, $page),
             'enrichment_data' => $this->mergeEnrichmentData([], $analysis, $qualification, $visual, $page),

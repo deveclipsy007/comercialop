@@ -8,6 +8,7 @@ use App\Core\Database;
 use App\Core\Helpers;
 use App\Models\ApiToken;
 use App\Models\Lead;
+use App\Models\User;
 use App\Services\Extension\ExtensionCockpitService;
 use App\Services\Extension\ExtensionAuthService;
 use App\Services\Extension\LeadNormalizationService;
@@ -96,22 +97,49 @@ class ExtensionApiController
     {
         if (!$this->requireToken()) return;
 
-        // Busca nome do tenant
-        $tenant = Database::selectFirst(
-            "SELECT name FROM tenants WHERE id = ?",
-            [$this->auth['tenant_id']]
-        );
+        echo json_encode($this->buildMePayload());
+    }
 
-        echo json_encode([
-            'success'     => true,
-            'user_id'     => $this->auth['user_id'],
-            'user_name'   => $this->auth['user_name'],
-            'email'       => $this->auth['email'],
-            'role'        => $this->auth['role'],
-            'tenant_id'   => $this->auth['tenant_id'],
-            'tenant_name' => $tenant['name'] ?? '',
-            'platform_url' => $this->resolvePlatformUrl(),
-        ]);
+    // ─── POST /api/ext/switch-tenant ──────────────────────────
+    public function switchTenant(): void
+    {
+        if (!$this->requireToken()) return;
+
+        $body = $this->readJsonBody();
+        $newTenantId = trim((string) ($body['tenant_id'] ?? ''));
+
+        if ($newTenantId === '') {
+            http_response_code(422);
+            echo json_encode(['error' => true, 'message' => 'Empresa de destino não informada.']);
+            return;
+        }
+
+        if (!User::hasTenantAccess($this->auth['user_id'], $newTenantId)) {
+            http_response_code(403);
+            echo json_encode(['error' => true, 'message' => 'Você não tem acesso a essa empresa.']);
+            return;
+        }
+
+        if ($newTenantId !== $this->auth['tenant_id']) {
+            $switched = ApiToken::switchTenant($this->auth['token_id'], $newTenantId);
+            if (!$switched) {
+                http_response_code(422);
+                echo json_encode(['error' => true, 'message' => 'Não foi possível trocar a empresa ativa.']);
+                return;
+            }
+
+            $this->auth['tenant_id'] = $newTenantId;
+
+            $roleLink = Database::selectFirst(
+                'SELECT role FROM tenant_user WHERE user_id = ? AND tenant_id = ?',
+                [$this->auth['user_id'], $newTenantId]
+            );
+            $this->auth['role'] = $roleLink['role'] ?? $this->auth['role'];
+        }
+
+        $payload = $this->buildMePayload();
+        $payload['message'] = 'Empresa ativa alterada com sucesso.';
+        echo json_encode($payload);
     }
 
     // ─── GET /api/ext/segments ──────────────────────────────────
@@ -592,5 +620,41 @@ class ExtensionApiController
 
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         return $scheme . '://' . $host;
+    }
+
+    private function buildMePayload(): array
+    {
+        $tenant = Database::selectFirst(
+            "SELECT name FROM tenants WHERE id = ?",
+            [$this->auth['tenant_id']]
+        );
+
+        $tenantRows = User::getLinkedTenants($this->auth['user_id']);
+        $linkedTenants = array_map(
+            function (array $tenantRow): array {
+                return [
+                    'id' => $tenantRow['id'],
+                    'name' => $tenantRow['name'],
+                    'slug' => $tenantRow['slug'] ?? '',
+                    'role' => $tenantRow['pivot_role'] ?? 'agent',
+                    'is_current' => ($tenantRow['id'] ?? '') === $this->auth['tenant_id'],
+                ];
+            },
+            $tenantRows
+        );
+
+        return [
+            'success' => true,
+            'user_id' => $this->auth['user_id'],
+            'user_name' => $this->auth['user_name'],
+            'email' => $this->auth['email'],
+            'role' => $this->auth['role'],
+            'tenant_role' => $this->auth['role'],
+            'tenant_id' => $this->auth['tenant_id'],
+            'tenant_name' => $tenant['name'] ?? '',
+            'tenant_count' => count($linkedTenants),
+            'tenants' => $linkedTenants,
+            'platform_url' => $this->resolvePlatformUrl(),
+        ];
     }
 }

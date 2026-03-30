@@ -304,6 +304,7 @@ class ApiController
             'qualified'   => ['qualificados', 'qualificado', 'qualified'],
             'contacted'   => ['contatados', 'contatado', 'contactados', 'contactado', 'contacted'],
             'proposal'    => ['propostas', 'proposta', 'em proposta', 'proposal'],
+            'analyzed'    => ['analisados', 'analisado', 'analisadas', 'ia analisado', 'analyzed'],
             'new'         => ['novos', 'novo', 'prospeccao', 'new'],
         ];
 
@@ -416,7 +417,7 @@ class ApiController
 
     private function formatPipelineStats(array $stats): string
     {
-        $orderedStages = ['new', 'contacted', 'qualified', 'proposal', 'closed_won', 'closed_lost'];
+        $orderedStages = ['new', 'analyzed', 'contacted', 'qualified', 'proposal', 'closed_won', 'closed_lost'];
         $parts = [];
 
         foreach ($orderedStages as $stage) {
@@ -430,6 +431,7 @@ class ApiController
     {
         return match ($stage) {
             'new'         => 'Novos',
+            'analyzed'    => 'Analisados',
             'contacted'   => 'Contatados',
             'qualified'   => 'Qualificados',
             'proposal'    => 'Proposta',

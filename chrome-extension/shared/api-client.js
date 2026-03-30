@@ -63,6 +63,10 @@ class OperonAPI {
     return this.request('GET', '/api/ext/me');
   }
 
+  async switchTenant(tenantId) {
+    return this.request('POST', '/api/ext/switch-tenant', { tenant_id: tenantId });
+  }
+
   async getSegments() {
     return this.request('GET', '/api/ext/segments');
   }

@@ -167,6 +167,7 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
                     'icon' => 'forum',
                     'items' => [
                         ['label' => 'WhatsApp',  'path' => '/whatsapp',  'key' => 'whatsapp',  'icon' => 'chat'],
+                        ['label' => 'E-mail',    'path' => '/emails',    'key' => 'emails',    'icon' => 'mail'],
                         ['label' => 'Follow-up', 'path' => '/follow-up', 'key' => 'agenda',    'icon' => 'notifications_active'],
                     ]
                 ],
@@ -174,6 +175,8 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
                     'icon' => 'inventory_2',
                     'items' => [
                         ['label' => 'Vault',     'path' => '/vault',     'key' => 'vault',     'icon' => 'contacts'],
+                        ['label' => 'Playbook',  'path' => '/playbook',  'key' => 'playbook',  'icon' => 'auto_stories'],
+                        ['label' => 'Formulários','path' => '/forms',    'key' => 'forms',     'icon' => 'dynamic_form'],
                         ['label' => 'Agenda',    'path' => '/agenda',    'key' => 'agenda',    'icon' => 'calendar_today'],
                     ]
                 ],

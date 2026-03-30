@@ -11,6 +11,7 @@ class Lead
     // Pipeline stages (lowercase, matches schema)
     public const STAGES = [
         'new'         => 'Prospecção',
+        'analyzed'    => 'Analisados',
         'contacted'   => 'Contactado',
         'qualified'   => 'Qualificado',
         'proposal'    => 'Proposta',
@@ -19,6 +20,7 @@ class Lead
     ];
 
     public const STAGE_NEW       = 'new';
+    public const STAGE_ANALYZED  = 'analyzed';
     public const STAGE_CONTACTED = 'contacted';
     public const STAGE_QUALIFIED = 'qualified';
     public const STAGE_PROPOSAL  = 'proposal';
@@ -29,13 +31,17 @@ class Lead
 
     public static function allByTenant(string $tenantId, array $options = []): array
     {
-        $stage    = $options['stage'] ?? null;
-        $search   = $options['search'] ?? null;
-        $minScore = $options['min_score'] ?? null;
-        $segment  = $options['segment'] ?? null;
-        $limit    = (int) ($options['limit'] ?? 100);
-        $offset   = (int) ($options['offset'] ?? 0);
-        $order    = preg_replace('/[^a-z_\s]/', '', $options['order'] ?? 'created_at DESC');
+        $stage          = $options['stage'] ?? null;
+        $search         = $options['search'] ?? null;
+        $minScore       = $options['min_score'] ?? null;
+        $segment        = $options['segment'] ?? null;
+        $temperature    = $options['temperature'] ?? null;
+        $analysisStatus = $options['analysis_status'] ?? null;
+        $hasWebsite     = $options['has_website'] ?? null;
+        $hasPhone       = $options['has_phone'] ?? null;
+        $limit          = (int) ($options['limit'] ?? 100);
+        $offset         = (int) ($options['offset'] ?? 0);
+        $order          = preg_replace('/[^a-zA-Z_\s]/', '', $options['order'] ?? 'created_at DESC');
 
         $sql    = 'SELECT * FROM leads WHERE tenant_id = ?';
         $params = [$tenantId];
@@ -56,6 +62,29 @@ class Lead
         if ($segment) {
             $sql     .= ' AND segment LIKE ?';
             $params[] = "%{$segment}%";
+        }
+
+        if ($temperature) {
+            $sql     .= ' AND human_context LIKE ?';
+            $params[] = '%"temperature":"' . strtoupper((string) $temperature) . '"%';
+        }
+
+        if ($analysisStatus === 'analyzed') {
+            $sql .= " AND analysis IS NOT NULL AND TRIM(analysis) NOT IN ('', '{}', '[]')";
+        } elseif ($analysisStatus === 'not_analyzed') {
+            $sql .= " AND (analysis IS NULL OR TRIM(analysis) IN ('', '{}', '[]'))";
+        }
+
+        if ($hasWebsite === true) {
+            $sql .= " AND website IS NOT NULL AND TRIM(website) != ''";
+        } elseif ($hasWebsite === false) {
+            $sql .= " AND (website IS NULL OR TRIM(website) = '')";
+        }
+
+        if ($hasPhone === true) {
+            $sql .= " AND phone IS NOT NULL AND TRIM(phone) != ''";
+        } elseif ($hasPhone === false) {
+            $sql .= " AND (phone IS NULL OR TRIM(phone) = '')";
         }
 
         if ($minScore !== null) {
@@ -82,6 +111,8 @@ class Lead
     public static function create(string $tenantId, array $data): string
     {
         $id = self::generateId();
+        $pipelineStatus = $data['pipeline_status']
+            ?? (self::hasAnalysisPayload($data['analysis'] ?? null) ? self::STAGE_ANALYZED : self::STAGE_NEW);
 
         Database::execute(
             'INSERT INTO leads (id, tenant_id, name, segment, website, phone, email, address,
@@ -102,7 +133,7 @@ class Lead
                 $data['phone']   ?? null,
                 $data['email']   ?? null,
                 $data['address'] ?? null,
-                $data['pipeline_status'] ?? self::STAGE_NEW,
+                $pipelineStatus,
                 (int) ($data['priority_score'] ?? 0),
                 (int) ($data['fit_score'] ?? 0),
                 isset($data['analysis'])       ? json_encode($data['analysis'])       : null,
@@ -169,6 +200,11 @@ class Lead
     {
         $score = max(1, (int) ($analysis['priorityScore'] ?? 25));
         $fit   = max(1, (int) ($analysis['fitScore'] ?? $score));
+        $currentLead = self::findByTenant($id, $tenantId);
+
+        if (!$currentLead) {
+            return false;
+        }
 
         $updateData = [
             'analysis'       => $analysis,
@@ -176,8 +212,9 @@ class Lead
             'fit_score'      => $fit,
         ];
 
-        // Enriquecer lead com dados extraídos pela IA (apenas se o lead não tiver esses dados ainda)
-        $currentLead = self::findByTenant($id, $tenantId);
+        if (self::shouldAutoMoveToAnalyzed($currentLead['pipeline_status'] ?? null)) {
+            $updateData['pipeline_status'] = self::STAGE_ANALYZED;
+        }
 
         if (!empty($analysis['extractedContact'])) {
             $contact = $analysis['extractedContact'];
@@ -210,6 +247,12 @@ class Lead
         }
 
         return self::update($id, $tenantId, $updateData);
+    }
+
+    public static function shouldAutoMoveToAnalyzed(?string $stage): bool
+    {
+        $normalized = trim((string) $stage);
+        return $normalized === '' || $normalized === self::STAGE_NEW;
     }
 
     public static function delete(string $id, string $tenantId): bool
@@ -276,6 +319,20 @@ class Lead
         if (isset($lead['rating']))       $lead['rating']       = (float) $lead['rating'];
         if (isset($lead['review_count'])) $lead['review_count'] = (int) $lead['review_count'];
         return $lead;
+    }
+
+    private static function hasAnalysisPayload(mixed $analysis): bool
+    {
+        if (is_array($analysis)) {
+            return !empty($analysis);
+        }
+
+        if (is_string($analysis)) {
+            $normalized = trim($analysis);
+            return $normalized !== '' && $normalized !== '{}' && $normalized !== '[]';
+        }
+
+        return false;
     }
 
     private static function generateId(): string

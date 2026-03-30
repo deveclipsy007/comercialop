@@ -15,6 +15,9 @@ use App\Controllers\UserSettingsController;
 use App\Controllers\WhatsAppController;
 use App\Controllers\MeridianController;
 use App\Controllers\ApiController;
+use App\Controllers\PlaybookController;
+use App\Controllers\FormController;
+use App\Controllers\EmailController;
 use App\Core\View;
 
 // ── Autenticação ─────────────────────────────────────────────
@@ -85,6 +88,7 @@ $router->post('/knowledge/extract-document',        [KnowledgeController::class,
 
 // ── Deep Intelligence ────────────────────────────────────────
 $router->post('/intelligence/run', [\App\Controllers\DeepIntelligenceController::class, 'runIntelligence']);
+$router->post('/intelligence/social-profiles', [\App\Controllers\DeepIntelligenceController::class, 'socialProfiles']);
 
 // ── Call Hub (Transcrição e Áudio) ───────────────────────────
 $router->post('/calls/upload', [\App\Controllers\CallController::class, 'upload']);
@@ -130,6 +134,50 @@ $router->get('/admin/consumption/api',  [AdminController::class, 'consumptionApi
 $router->post('/admin/users/:id/link-tenant',   [AdminController::class, 'linkTenant']);
 $router->post('/admin/users/:id/unlink-tenant', [AdminController::class, 'unlinkTenant']);
 
+// Tenant Individual Management
+$router->get('/admin/tenant/:id',              [AdminController::class, 'tenantDetail']);
+$router->post('/admin/tenant/:id/update',      [AdminController::class, 'updateTenant']);
+
+// Playbook Admin
+$router->get('/admin/playbook',                       [PlaybookController::class, 'adminPanel']);
+$router->post('/admin/playbook/module',               [PlaybookController::class, 'adminCreateModule']);
+$router->post('/admin/playbook/module/:id/update',    [PlaybookController::class, 'adminUpdateModule']);
+$router->post('/admin/playbook/module/:id/delete',    [PlaybookController::class, 'adminDeleteModule']);
+$router->post('/admin/playbook/module/:id/toggle',    [PlaybookController::class, 'adminTogglePublish']);
+$router->post('/admin/playbook/module/reorder',       [PlaybookController::class, 'adminReorderModules']);
+$router->post('/admin/playbook/block',                [PlaybookController::class, 'adminCreateBlock']);
+$router->post('/admin/playbook/block/:id/update',     [PlaybookController::class, 'adminUpdateBlock']);
+$router->post('/admin/playbook/block/:id/delete',     [PlaybookController::class, 'adminDeleteBlock']);
+$router->post('/admin/playbook/block/reorder',        [PlaybookController::class, 'adminReorderBlocks']);
+
+// ── Email Module ────────────────────────────────────────────
+$router->get('/emails',                          [EmailController::class, 'index']);
+$router->get('/emails/templates',                [EmailController::class, 'templates']);
+$router->get('/emails/campaigns',                [EmailController::class, 'campaigns']);
+$router->get('/emails/campaign/:id',             [EmailController::class, 'campaignDetail']);
+$router->get('/emails/lead/:id',                 [EmailController::class, 'leadEmails']);
+
+$router->post('/emails/account',                 [EmailController::class, 'createAccount']);
+$router->post('/emails/account/:id/update',      [EmailController::class, 'updateAccount']);
+$router->post('/emails/account/:id/delete',      [EmailController::class, 'deleteAccount']);
+$router->post('/emails/account/test',            [EmailController::class, 'testAccount']);
+
+$router->post('/emails/template',                [EmailController::class, 'createTemplate']);
+$router->post('/emails/template/:id/update',     [EmailController::class, 'updateTemplate']);
+$router->post('/emails/template/:id/delete',     [EmailController::class, 'deleteTemplate']);
+
+$router->post('/emails/campaign',                [EmailController::class, 'createCampaign']);
+$router->post('/emails/campaign/:id/update',     [EmailController::class, 'updateCampaign']);
+$router->post('/emails/campaign/:id/delete',     [EmailController::class, 'deleteCampaign']);
+$router->post('/emails/campaign/:id/step',       [EmailController::class, 'createStep']);
+$router->post('/emails/campaign/:id/execute',    [EmailController::class, 'executeCampaign']);
+$router->post('/emails/step/:id/update',         [EmailController::class, 'updateStep']);
+$router->post('/emails/step/:id/delete',         [EmailController::class, 'deleteStep']);
+
+$router->post('/emails/send',                    [EmailController::class, 'sendEmail']);
+$router->post('/emails/ai/generate',             [EmailController::class, 'aiGenerate']);
+$router->get('/email/track/open/:token',         [EmailController::class, 'trackOpen']);
+
 // ── Multiempresa (Conexto) ───────────────────────────────────
 $router->post('/context/switch',    [UserSettingsController::class, 'switchCompany']);
 $router->post('/context/create',    [UserSettingsController::class, 'createCompany']);
@@ -169,6 +217,40 @@ $router->post('/whatsapp/conversation/:id/interest-score', [WhatsAppController::
 $router->post('/whatsapp/conversation/:id/prepare-send',  [WhatsAppController::class, 'prepareSend']);
 $router->get('/whatsapp/webhook',                [WhatsAppController::class, 'webhookHandler']);
 $router->post('/whatsapp/webhook',               [WhatsAppController::class, 'webhookHandler']);
+
+// ── Playbook de Vendas ──────────────────────────────────────
+$router->get('/playbook',                    [PlaybookController::class, 'index']);
+$router->post('/playbook/progress',          [PlaybookController::class, 'toggleProgress']);
+$router->get('/playbook/admin',              [PlaybookController::class, 'admin']);
+$router->post('/playbook/module',            [PlaybookController::class, 'createModule']);
+$router->post('/playbook/module/:id/update', [PlaybookController::class, 'updateModule']);
+$router->post('/playbook/module/:id/delete', [PlaybookController::class, 'deleteModule']);
+$router->post('/playbook/module/:id/toggle', [PlaybookController::class, 'togglePublish']);
+$router->post('/playbook/module/reorder',    [PlaybookController::class, 'reorderModules']);
+$router->post('/playbook/block',             [PlaybookController::class, 'createBlock']);
+$router->post('/playbook/block/:id/update',  [PlaybookController::class, 'updateBlock']);
+$router->post('/playbook/block/:id/delete',  [PlaybookController::class, 'deleteBlock']);
+$router->post('/playbook/block/reorder',     [PlaybookController::class, 'reorderBlocks']);
+
+// ── Formulários Dinâmicos de Qualificação ───────────────────
+$router->get('/forms',                         [FormController::class, 'index']);
+$router->get('/forms/new',                     [FormController::class, 'builder']);
+$router->get('/forms/:id/builder',             [FormController::class, 'builder']);
+$router->post('/forms/:id/update',             [FormController::class, 'updateForm']);
+$router->post('/forms/:id/delete',             [FormController::class, 'deleteForm']);
+$router->post('/forms/:id/duplicate',          [FormController::class, 'duplicateForm']);
+$router->post('/forms/:id/questions',          [FormController::class, 'saveQuestions']);
+$router->post('/forms/:id/toggle',             [FormController::class, 'toggleStatus']);
+$router->get('/forms/:id/fill',                [FormController::class, 'internalFill']);
+$router->post('/forms/:id/submit',             [FormController::class, 'internalSubmit']);
+$router->get('/forms/:id/responses',           [FormController::class, 'responses']);
+$router->post('/forms/:id/ai/generate',        [FormController::class, 'aiGenerateQuestions']);
+$router->post('/forms/:id/ai/refine',          [FormController::class, 'aiRefine']);
+$router->get('/forms/lead/:id/responses',      [FormController::class, 'leadResponses']);
+
+// ── Formulário Público (sem auth) ───────────────────────────
+$router->get('/f/:slug',                       [FormController::class, 'publicForm']);
+$router->post('/f/:slug/submit',               [FormController::class, 'publicSubmit']);
 
 // ── Copilot (Full Page) ─────────────────────────────────────
 $router->get('/copilot', function() {
@@ -210,5 +292,6 @@ $router->post('/api/ext/qualify',    [ExtensionApiController::class, 'qualify'])
 $router->post('/api/ext/analyze-visual', [ExtensionApiController::class, 'analyzeVisual']);
 $router->post('/api/ext/copilot',    [ExtensionApiController::class, 'copilot']);
 $router->post('/api/ext/save-analysis', [ExtensionApiController::class, 'saveAnalysis']);
+$router->post('/api/ext/switch-tenant', [ExtensionApiController::class, 'switchTenant']);
 $router->get('/api/ext/me',          [ExtensionApiController::class, 'me']);
 $router->get('/api/ext/segments',    [ExtensionApiController::class, 'segments']);

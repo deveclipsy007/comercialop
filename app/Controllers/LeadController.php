@@ -34,12 +34,30 @@ class LeadController
         $segment  = $_GET['segment'] ?? '';
         $search   = $_GET['q'] ?? '';
         $minScore = $_GET['min_score'] ?? 0;
+        $stage    = $_GET['stage'] ?? '';
+        $temperature = strtoupper(trim((string) ($_GET['temperature'] ?? '')));
+        $analysisStatus = $_GET['analysis_status'] ?? '';
+        $hasWebsite = $_GET['has_website'] ?? '';
+        $hasPhone = $_GET['has_phone'] ?? '';
+        $sort = $_GET['sort'] ?? 'priority_desc';
+
+        $sortMap = [
+            'priority_desc' => 'priority_score DESC',
+            'recent_desc'   => 'created_at DESC',
+            'updated_desc'  => 'updated_at DESC',
+            'name_asc'      => 'name ASC',
+        ];
 
         $leads = Lead::allByTenant($tenantId, [
+            'stage'     => $stage ?: null,
             'segment'   => $segment ?: null,
             'search'    => $search ?: null,
+            'temperature' => in_array($temperature, ['HOT', 'WARM', 'COLD'], true) ? $temperature : null,
+            'analysis_status' => in_array($analysisStatus, ['analyzed', 'not_analyzed'], true) ? $analysisStatus : null,
+            'has_website' => $hasWebsite === 'yes' ? true : ($hasWebsite === 'no' ? false : null),
+            'has_phone' => $hasPhone === 'yes' ? true : ($hasPhone === 'no' ? false : null),
             'min_score' => (int) $minScore,
-            'order'     => 'priority_score DESC',
+            'order'     => $sortMap[$sort] ?? $sortMap['priority_desc'],
         ]);
 
         // Group by pipeline status for Kanban
@@ -64,7 +82,17 @@ class LeadController
             'leads'        => $leads,
             'columns'      => $columns,
             'view'         => $view,
-            'filters'      => compact('segment', 'search', 'minScore'),
+            'filters'      => [
+                'segment' => $segment,
+                'search' => $search,
+                'minScore' => (int) $minScore,
+                'stage' => $stage,
+                'temperature' => in_array($temperature, ['HOT', 'WARM', 'COLD'], true) ? $temperature : '',
+                'analysisStatus' => in_array($analysisStatus, ['analyzed', 'not_analyzed'], true) ? $analysisStatus : '',
+                'hasWebsite' => in_array($hasWebsite, ['yes', 'no'], true) ? $hasWebsite : '',
+                'hasPhone' => in_array($hasPhone, ['yes', 'no'], true) ? $hasPhone : '',
+                'sort' => array_key_exists($sort, $sortMap) ? $sort : 'priority_desc',
+            ],
             'tokenBalance' => $tokenBalance,
             'stages'       => Lead::STAGES,
         ]);

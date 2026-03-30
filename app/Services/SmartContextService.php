@@ -172,10 +172,12 @@ class SmartContextService
      * Centrado no LEAD como prospect, com empresa como apoio e
      * oferta Operon para triangulação comercial.
      *
-     * Inclui dados enriquecidos (rating, reviews, horários, Google Maps, redes sociais).
+     * Inclui dados enriquecidos (rating, reviews, horários, Google Maps e sinais públicos).
      */
-    public function buildDeepIntelligenceContext(array $lead, array $agencySettings = []): string
+    public function buildDeepIntelligenceContext(array $lead, array $agencySettings = [], array $options = []): string
     {
+        $includeSocialSignals = (bool) ($options['include_social_signals'] ?? true);
+
         // Carregar perfil REAL do DB
         $tenantId = $lead['tenant_id'] ?? '';
         $agency = $tenantId
@@ -207,22 +209,11 @@ class SmartContextService
             $reviewsText = "    • " . $reviewsText;
         }
 
-        // Social presence
-        $social = $lead['social_presence'] ?? [];
-        if (is_string($social)) $social = json_decode($social, true) ?? [];
-        $socialLines = [];
-        if (!empty($social['instagram'])) $socialLines[] = "Instagram: {$social['instagram']}";
-        if (!empty($social['facebook']))  $socialLines[] = "Facebook: {$social['facebook']}";
-        if (!empty($social['linkedin']))  $socialLines[] = "LinkedIn: {$social['linkedin']}";
-        $socialText = !empty($socialLines) ? implode(' | ', $socialLines) : 'Não mapeada';
-
         // Dados de análise prévia
         $analysis     = $lead['analysis'] ?? [];
         $maturity     = $analysis['digitalMaturity'] ?? 'Não avaliada';
-        $painPoints   = is_array($analysis['diagnosis'] ?? null)
-            ? implode('; ', $analysis['diagnosis']) : '';
-        $opportunities = is_array($analysis['opportunities'] ?? null)
-            ? implode('; ', $analysis['opportunities']) : '';
+        $painPoints   = $this->flattenStructuredList($analysis['diagnosis'] ?? []);
+        $opportunities = $this->flattenStructuredList($analysis['opportunities'] ?? []);
         $scoreExpl    = $analysis['scoreExplanation'] ?? '';
 
         // Contexto humano
@@ -230,6 +221,9 @@ class SmartContextService
         if (is_string($ctx)) $ctx = json_decode($ctx, true) ?? [];
         $humanCtx  = $ctx['context'] ?? '';
         $temp      = $ctx['temperature'] ?? '';
+        $timingStatus = $ctx['timingStatus'] ?? '';
+        $objectionCategory = $ctx['objectionCategory'] ?? '';
+        $sellerNotes = $ctx['notes'] ?? '';
 
         // Tags
         $tags = $lead['tags'] ?? [];
@@ -239,6 +233,41 @@ class SmartContextService
         // Score
         $fitScore      = $lead['fit_score'] ?? 0;
         $priorityScore = $lead['priority_score'] ?? 0;
+        $pipelineStatus = $lead['pipeline_status'] ?? '';
+        $nextFollowupAt = $lead['next_followup_at'] ?? '';
+        $createdAt = $lead['created_at'] ?? '';
+        $updatedAt = $lead['updated_at'] ?? '';
+
+        // Timeline recente
+        $recentActivities = $lead['recent_activities'] ?? [];
+        if (is_string($recentActivities)) {
+            $recentActivities = json_decode($recentActivities, true) ?? [];
+        }
+        $recentActivitiesText = '';
+        if (is_array($recentActivities) && !empty($recentActivities)) {
+            $lines = [];
+            foreach (array_slice($recentActivities, 0, 6) as $activity) {
+                if (!is_array($activity)) {
+                    continue;
+                }
+
+                $title = trim((string) ($activity['title'] ?? $activity['type'] ?? 'Atividade'));
+                $content = trim((string) ($activity['content'] ?? ''));
+                $when = trim((string) ($activity['created_at'] ?? ''));
+
+                $line = '• ' . $title;
+                if ($when !== '') {
+                    $line .= ' (' . $when . ')';
+                }
+                if ($content !== '') {
+                    $line .= ' — ' . $content;
+                }
+
+                $lines[] = $line;
+            }
+
+            $recentActivitiesText = implode("\n", $lines);
+        }
 
         // ── Contexto da Empresa (REAL do DB) ──
         $services = implode(', ', $agency['offer_services'] ?? []);
@@ -313,9 +342,18 @@ CONTEXT;
             $context .= "\nDepoimentos de clientes:\n{$reviewsText}";
         }
 
-        $context .= "\n\n--- PRESENÇA DIGITAL ---";
-        $context .= "\nRedes sociais: {$socialText}";
-        $context .= "\nMaturidade digital: {$maturity}";
+        $context .= "\n\n--- ESTRUTURA WEB & DADOS PÚBLICOS ---";
+        $context .= "\nMaturidade estrutural prévia: {$maturity}";
+        if ($includeSocialSignals) {
+            $social = $lead['social_presence'] ?? [];
+            if (is_string($social)) $social = json_decode($social, true) ?? [];
+            $socialLines = [];
+            if (!empty($social['instagram'])) $socialLines[] = "Instagram: {$social['instagram']}";
+            if (!empty($social['facebook']))  $socialLines[] = "Facebook: {$social['facebook']}";
+            if (!empty($social['linkedin']))  $socialLines[] = "LinkedIn: {$social['linkedin']}";
+            $socialText = !empty($socialLines) ? implode(' | ', $socialLines) : 'Não mapeada';
+            $context .= "\nRedes sociais: {$socialText}";
+        }
 
         if ($openingHours || $closingHours) {
             $context .= "\n\n--- FUNCIONAMENTO ---";
@@ -327,11 +365,19 @@ CONTEXT;
         $context .= "\nScore de prioridade: {$priorityScore}";
         $context .= "\nFit score (ICP): {$fitScore}/100";
         if ($temp) $context .= "\nTemperatura do lead: {$temp}";
+        if ($pipelineStatus) $context .= "\nEstágio no pipeline: " . stageLabel($pipelineStatus);
+        if ($timingStatus) $context .= "\nTiming percebido: {$timingStatus}";
+        if ($objectionCategory) $context .= "\nObjeção principal registrada: {$objectionCategory}";
+        if ($nextFollowupAt) $context .= "\nPróximo follow-up agendado: {$nextFollowupAt}";
+        if ($createdAt) $context .= "\nLead criado em: {$createdAt}";
+        if ($updatedAt) $context .= "\nÚltima atualização: {$updatedAt}";
         if ($tagsText) $context .= "\nTags: {$tagsText}";
         if ($painPoints) $context .= "\nDores identificadas: {$painPoints}";
         if ($opportunities) $context .= "\nOportunidades detectadas: {$opportunities}";
         if ($scoreExpl) $context .= "\nExplicação do score: {$scoreExpl}";
         if ($humanCtx) $context .= "\nContexto do vendedor: {$humanCtx}";
+        if ($sellerNotes) $context .= "\nNotas operacionais do vendedor: {$sellerNotes}";
+        if ($recentActivitiesText) $context .= "\n\n--- TIMELINE RECENTE DO LEAD ---\n{$recentActivitiesText}";
 
         // ── CONTEXTO DA EMPRESA (perfil real do DB) ──
         $context .= "\n\n===== CONTEXTO DA EMPRESA VENDEDORA (BASE ESTRATÉGICA — use como fundamento) =====";
@@ -381,6 +427,44 @@ CONTEXT;
         $context .= "\n=========================";
 
         return $context;
+    }
+
+    private function flattenStructuredList(mixed $items, int $limit = 4): string
+    {
+        if (!is_array($items) || empty($items)) {
+            return '';
+        }
+
+        $lines = [];
+        foreach ($items as $item) {
+            if (is_string($item)) {
+                $text = trim($item);
+                if ($text !== '') {
+                    $lines[] = $text;
+                }
+                continue;
+            }
+
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $parts = array_filter([
+                trim((string) ($item['title'] ?? $item['headline'] ?? '')),
+                trim((string) ($item['detail'] ?? $item['description'] ?? $item['reason'] ?? '')),
+                trim((string) ($item['evidence'] ?? $item['signal'] ?? '')),
+            ]);
+
+            if (!empty($parts)) {
+                $lines[] = implode(' — ', $parts);
+            }
+        }
+
+        if (empty($lines)) {
+            return '';
+        }
+
+        return implode('; ', array_slice($lines, 0, $limit));
     }
 
     /**

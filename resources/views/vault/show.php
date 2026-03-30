@@ -3,12 +3,168 @@ use App\Models\Lead;
 /** @var array $lead */
 /** @var array $tokenBalance */
 $analysis  = $lead['analysis'] ?? [];
-$social    = $lead['social_presence'] ?? [];
 $ctx       = $lead['human_context'] ?? [];
 $cnpj      = $lead['cnpj_data'] ?? [];
 $ps        = $lead['pagespeed_data'] ?? [];
 $tags      = $lead['tags'] ?? [];
+$leadSocialProfiles = is_array($lead['social_presence'] ?? null) ? $lead['social_presence'] : [];
 $score     = $lead['priority_score'] ?? 0;
+$stageDotColors = [
+    'new' => '#202020',
+    'analyzed' => '#34D399',
+    'contacted' => '#2A2A2A',
+    'qualified' => '#A1A1AA',
+    'proposal' => '#F5F5F5',
+    'closed_won' => '#E1FB15',
+    'closed_lost' => '#EF4444',
+];
+
+$normalizeInsightCards = static function ($items): array {
+    if (!is_array($items)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($items as $item) {
+        if (is_string($item)) {
+            $text = trim($item);
+            if ($text === '') {
+                continue;
+            }
+
+            $normalized[] = [
+                'title' => mb_strlen($text, 'UTF-8') > 64 ? mb_substr($text, 0, 64, 'UTF-8') . '…' : $text,
+                'detail' => $text,
+                'evidence' => '',
+                'impact' => '',
+                'priority' => '',
+            ];
+            continue;
+        }
+
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $title = trim((string) ($item['title'] ?? $item['headline'] ?? ''));
+        $detail = trim((string) ($item['detail'] ?? $item['description'] ?? $item['reason'] ?? ''));
+        $evidence = trim((string) ($item['evidence'] ?? $item['signal'] ?? $item['proof'] ?? ''));
+        $impact = trim((string) ($item['impact'] ?? $item['expectedOutcome'] ?? ''));
+        $priority = trim((string) ($item['priority'] ?? ''));
+
+        if ($title === '' && $detail === '') {
+            continue;
+        }
+
+        if ($detail === '') {
+            $detail = $title;
+        }
+
+        if ($title === '') {
+            $title = mb_strlen($detail, 'UTF-8') > 64 ? mb_substr($detail, 0, 64, 'UTF-8') . '…' : $detail;
+        }
+
+        $normalized[] = [
+            'title' => $title,
+            'detail' => $detail,
+            'evidence' => $evidence,
+            'impact' => $impact,
+            'priority' => $priority,
+        ];
+    }
+
+    return $normalized;
+};
+
+$normalizeTextList = static function ($items): array {
+    if (!is_array($items)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($items as $item) {
+        if (is_string($item)) {
+            $text = trim($item);
+        } elseif (is_array($item)) {
+            $text = trim((string) ($item['text'] ?? $item['title'] ?? $item['detail'] ?? $item['description'] ?? $item['reason'] ?? ''));
+        } else {
+            $text = '';
+        }
+
+        if ($text !== '') {
+            $normalized[] = $text;
+        }
+    }
+
+    return array_values(array_unique($normalized));
+};
+
+$normalizeServiceList = static function ($items): array {
+    if (!is_array($items)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $service = trim((string) ($item['service'] ?? $item['name'] ?? ''));
+        $reason = trim((string) ($item['reason'] ?? $item['detail'] ?? ''));
+        $priority = trim((string) ($item['priority'] ?? ''));
+        $expectedOutcome = trim((string) ($item['expectedOutcome'] ?? $item['impact'] ?? ''));
+
+        if ($service === '' || $reason === '') {
+            continue;
+        }
+
+        $normalized[] = [
+            'service' => $service,
+            'reason' => $reason,
+            'priority' => $priority,
+            'expectedOutcome' => $expectedOutcome,
+        ];
+    }
+
+    return $normalized;
+};
+
+$priorityClass = static function (string $priority): string {
+    return match (mb_strtolower(trim($priority), 'UTF-8')) {
+        'alta', 'high' => 'bg-lime/10 text-lime border-lime/20',
+        'baixa', 'low' => 'bg-white/5 text-muted border-stroke',
+        default => 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    };
+};
+
+$diagnosisItems = $normalizeInsightCards($analysis['diagnosis'] ?? []);
+$opportunityItems = $normalizeInsightCards($analysis['opportunities'] ?? []);
+$recommendationItems = $normalizeTextList($analysis['recommendations'] ?? []);
+$riskItems = $normalizeTextList($analysis['risksAndObjections'] ?? []);
+$missingInfoItems = $normalizeTextList($analysis['missingInformation'] ?? []);
+$evidenceItems = $normalizeTextList($analysis['evidence'] ?? []);
+$proposalConnection = is_array($analysis['proposalConnection'] ?? null) ? $analysis['proposalConnection'] : [];
+$approachPlan = is_array($analysis['approachPlan'] ?? null) ? $analysis['approachPlan'] : [];
+$leadSituation = is_array($analysis['leadSituation'] ?? null) ? $analysis['leadSituation'] : [];
+$recommendedServices = $normalizeServiceList($proposalConnection['recommendedServices'] ?? []);
+$discoveryFocus = $normalizeTextList($approachPlan['discoveryFocus'] ?? []);
+$objectionHandling = $normalizeTextList($approachPlan['objectionHandling'] ?? []);
+$hasLeadSituation = !empty(array_filter([
+    $leadSituation['businessSnapshot'] ?? '',
+    $leadSituation['commercialMoment'] ?? '',
+    $leadSituation['valueHypothesis'] ?? '',
+]));
+$hasProposalConnection = !empty(array_filter([
+    $proposalConnection['coreNarrative'] ?? '',
+    $proposalConnection['whyNow'] ?? '',
+    $proposalConnection['positioningAngle'] ?? '',
+    $proposalConnection['dealPotential'] ?? '',
+])) || !empty($recommendedServices);
+$hasApproachPlan = !empty(array_filter([
+    $approachPlan['openingHook'] ?? '',
+    $approachPlan['nextStepCTA'] ?? '',
+])) || !empty($discoveryFocus) || !empty($objectionHandling);
 ?>
 
 <div class="flex items-center gap-4 mb-8">
@@ -80,7 +236,7 @@ $score     = $lead['priority_score'] ?? 0;
                     Diagnóstico IA
                 </h2>
                 <div class="flex flex-col items-end">
-                    <span class="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-1">Maturidade Digital</span>
+                    <span class="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-1">Maturidade Estrutural</span>
                     <span class="text-sm font-bold text-lime"><?= e($analysis['digitalMaturity'] ?? '—') ?></span>
                 </div>
             </div>
@@ -95,33 +251,84 @@ $score     = $lead['priority_score'] ?? 0;
             <p class="text-text text-sm mb-8 leading-relaxed"><?= e($analysis['summary']) ?></p>
             <?php endif; ?>
 
+            <?php if ($hasLeadSituation): ?>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <?php if (!empty($leadSituation['businessSnapshot'])): ?>
+                <div class="bg-surface2 rounded-xl p-5 border border-stroke">
+                    <p class="text-[11px] font-bold text-white/60 uppercase tracking-[0.1em] mb-3">Situação Atual</p>
+                    <p class="text-sm text-text leading-relaxed"><?= e($leadSituation['businessSnapshot']) ?></p>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($leadSituation['commercialMoment'])): ?>
+                <div class="bg-surface2 rounded-xl p-5 border border-stroke">
+                    <p class="text-[11px] font-bold text-amber-400 uppercase tracking-[0.1em] mb-3">Momento Comercial</p>
+                    <p class="text-sm text-text leading-relaxed"><?= e($leadSituation['commercialMoment']) ?></p>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($leadSituation['valueHypothesis'])): ?>
+                <div class="bg-surface2 rounded-xl p-5 border border-stroke">
+                    <p class="text-[11px] font-bold text-lime uppercase tracking-[0.1em] mb-3">Hipótese de Valor</p>
+                    <p class="text-sm text-text leading-relaxed"><?= e($leadSituation['valueHypothesis']) ?></p>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <?php if (!empty($analysis['diagnosis'])): ?>
+                <?php if (!empty($diagnosisItems)): ?>
                 <div class="bg-surface2 rounded-xl p-5 border border-stroke">
                     <p class="text-[11px] font-bold text-red-500 uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
                         <span class="size-1.5 rounded-full bg-red-500"></span> Problemas Críticos
                     </p>
-                    <ul class="space-y-3">
-                        <?php foreach ($analysis['diagnosis'] as $item): ?>
-                        <li class="flex items-start gap-2.5 text-sm text-subtle">
-                            <span class="material-symbols-outlined text-red-500 text-[16px] mt-0.5 shrink-0">warning</span>
-                            <?= e($item) ?>
+                    <ul class="space-y-4">
+                        <?php foreach ($diagnosisItems as $item): ?>
+                        <li class="rounded-xl border border-red-500/10 bg-red-500/[0.03] p-4">
+                            <div class="flex items-start gap-2.5">
+                                <span class="material-symbols-outlined text-red-500 text-[16px] mt-0.5 shrink-0">warning</span>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-text mb-1"><?= e($item['title']) ?></p>
+                                    <p class="text-sm text-subtle leading-relaxed"><?= e($item['detail']) ?></p>
+                                    <?php if (!empty($item['evidence'])): ?>
+                                    <p class="text-xs text-red-300/90 mt-3 flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[14px] mt-0.5">data_object</span>
+                                        <span><?= e($item['evidence']) ?></span>
+                                    </p>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                         </li>
                         <?php endforeach; ?>
                     </ul>
                 </div>
                 <?php endif; ?>
 
-                <?php if (!empty($analysis['opportunities'])): ?>
+                <?php if (!empty($opportunityItems)): ?>
                 <div class="bg-surface2 rounded-xl p-5 border border-stroke">
                     <p class="text-[11px] font-bold text-mint uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
                         <span class="size-1.5 rounded-full bg-mint"></span> Oportunidades
                     </p>
-                    <ul class="space-y-3">
-                        <?php foreach ($analysis['opportunities'] as $item): ?>
-                        <li class="flex items-start gap-2.5 text-sm text-subtle">
-                            <span class="material-symbols-outlined text-mint text-[16px] mt-0.5 shrink-0">check_circle</span>
-                            <?= e($item) ?>
+                    <ul class="space-y-4">
+                        <?php foreach ($opportunityItems as $item): ?>
+                        <li class="rounded-xl border border-mint/10 bg-mint/[0.03] p-4">
+                            <div class="flex items-start gap-2.5">
+                                <span class="material-symbols-outlined text-mint text-[16px] mt-0.5 shrink-0">check_circle</span>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-text mb-1"><?= e($item['title']) ?></p>
+                                    <p class="text-sm text-subtle leading-relaxed"><?= e($item['detail']) ?></p>
+                                    <?php if (!empty($item['impact'])): ?>
+                                    <p class="text-xs text-mint/90 mt-3 flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[14px] mt-0.5">trending_up</span>
+                                        <span><?= e($item['impact']) ?></span>
+                                    </p>
+                                    <?php endif; ?>
+                                    <?php if (!empty($item['evidence'])): ?>
+                                    <p class="text-xs text-white/55 mt-2 flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[14px] mt-0.5">data_object</span>
+                                        <span><?= e($item['evidence']) ?></span>
+                                    </p>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                         </li>
                         <?php endforeach; ?>
                     </ul>
@@ -129,28 +336,188 @@ $score     = $lead['priority_score'] ?? 0;
                 <?php endif; ?>
             </div>
 
-            <?php if (!empty($analysis['recommendations'])): ?>
-            <div class="mt-6 bg-surface2 rounded-xl p-5 border border-stroke">
+            <?php if ($hasProposalConnection): ?>
+            <div class="mt-6 p-5 rounded-xl bg-lime/5 border border-lime/20">
                 <p class="text-[11px] font-bold text-lime uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
-                    <span class="size-1.5 rounded-full bg-lime"></span> Recomendações de Abordagem
+                    <span class="material-symbols-outlined text-[14px]">handshake</span> Conexão com a Proposta
                 </p>
-                <ul class="space-y-3">
-                    <?php foreach ($analysis['recommendations'] as $item): ?>
-                    <li class="flex items-start gap-2.5 text-sm text-subtle">
-                        <span class="material-symbols-outlined text-lime text-[16px] mt-0.5 shrink-0">arrow_circle_right</span>
-                        <?= e($item) ?>
-                    </li>
+
+                <?php if (!empty($proposalConnection['coreNarrative']) || !empty($analysis['operonFit'])): ?>
+                <p class="text-sm text-text leading-relaxed mb-4">
+                    <?= e($proposalConnection['coreNarrative'] ?? $analysis['operonFit']) ?>
+                </p>
+                <?php endif; ?>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <?php if (!empty($proposalConnection['whyNow'])): ?>
+                    <div class="bg-black/10 border border-white/5 rounded-xl p-4">
+                        <p class="text-[10px] font-bold text-amber-400 uppercase tracking-[0.1em] mb-2">Por Que Agora</p>
+                        <p class="text-sm text-subtle leading-relaxed"><?= e($proposalConnection['whyNow']) ?></p>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (!empty($proposalConnection['positioningAngle'])): ?>
+                    <div class="bg-black/10 border border-white/5 rounded-xl p-4">
+                        <p class="text-[10px] font-bold text-white/60 uppercase tracking-[0.1em] mb-2">Ângulo de Posicionamento</p>
+                        <p class="text-sm text-subtle leading-relaxed"><?= e($proposalConnection['positioningAngle']) ?></p>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (!empty($proposalConnection['dealPotential'])): ?>
+                    <div class="bg-black/10 border border-white/5 rounded-xl p-4">
+                        <p class="text-[10px] font-bold text-mint uppercase tracking-[0.1em] mb-2">Potencial do Deal</p>
+                        <p class="text-sm text-subtle leading-relaxed"><?= e($proposalConnection['dealPotential']) ?></p>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!empty($recommendedServices)): ?>
+                <div class="mt-5 space-y-3">
+                    <p class="text-[10px] font-bold text-lime uppercase tracking-[0.1em]">Serviços Mais Aderentes</p>
+                    <?php foreach ($recommendedServices as $service): ?>
+                    <div class="rounded-xl border border-lime/10 bg-black/10 p-4">
+                        <div class="flex items-center justify-between gap-3 mb-2">
+                            <p class="text-sm font-semibold text-text"><?= e($service['service']) ?></p>
+                            <?php if (!empty($service['priority'])): ?>
+                            <span class="px-2.5 py-1 rounded-pill text-[10px] font-bold border <?= $priorityClass($service['priority']) ?>">
+                                <?= e($service['priority']) ?>
+                            </span>
+                            <?php endif; ?>
+                        </div>
+                        <p class="text-sm text-subtle leading-relaxed"><?= e($service['reason']) ?></p>
+                        <?php if (!empty($service['expectedOutcome'])): ?>
+                        <p class="text-xs text-lime/85 mt-3 flex items-start gap-2">
+                            <span class="material-symbols-outlined text-[14px] mt-0.5">target</span>
+                            <span><?= e($service['expectedOutcome']) ?></span>
+                        </p>
+                        <?php endif; ?>
+                    </div>
                     <?php endforeach; ?>
-                </ul>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php elseif (!empty($analysis['operonFit'])): ?>
+            <div class="mt-6 p-5 rounded-xl bg-lime/5 border border-lime/20">
+                <p class="text-[11px] font-bold text-lime uppercase tracking-[0.1em] mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[14px]">handshake</span> Encaixe com a Proposta
+                </p>
+                <p class="text-sm text-text leading-relaxed"><?= e($analysis['operonFit']) ?></p>
             </div>
             <?php endif; ?>
 
-            <?php if (!empty($analysis['operonFit'])): ?>
-            <div class="mt-6 p-5 rounded-xl bg-lime/5 border border-lime/20">
-                <p class="text-[11px] font-bold text-lime uppercase tracking-[0.1em] mb-3 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[14px]">handshake</span> Encaixe com a Operon
+            <?php if ($hasApproachPlan || !empty($recommendationItems)): ?>
+            <div class="mt-6 bg-surface2 rounded-xl p-5 border border-stroke">
+                <p class="text-[11px] font-bold text-lime uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
+                    <span class="size-1.5 rounded-full bg-lime"></span> Plano de Abordagem
                 </p>
-                <p class="text-sm text-text leading-relaxed"><?= e($analysis['operonFit']) ?></p>
+
+                <?php if (!empty($approachPlan['openingHook'])): ?>
+                <div class="mb-5 p-4 rounded-xl bg-black/10 border border-white/5">
+                    <p class="text-[10px] font-bold text-white/60 uppercase tracking-[0.1em] mb-2">Gancho de Abertura</p>
+                    <p class="text-sm text-text leading-relaxed"><?= e($approachPlan['openingHook']) ?></p>
+                </div>
+                <?php endif; ?>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <?php if (!empty($discoveryFocus)): ?>
+                    <div>
+                        <p class="text-[10px] font-bold text-amber-400 uppercase tracking-[0.1em] mb-3">Pontos de Descoberta</p>
+                        <ul class="space-y-2.5">
+                            <?php foreach ($discoveryFocus as $item): ?>
+                            <li class="flex items-start gap-2.5 text-sm text-subtle">
+                                <span class="material-symbols-outlined text-amber-400 text-[16px] mt-0.5 shrink-0">help</span>
+                                <?= e($item) ?>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($objectionHandling)): ?>
+                    <div>
+                        <p class="text-[10px] font-bold text-red-400 uppercase tracking-[0.1em] mb-3">Objeções Prováveis</p>
+                        <ul class="space-y-2.5">
+                            <?php foreach ($objectionHandling as $item): ?>
+                            <li class="flex items-start gap-2.5 text-sm text-subtle">
+                                <span class="material-symbols-outlined text-red-400 text-[16px] mt-0.5 shrink-0">shield</span>
+                                <?= e($item) ?>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!empty($recommendationItems)): ?>
+                <div class="mt-5">
+                    <p class="text-[10px] font-bold text-lime uppercase tracking-[0.1em] mb-3">Ações Recomendadas</p>
+                    <ul class="space-y-2.5">
+                        <?php foreach ($recommendationItems as $item): ?>
+                        <li class="flex items-start gap-2.5 text-sm text-subtle">
+                            <span class="material-symbols-outlined text-lime text-[16px] mt-0.5 shrink-0">arrow_circle_right</span>
+                            <?= e($item) ?>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($approachPlan['nextStepCTA'])): ?>
+                <div class="mt-5 p-4 rounded-xl bg-lime/5 border border-lime/20">
+                    <p class="text-[10px] font-bold text-lime uppercase tracking-[0.1em] mb-2">Próximo Passo</p>
+                    <p class="text-sm text-text leading-relaxed"><?= e($approachPlan['nextStepCTA']) ?></p>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($evidenceItems) || !empty($riskItems) || !empty($missingInfoItems)): ?>
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+                <?php if (!empty($evidenceItems)): ?>
+                <div class="bg-surface2 rounded-xl p-5 border border-stroke">
+                    <p class="text-[11px] font-bold text-white/60 uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[14px]">fact_check</span> Evidências Usadas
+                    </p>
+                    <ul class="space-y-2.5">
+                        <?php foreach ($evidenceItems as $item): ?>
+                        <li class="flex items-start gap-2.5 text-sm text-subtle">
+                            <span class="material-symbols-outlined text-lime text-[16px] mt-0.5 shrink-0">done</span>
+                            <?= e($item) ?>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($riskItems)): ?>
+                <div class="bg-surface2 rounded-xl p-5 border border-stroke">
+                    <p class="text-[11px] font-bold text-red-400 uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[14px]">gpp_maybe</span> Riscos e Objeções
+                    </p>
+                    <ul class="space-y-2.5">
+                        <?php foreach ($riskItems as $item): ?>
+                        <li class="flex items-start gap-2.5 text-sm text-subtle">
+                            <span class="material-symbols-outlined text-red-400 text-[16px] mt-0.5 shrink-0">priority_high</span>
+                            <?= e($item) ?>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($missingInfoItems)): ?>
+                <div class="bg-surface2 rounded-xl p-5 border border-stroke">
+                    <p class="text-[11px] font-bold text-amber-400 uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[14px]">plagiarism</span> O Que Ainda Falta
+                    </p>
+                    <ul class="space-y-2.5">
+                        <?php foreach ($missingInfoItems as $item): ?>
+                        <li class="flex items-start gap-2.5 text-sm text-subtle">
+                            <span class="material-symbols-outlined text-amber-400 text-[16px] mt-0.5 shrink-0">info</span>
+                            <?= e($item) ?>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
 
@@ -240,7 +607,46 @@ $score     = $lead['priority_score'] ?? 0;
                     
                     <!-- Content Area -->
                     <div id="intel-content-<?= e($key) ?>" class="text-sm text-subtle leading-relaxed overflow-y-auto max-h-48 pr-2 flex-grow mb-4">
-                        <?php if (empty($resultContent)): ?>
+                        <?php if ($key === 'social_presence'): ?>
+                            <div class="space-y-3">
+                                <p class="text-xs text-muted/70 italic"><?= e($intel['description']) ?></p>
+
+                                <div class="space-y-2">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-1.5">Instagram</label>
+                                        <input
+                                            type="text"
+                                            id="social-instagram-input"
+                                            value="<?= e($leadSocialProfiles['instagram'] ?? '') ?>"
+                                            placeholder="@perfil ou https://instagram.com/perfil"
+                                            class="w-full h-9 bg-bg border border-stroke rounded-xl px-3 text-xs text-text placeholder:text-muted focus:border-lime/40 outline-none transition-colors"
+                                        >
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-1.5">LinkedIn</label>
+                                        <input
+                                            type="text"
+                                            id="social-linkedin-input"
+                                            value="<?= e($leadSocialProfiles['linkedin'] ?? '') ?>"
+                                            placeholder="https://linkedin.com/company/... ou /in/..."
+                                            class="w-full h-9 bg-bg border border-stroke rounded-xl px-3 text-xs text-text placeholder:text-muted focus:border-lime/40 outline-none transition-colors"
+                                        >
+                                    </div>
+                                </div>
+
+                                <div id="social-profiles-note" class="text-[11px] text-muted min-h-[16px]"></div>
+
+                                <div id="social-analysis-result" class="pt-3 border-t border-stroke">
+                                    <?php if (empty($resultContent)): ?>
+                                        <span class="text-muted italic flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-[14px]">hourglass_empty</span> Aguardando geração...
+                                        </span>
+                                    <?php else: ?>
+                                        <?= $resultContent ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php elseif (empty($resultContent)): ?>
                             <p class="text-xs text-muted/70 italic mb-2"><?= e($intel['description']) ?></p>
                             <span class="text-muted italic flex items-center gap-2">
                                 <span class="material-symbols-outlined text-[14px]">hourglass_empty</span> Aguardando geração...
@@ -255,16 +661,26 @@ $score     = $lead['priority_score'] ?? 0;
                         <div class="flex items-center gap-1.5 text-xs font-medium text-amber-500/80 bg-amber-500/5 px-2 py-1 rounded-md border border-amber-500/20">
                             <span class="material-symbols-outlined text-[14px]">generating_tokens</span> <?= e($intel['tokens']) ?>
                         </div>
-                        
-                        <button id="btn-run-intel-<?= e($key) ?>" 
-                                onclick="runDeepIntelligence('<?= e($lead['id']) ?>', '<?= e($key) ?>')"
-                                class="h-8 px-4 rounded-pill <?= $status === 'completed' ? 'bg-surface3 text-text hover:bg-surface border border-stroke' : 'bg-lime text-bg hover:brightness-110 shadow-glow' ?> text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
-                            <?php if($status === 'completed'): ?>
-                                <span class="material-symbols-outlined text-[14px]">refresh</span> Atualizar
-                            <?php else: ?>
-                                <span class="material-symbols-outlined text-[14px]">magic_button</span> Gerar
+
+                        <div class="flex items-center gap-2">
+                            <?php if ($key === 'social_presence'): ?>
+                            <button id="btn-discover-social"
+                                    onclick="discoverLeadSocialProfiles('<?= e($lead['id']) ?>')"
+                                    class="h-8 px-3 rounded-pill bg-white/5 hover:bg-white/10 border border-stroke text-text text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span class="material-symbols-outlined text-[14px]">bolt</span> Buscar
+                            </button>
                             <?php endif; ?>
-                        </button>
+
+                            <button id="btn-run-intel-<?= e($key) ?>" 
+                                    onclick="runDeepIntelligence('<?= e($lead['id']) ?>', '<?= e($key) ?>')"
+                                    class="h-8 px-4 rounded-pill <?= $status === 'completed' ? 'bg-surface3 text-text hover:bg-surface border border-stroke' : 'bg-lime text-bg hover:brightness-110 shadow-glow' ?> text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <?php if($status === 'completed'): ?>
+                                    <span class="material-symbols-outlined text-[14px]">refresh</span> Atualizar
+                                <?php else: ?>
+                                    <span class="material-symbols-outlined text-[14px]">magic_button</span> Gerar
+                                <?php endif; ?>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -930,23 +1346,23 @@ $score     = $lead['priority_score'] ?? 0;
             </div>
 
             <!-- Social presence -->
-            <?php if (!empty(array_filter($social))): ?>
+            <?php if (!empty(array_filter($leadSocialProfiles))): ?>
             <div class="mt-6 pt-5 border-t border-stroke">
                 <p class="text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-3">Presença Digital</p>
                 <div class="flex flex-wrap gap-2">
-                    <?php if (!empty($social['instagram'])): ?>
+                    <?php if (!empty($leadSocialProfiles['instagram'])): ?>
                     <span class="flex items-center gap-1.5 text-xs bg-surface2 border border-stroke text-text rounded-md px-2.5 py-1.5 font-medium">
-                        <span class="material-symbols-outlined text-[14px] text-pink-500">photo_camera</span> <?= e($social['instagram']) ?>
+                        <span class="material-symbols-outlined text-[14px] text-pink-500">photo_camera</span> <?= e($leadSocialProfiles['instagram']) ?>
                     </span>
                     <?php endif; ?>
-                    <?php if (!empty($social['linkedin'])): ?>
+                    <?php if (!empty($leadSocialProfiles['linkedin'])): ?>
                     <span class="flex items-center gap-1.5 text-xs bg-surface2 border border-stroke text-text rounded-md px-2.5 py-1.5 font-medium">
-                        <span class="material-symbols-outlined text-[14px] text-blue-500">work</span> <?= e($social['linkedin']) ?>
+                        <span class="material-symbols-outlined text-[14px] text-blue-500">work</span> <?= e($leadSocialProfiles['linkedin']) ?>
                     </span>
                     <?php endif; ?>
-                    <?php if (!empty($social['facebook'])): ?>
+                    <?php if (!empty($leadSocialProfiles['facebook'])): ?>
                     <span class="flex items-center gap-1.5 text-xs bg-surface2 border border-stroke text-text rounded-md px-2.5 py-1.5 font-medium">
-                        <span class="material-symbols-outlined text-[14px] text-indigo-500">thumb_up</span> <?= e($social['facebook']) ?>
+                        <span class="material-symbols-outlined text-[14px] text-indigo-500">thumb_up</span> <?= e($leadSocialProfiles['facebook']) ?>
                     </span>
                     <?php endif; ?>
                 </div>
@@ -1305,6 +1721,108 @@ function hideAILoading() {
     }
 }
 
+function setSocialProfilesNote(message, tone = 'muted', notes = {}) {
+    const el = document.getElementById('social-profiles-note');
+    if (!el) return;
+
+    const toneClass = tone === 'success'
+        ? 'text-lime'
+        : (tone === 'warning' ? 'text-amber-400' : 'text-muted');
+
+    let html = message ? '<div class="' + toneClass + '">' + escHtml(message) + '</div>' : '';
+
+    const extras = [];
+    if (notes.instagram) extras.push('Instagram: ' + notes.instagram);
+    if (notes.linkedin) extras.push('LinkedIn: ' + notes.linkedin);
+    if (extras.length) {
+        html += '<div class="mt-1 text-[10px] text-white/45">' + extras.map(escHtml).join(' • ') + '</div>';
+    }
+
+    el.innerHTML = html;
+}
+
+function fillSocialProfileInputs(profiles = {}) {
+    const instagramInput = document.getElementById('social-instagram-input');
+    const linkedinInput = document.getElementById('social-linkedin-input');
+
+    if (instagramInput && typeof profiles.instagram === 'string') {
+        instagramInput.value = profiles.instagram;
+    }
+
+    if (linkedinInput && typeof profiles.linkedin === 'string') {
+        linkedinInput.value = profiles.linkedin;
+    }
+}
+
+async function saveLeadSocialProfiles(leadId) {
+    const instagramInput = document.getElementById('social-instagram-input');
+    const linkedinInput = document.getElementById('social-linkedin-input');
+    if (!instagramInput || !linkedinInput) return null;
+
+    const payload = {
+        lead_id: leadId,
+        action: 'save',
+        instagram: instagramInput.value.trim(),
+        linkedin: linkedinInput.value.trim(),
+    };
+
+    const res = await operonFetch('/intelligence/social-profiles', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+
+    if (!res || !res.success) {
+        throw new Error(res?.error || 'Não foi possível salvar os perfis sociais.');
+    }
+
+    fillSocialProfileInputs(res.profiles || {});
+    return res.profiles || {};
+}
+
+async function discoverLeadSocialProfiles(leadId) {
+    const btn = document.getElementById('btn-discover-social');
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[14px] animate-spin">refresh</span> Buscando';
+    }
+
+    setSocialProfilesNote('Buscando perfis públicos confirmados...', 'muted');
+
+    try {
+        const res = await operonFetch('/intelligence/social-profiles', {
+            method: 'POST',
+            body: JSON.stringify({ lead_id: leadId, action: 'discover' }),
+        });
+
+        if (!res || !res.success) {
+            throw new Error(res?.error || 'Não foi possível descobrir os perfis.');
+        }
+
+        fillSocialProfileInputs(res.profiles || {});
+
+        const foundCount = Object.values(res.profiles || {}).filter(Boolean).length;
+        if (foundCount > 0) {
+            setSocialProfilesNote('Perfis preenchidos automaticamente. Revise e clique em Gerar.', 'success', res.notes || {});
+        } else {
+            setSocialProfilesNote('A IA não confirmou perfis suficientes. Você pode preencher manualmente.', 'warning', res.notes || {});
+        }
+
+        if (res.tokenBalance !== undefined) {
+            const elBalance = document.getElementById('nexus-token-balance');
+            if (elBalance) elBalance.innerText = res.tokenBalance.toLocaleString('pt-BR');
+        }
+    } catch (err) {
+        console.error('Error discovering social profiles:', err);
+        setSocialProfilesNote(err.message || 'Falha ao descobrir os perfis sociais.', 'warning');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+}
+
 // ── Interactivity bindings for AI Buttons ─────────────────
 setTimeout(() => {
     document.querySelectorAll('#btn-analyze, #btn-analyze-empty').forEach(btn => {
@@ -1343,7 +1861,10 @@ setTimeout(() => {
     window.runDeepIntelligence = async function(leadId, key) {
         const btn = document.getElementById('btn-run-intel-' + key);
         const contentDiv = document.getElementById('intel-content-' + key);
-        if(!btn || !contentDiv) return;
+        const contentTarget = key === 'social_presence'
+            ? document.getElementById('social-analysis-result')
+            : contentDiv;
+        if(!btn || !contentDiv || !contentTarget) return;
 
         const originalHtml = btn.innerHTML;
         const originalClasses = btn.className;
@@ -1353,6 +1874,15 @@ setTimeout(() => {
         btn.className = 'h-8 px-4 rounded-pill bg-surface3 border border-stroke text-text text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 opacity-80 cursor-not-allowed';
 
         try {
+            if (key === 'social_presence') {
+                const profiles = await saveLeadSocialProfiles(leadId);
+                const foundProfiles = Object.values(profiles || {}).filter(Boolean).length;
+                if (!foundProfiles) {
+                    throw new Error('Adicione ou descubra ao menos um perfil de Instagram ou LinkedIn antes de gerar esta análise.');
+                }
+                setSocialProfilesNote('Perfis salvos. Gerando análise social...', 'muted');
+            }
+
             const res = await operonFetch('/intelligence/run', {
                 method: 'POST',
                 body: JSON.stringify({ lead_id: leadId, type: key })
@@ -1379,7 +1909,18 @@ setTimeout(() => {
                     contentHtml += '</ul>';
                 }
 
-                contentDiv.innerHTML = contentHtml;
+                if (data.strategy) {
+                    contentHtml += '<div class="mt-3 pt-3 border-t border-stroke">';
+                    contentHtml += '<p class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">Estratégia de Abordagem</p>';
+                    contentHtml += '<p class="text-xs text-subtle leading-relaxed">' + escHtml(data.strategy).replace(/\\\\n/g, '<br>') + '</p>';
+                    contentHtml += '</div>';
+                }
+
+                contentTarget.innerHTML = contentHtml;
+
+                if (key === 'social_presence') {
+                    setSocialProfilesNote('Análise social atualizada com sucesso.', 'success');
+                }
 
                 // Update Button to "Atualizar" state
                 btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">refresh</span> Atualizar';

@@ -79,11 +79,26 @@
     </header>
 
     <!-- ── User Bar ── -->
-    <div class="user-bar">
-      <span class="material-symbols-outlined icon-xs">person</span>
-      <span id="userName" class="user-name">Usuário</span>
-      <span class="dot">·</span>
-      <span id="tenantName" class="tenant-name">Empresa</span>
+    <div class="user-strip">
+      <div class="user-bar">
+        <span class="material-symbols-outlined icon-xs">person</span>
+        <span id="userName" class="user-name">Usuário</span>
+        <span class="dot">·</span>
+        <button type="button" id="tenantSwitcherButton" class="tenant-switch-btn" title="Alternar empresa">
+          <span id="tenantName" class="tenant-name">Empresa</span>
+          <span class="material-symbols-outlined icon-xs" id="tenantSwitcherIcon">expand_more</span>
+        </button>
+      </div>
+
+      <div id="tenantMenu" class="tenant-menu" style="display:none;">
+        <div class="tenant-menu-head">
+          <span>Alternar empresa</span>
+          <span id="tenantCountBadge" class="tenant-count-badge">0</span>
+        </div>
+        <p id="tenantMenuHint" class="tenant-menu-hint">Carregando empresas liberadas para este usuário...</p>
+        <div id="tenantMenuError" class="tenant-menu-error" style="display:none;"></div>
+        <div id="tenantMenuList" class="tenant-menu-list"></div>
+      </div>
     </div>
 
     <!-- ── Tab Content ── -->
@@ -305,6 +320,96 @@
           <input type="text" id="bulkSegment" list="segmentList" placeholder="Ex: Odontologia">
         </div>
 
+        <div class="bulk-smart-card">
+          <div class="bulk-smart-header">
+            <div>
+              <strong>Curadoria inteligente</strong>
+              <p>Ranqueia e seleciona os 30 melhores leads só quando você clicar no botão.</p>
+            </div>
+            <span class="smart-limit-badge">Top 30</span>
+          </div>
+
+          <div class="bulk-smart-grid">
+            <label class="smart-weight-row">
+              <span class="smart-weight-copy">
+                <strong>Nota média</strong>
+                <span>Prioriza avaliações mais altas do Google Maps.</span>
+              </span>
+              <span class="smart-weight-value" id="bulkWeightRatingValue">5</span>
+              <input type="range" min="0" max="5" value="5" id="bulkWeightRating" class="smart-weight-input" data-output="bulkWeightRatingValue">
+            </label>
+
+            <label class="smart-weight-row">
+              <span class="smart-weight-copy">
+                <strong>Qtd. de avaliações</strong>
+                <span>Favorece reputação com mais prova social.</span>
+              </span>
+              <span class="smart-weight-value" id="bulkWeightReviewsValue">4</span>
+              <input type="range" min="0" max="5" value="4" id="bulkWeightReviews" class="smart-weight-input" data-output="bulkWeightReviewsValue">
+            </label>
+
+            <label class="smart-weight-row">
+              <span class="smart-weight-copy">
+                <strong>Site confirmado</strong>
+                <span>Dá prioridade para leads com presença digital real.</span>
+              </span>
+              <span class="smart-weight-value" id="bulkWeightWebsiteValue">4</span>
+              <input type="range" min="0" max="5" value="4" id="bulkWeightWebsite" class="smart-weight-input" data-output="bulkWeightWebsiteValue">
+            </label>
+
+            <label class="smart-weight-row">
+              <span class="smart-weight-copy">
+                <strong>Telefone confirmado</strong>
+                <span>Ajuda a priorizar leads mais acionáveis comercialmente.</span>
+              </span>
+              <span class="smart-weight-value" id="bulkWeightPhoneValue">3</span>
+              <input type="range" min="0" max="5" value="3" id="bulkWeightPhone" class="smart-weight-input" data-output="bulkWeightPhoneValue">
+            </label>
+
+            <label class="smart-weight-row">
+              <span class="smart-weight-copy">
+                <strong>Completude dos dados</strong>
+                <span>Valoriza leads com ficha mais rica e verificável.</span>
+              </span>
+              <span class="smart-weight-value" id="bulkWeightCompletenessValue">5</span>
+              <input type="range" min="0" max="5" value="5" id="bulkWeightCompleteness" class="smart-weight-input" data-output="bulkWeightCompletenessValue">
+            </label>
+
+            <label class="smart-weight-row">
+              <span class="smart-weight-copy">
+                <strong>Aderência ao segmento</strong>
+                <span>Usa o segmento digitado acima para priorizar categoria/nome próximos.</span>
+              </span>
+              <span class="smart-weight-value" id="bulkWeightCategoryValue">3</span>
+              <input type="range" min="0" max="5" value="3" id="bulkWeightCategory" class="smart-weight-input" data-output="bulkWeightCategoryValue">
+            </label>
+
+            <label class="smart-weight-row">
+              <span class="smart-weight-copy">
+                <strong>Sinais operacionais</strong>
+                <span>Considera endereço, horário e estrutura básica do perfil.</span>
+              </span>
+              <span class="smart-weight-value" id="bulkWeightOperationalValue">2</span>
+              <input type="range" min="0" max="5" value="2" id="bulkWeightOperational" class="smart-weight-input" data-output="bulkWeightOperationalValue">
+            </label>
+          </div>
+
+          <p class="bulk-smart-note">Usa apenas sinais reais da captura do Google Maps nesta etapa. Tempo de mercado não entra aqui enquanto esse dado não estiver disponível com fonte confiável.</p>
+
+          <div class="bulk-smart-actions">
+            <button type="button" class="btn-action" id="btnSmartSelectTop" disabled>
+              <span class="material-symbols-outlined">auto_awesome</span>
+              Selecionar Top 30
+            </button>
+            <button type="button" class="btn-action" id="btnSmartClearSelection" style="display:none;">
+              <span class="material-symbols-outlined">restart_alt</span>
+              Limpar curadoria
+            </button>
+          </div>
+
+          <div id="bulkSmartSummary" class="bulk-smart-summary" style="display:none;"></div>
+        </div>
+
         <div class="bulk-actions-bar">
           <label class="checkbox-label">
             <input type="checkbox" id="bulkSelectAll" checked>
@@ -320,6 +425,7 @@
                 <th class="col-check"></th>
                 <th>Nome</th>
                 <th class="col-rating">★</th>
+                <th class="col-score">Fit</th>
                 <th class="col-status">Status</th>
               </tr>
             </thead>

@@ -295,6 +295,150 @@ class AdminController
         View::redirect('/admin/users/' . $id);
     }
 
+    // ─── Tenant Individual Management ───────────────────────────────
+
+    public function tenantDetail(string $id): void
+    {
+        if (!Session::get('admin_auth')) {
+            View::redirect('/admin/login');
+            return;
+        }
+
+        $tenant = Database::selectFirst('SELECT * FROM tenants WHERE id = ?', [$id]);
+        if (!$tenant) {
+            Session::flash('error', 'Empresa não encontrada.');
+            View::redirect('/admin/users');
+            return;
+        }
+
+        // Token quota
+        $quota = TokenQuota::getOrCreate($id);
+
+        // Users linked to this tenant
+        $users = Database::select(
+            'SELECT u.id, u.name, u.email, u.role, u.active, u.created_at, tu.role as pivot_role
+             FROM users u
+             JOIN tenant_user tu ON tu.user_id = u.id
+             WHERE tu.tenant_id = ?
+             ORDER BY u.name ASC',
+            [$id]
+        );
+
+        // Counts
+        $leadCount = (int)(Database::selectFirst('SELECT COUNT(*) as c FROM leads WHERE tenant_id = ?', [$id])['c'] ?? 0);
+        $campaignCount = 0;
+        try {
+            $campaignCount = (int)(Database::selectFirst('SELECT COUNT(*) as c FROM email_campaigns WHERE tenant_id = ?', [$id])['c'] ?? 0);
+        } catch (\Throwable $e) {}
+
+        // Decode features
+        $featuresEnabled = null;
+        if (!empty($tenant['features_enabled'])) {
+            $featuresEnabled = json_decode($tenant['features_enabled'], true);
+        }
+
+        // Agency settings
+        $agencySettings = Database::selectFirst('SELECT * FROM agency_settings WHERE tenant_id = ?', [$id]);
+
+        // Tier labels
+        $tierLimits = [
+            'starter' => 100,
+            'pro' => 500,
+            'elite' => 2000,
+        ];
+
+        View::render('admin/tenant_detail', [
+            'active'       => 'admin_users',
+            'tenant'       => $tenant,
+            'quota'        => $quota,
+            'users'        => $users,
+            'leadCount'    => $leadCount,
+            'campaignCount' => $campaignCount,
+            'featuresEnabled' => $featuresEnabled,
+            'agencySettings' => $agencySettings,
+            'tierLimits'   => $tierLimits,
+        ], 'layout.admin');
+    }
+
+    public function updateTenant(string $id): void
+    {
+        if (!Session::get('admin_auth')) {
+            http_response_code(403);
+            return;
+        }
+
+        if (!Session::validateCsrf($_POST['_csrf'] ?? '')) {
+            Session::flash('error', 'Token inválido.');
+            View::redirect('/admin/tenant/' . $id);
+            return;
+        }
+
+        $tenant = Database::selectFirst('SELECT id FROM tenants WHERE id = ?', [$id]);
+        if (!$tenant) {
+            Session::flash('error', 'Empresa não encontrada.');
+            View::redirect('/admin/users');
+            return;
+        }
+
+        $section = $_POST['section'] ?? 'general';
+
+        if ($section === 'general') {
+            $name = trim($_POST['name'] ?? '');
+            $plan = $_POST['plan'] ?? 'starter';
+            $active = !empty($_POST['active']) ? 1 : 0;
+            $maxUsers = max(1, (int)($_POST['max_users'] ?? 10));
+            $maxLeads = max(100, (int)($_POST['max_leads'] ?? 5000));
+            $maxCampaigns = max(1, (int)($_POST['max_campaigns'] ?? 50));
+            $adminNotes = trim($_POST['admin_notes'] ?? '');
+
+            if ($name) {
+                Database::execute(
+                    'UPDATE tenants SET name = ?, plan = ?, active = ?, max_users = ?, max_leads = ?, max_campaigns = ?, admin_notes = ?, updated_at = datetime("now") WHERE id = ?',
+                    [$name, $plan, $active, $maxUsers, $maxLeads, $maxCampaigns, $adminNotes, $id]
+                );
+            }
+
+            // Update tier in token_quotas to match plan
+            TokenQuota::updateTier($id, $plan);
+
+            Session::flash('success', 'Configurações gerais atualizadas.');
+        }
+
+        if ($section === 'credits') {
+            $creditsExtra = max(0, (int)($_POST['credits_extra'] ?? 0));
+            $tokensLimit = max(0, (int)($_POST['tokens_limit'] ?? 0));
+
+            Database::execute(
+                'UPDATE token_quotas SET credits_extra = ?, tokens_limit = ?, updated_at = datetime("now") WHERE tenant_id = ?',
+                [$creditsExtra, $tokensLimit, $id]
+            );
+
+            Session::flash('success', 'Créditos atualizados.');
+        }
+
+        if ($section === 'features') {
+            $features = $_POST['features'] ?? [];
+            $featuresJson = is_array($features) ? json_encode(array_values($features)) : null;
+
+            Database::execute(
+                'UPDATE tenants SET features_enabled = ?, updated_at = datetime("now") WHERE id = ?',
+                [$featuresJson, $id]
+            );
+
+            Session::flash('success', 'Funcionalidades atualizadas.');
+        }
+
+        if ($section === 'reset_credits') {
+            Database::execute(
+                'UPDATE token_quotas SET tokens_used = 0, updated_at = datetime("now") WHERE tenant_id = ?',
+                [$id]
+            );
+            Session::flash('success', 'Créditos do dia resetados.');
+        }
+
+        View::redirect('/admin/tenant/' . $id);
+    }
+
     public function logs(): void
     {
         if (!Session::get('admin_auth')) {

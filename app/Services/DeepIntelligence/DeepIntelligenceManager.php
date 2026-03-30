@@ -25,6 +25,7 @@ class DeepIntelligenceManager
             'value_proposition' => new Strategies\ValuePropositionStrategy(),
             'target_audience'   => new Strategies\TargetAudienceStrategy(),
             'competitors'       => new Strategies\CompetitorsStrategy(),
+            'social_presence'   => new Strategies\SocialPresenceStrategy(),
         ];
     }
 

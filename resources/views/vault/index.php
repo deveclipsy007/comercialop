@@ -4,6 +4,7 @@ $pageSubtitle = 'Pipeline de Prospecção';
 
 $stageColors = [
     'new'        => 'bg-surface3',
+    'analyzed'   => 'bg-mint',
     'contacted'  => 'bg-stroke',
     'qualified'  => 'bg-muted',
     'proposal'   => 'bg-text',
@@ -12,24 +13,68 @@ $stageColors = [
 ];
 $stageDotColors = [
     'new'        => '#202020',
+    'analyzed'   => '#34D399',
     'contacted'  => '#2A2A2A',
     'qualified'  => '#A1A1AA',
     'proposal'   => '#F5F5F5',
     'closed_won' => '#E1FB15',
     'closed_lost'=> '#EF4444',
 ];
+
+$temperatureMeta = [
+    'HOT' => ['label' => 'Quente', 'class' => 'bg-red-500/10 text-red-500 border border-red-500/20'],
+    'WARM' => ['label' => 'Morno', 'class' => 'bg-amber-500/10 text-amber-500 border border-amber-500/20'],
+    'COLD' => ['label' => 'Frio', 'class' => 'bg-blue-500/10 text-blue-500 border border-blue-500/20'],
+];
+
+$buildVaultQuery = static function (array $filters, array $overrides = []): string {
+    $query = array_merge([
+        'view' => $filters['view'] ?? null,
+        'q' => $filters['search'] ?? '',
+        'segment' => $filters['segment'] ?? '',
+        'stage' => $filters['stage'] ?? '',
+        'temperature' => $filters['temperature'] ?? '',
+        'analysis_status' => $filters['analysisStatus'] ?? '',
+        'has_website' => $filters['hasWebsite'] ?? '',
+        'has_phone' => $filters['hasPhone'] ?? '',
+        'min_score' => (string) ($filters['minScore'] ?? ''),
+        'sort' => $filters['sort'] ?? '',
+    ], $overrides);
+
+    $query = array_filter($query, static fn($value) => $value !== null && $value !== '' && $value !== '0');
+    $encoded = http_build_query($query);
+    return $encoded === '' ? '' : '?' . $encoded;
+};
+
+$persistedFilters = array_merge($filters, ['view' => $view]);
+
+// Collect all unique tags for kanban filter
+$allTags = [];
+if ($view === 'kanban' && !empty($columns)) {
+    foreach ($columns as $col) {
+        foreach ($col['leads'] as $lead) {
+            $rt = $lead['tags'] ?? [];
+            $ts = is_string($rt) ? (json_decode($rt, true) ?: []) : (is_array($rt) ? $rt : []);
+            foreach ($ts as $t) {
+                $lower = strtolower(trim($t));
+                if ($lower !== '') $allTags[$lower] = ucfirst($t);
+            }
+        }
+    }
+    ksort($allTags);
+}
 ?>
 
 <!-- Subheader -->
 <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stroke bg-bg px-6 py-4 gap-4">
     <div class="flex gap-2">
-        <a href="?view=kanban<?= !empty($filters['segment']) ? '&segment=' . urlencode($filters['segment']) : '' ?>"
+        <a href="<?= e($buildVaultQuery($persistedFilters, ['view' => 'kanban'])) ?>"
            class="h-10 px-5 text-sm font-medium flex items-center gap-2 transition-all rounded-pill
                   <?= $view === 'kanban' ? 'bg-surface2 text-text border border-stroke' : 'bg-transparent text-muted hover:text-text hover:bg-surface' ?>">
             <span class="material-symbols-outlined text-[18px]">view_kanban</span>
             Kanban
         </a>
-        <a href="?view=list<?= !empty($filters['segment']) ? '&segment=' . urlencode($filters['segment']) : '' ?>"
+        <a href="<?= e($buildVaultQuery($persistedFilters, ['view' => 'list'])) ?>"
            class="h-10 px-5 text-sm font-medium flex items-center gap-2 transition-all rounded-pill
                   <?= $view === 'list' ? 'bg-surface2 text-text border border-stroke' : 'bg-transparent text-muted hover:text-text hover:bg-surface' ?>">
             <span class="material-symbols-outlined text-[18px]">list_alt</span>
@@ -37,9 +82,35 @@ $stageDotColors = [
         </a>
     </div>
     <div class="flex items-center gap-3">
+        <?php if ($view === 'kanban'): ?>
+        <!-- Tag Filter -->
+        <div class="relative">
+            <select id="kanbanTagFilter"
+                    class="h-10 pl-10 pr-8 bg-surface border border-stroke rounded-pill text-sm text-text appearance-none cursor-pointer focus:outline-none focus:border-lime/50 transition-all">
+                <option value="">Filtrar por tag</option>
+                <?php if (empty($allTags)): ?>
+                    <option value="" disabled>Nenhuma tag encontrada</option>
+                <?php else: ?>
+                    <?php foreach ($allTags as $key => $label): ?>
+                        <option value="<?= e($key) ?>">#<?= e($label) ?></option>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </select>
+            <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-muted text-[18px] pointer-events-none">sell</span>
+            <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-muted text-[14px] pointer-events-none">expand_more</span>
+        </div>
+        <?php endif; ?>
         <!-- Search -->
         <form method="GET" action="/vault" class="flex items-center gap-2">
             <input type="hidden" name="view" value="<?= e($view) ?>">
+            <input type="hidden" name="segment" value="<?= e($filters['segment'] ?? '') ?>">
+            <input type="hidden" name="stage" value="<?= e($filters['stage'] ?? '') ?>">
+            <input type="hidden" name="temperature" value="<?= e($filters['temperature'] ?? '') ?>">
+            <input type="hidden" name="analysis_status" value="<?= e($filters['analysisStatus'] ?? '') ?>">
+            <input type="hidden" name="has_website" value="<?= e($filters['hasWebsite'] ?? '') ?>">
+            <input type="hidden" name="has_phone" value="<?= e($filters['hasPhone'] ?? '') ?>">
+            <input type="hidden" name="min_score" value="<?= e((string) ($filters['minScore'] ?? '')) ?>">
+            <input type="hidden" name="sort" value="<?= e($filters['sort'] ?? 'priority_desc') ?>">
             <div class="relative">
                 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-muted text-[18px]">search</span>
                 <input type="text" name="q" value="<?= e($filters['search'] ?? '') ?>"
@@ -76,13 +147,16 @@ $stageDotColors = [
             <div class="flex flex-col gap-3 kanban-cards overflow-y-auto flex-1 pr-1" style="max-height: calc(100vh - 220px);">
                 <?php foreach ($col['leads'] as $lead):
                     $score = $lead['priority_score'] ?? 0;
+                    $hasAnalysis = !empty($lead['analysis'] ?? []);
+                ?>
+                <?php
+                    $rawTags = $lead['tags'] ?? [];
+                    $tags = is_string($rawTags) ? (json_decode($rawTags, true) ?: []) : (is_array($rawTags) ? $rawTags : []);
                 ?>
                 <div class="kanban-card group flex flex-col gap-4 rounded-card border border-stroke bg-surface p-5 shadow-soft hover:bg-surface2 transition-all cursor-grab active:cursor-grabbing"
-                     data-lead-id="<?= $lead['id'] ?>" data-stage="<?= $stageKey ?>">
+                     data-lead-id="<?= $lead['id'] ?>" data-stage="<?= $stageKey ?>" data-tags="<?= e(implode(',', array_map('strtolower', $tags))) ?>">
 
                     <?php
-                        $rawTags = $lead['tags'] ?? [];
-                        $tags = is_string($rawTags) ? (json_decode($rawTags, true) ?: []) : (is_array($rawTags) ? $rawTags : []);
                         
                         $rawCtx = $lead['human_context'] ?? [];
                         $context = is_string($rawCtx) ? (json_decode($rawCtx, true) ?: []) : (is_array($rawCtx) ? $rawCtx : []);
@@ -106,19 +180,20 @@ $stageDotColors = [
                     </div>
 
                     <!-- Context & Tags -->
-                    <?php if ($temp || !empty($tags)): ?>
+                    <?php if ($temp || !empty($tags) || $hasAnalysis): ?>
                     <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                        <?php if ($hasAnalysis): ?>
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-mint/10 text-mint border border-mint/20">
+                                IA
+                            </span>
+                        <?php endif; ?>
+
                         <?php if ($temp): 
-                            $tempColors = [
-                                'Quente' => 'bg-red-500/10 text-red-500 border border-red-500/20',
-                                'Morno'  => 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
-                                'Frio'   => 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                            ];
-                            $tempClass = $tempColors[$temp] ?? 'bg-surface3 border border-stroke text-muted';
+                            $tempMeta = $temperatureMeta[$temp] ?? ['label' => $temp, 'class' => 'bg-surface3 border border-stroke text-muted'];
                         ?>
-                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider <?= $tempClass ?> flex items-center gap-1">
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider <?= $tempMeta['class'] ?> flex items-center gap-1">
                                 <span class="material-symbols-outlined text-[12px]">thermostat</span>
-                                <?= e($temp) ?>
+                                <?= e($tempMeta['label']) ?>
                             </span>
                         <?php endif; ?>
 
@@ -186,6 +261,99 @@ $stageDotColors = [
 <!-- ── List View ──────────────────────────────────────────── -->
 <?php else: ?>
 <div class="p-6 md:p-8">
+    <form method="GET" action="/vault" class="mb-5 rounded-cardLg border border-stroke bg-surface p-5 shadow-soft">
+        <input type="hidden" name="view" value="list">
+        <input type="hidden" name="q" value="<?= e($filters['search'] ?? '') ?>">
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+                <h3 class="text-sm font-bold text-text">Filtros da Lista</h3>
+                <p class="text-xs text-muted mt-1">Refine a visualização por estágio, análise, contato, temperatura e score.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="/vault?view=list" class="h-9 px-4 inline-flex items-center rounded-pill bg-surface2 border border-stroke text-xs font-medium text-muted hover:text-text transition-colors">
+                    Limpar
+                </a>
+                <button type="submit" class="h-9 px-4 inline-flex items-center gap-2 rounded-pill bg-lime text-bg text-xs font-bold hover:brightness-110 transition-all">
+                    <span class="material-symbols-outlined text-[16px]">filter_alt</span>
+                    Aplicar filtros
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Segmento</label>
+                <input type="text" name="segment" value="<?= e($filters['segment'] ?? '') ?>" placeholder="Ex: Imobiliária"
+                       class="w-full bg-bg border border-stroke rounded-pill px-4 py-2.5 text-sm text-text placeholder-muted focus:outline-none focus:border-lime/50 transition-all">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Estágio</label>
+                <select name="stage" class="w-full bg-bg border border-stroke rounded-pill px-4 py-2.5 text-sm text-text focus:outline-none focus:border-lime/50 transition-all">
+                    <option value="">Todos os estágios</option>
+                    <?php foreach ($stages as $stageKey => $stageLabel): ?>
+                        <option value="<?= e($stageKey) ?>" <?= ($filters['stage'] ?? '') === $stageKey ? 'selected' : '' ?>>
+                            <?= e($stageLabel) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Temperatura</label>
+                <select name="temperature" class="w-full bg-bg border border-stroke rounded-pill px-4 py-2.5 text-sm text-text focus:outline-none focus:border-lime/50 transition-all">
+                    <option value="">Qualquer temperatura</option>
+                    <?php foreach ($temperatureMeta as $tempKey => $tempData): ?>
+                        <option value="<?= e($tempKey) ?>" <?= ($filters['temperature'] ?? '') === $tempKey ? 'selected' : '' ?>>
+                            <?= e($tempData['label']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Status IA</label>
+                <select name="analysis_status" class="w-full bg-bg border border-stroke rounded-pill px-4 py-2.5 text-sm text-text focus:outline-none focus:border-lime/50 transition-all">
+                    <option value="">Todos</option>
+                    <option value="analyzed" <?= ($filters['analysisStatus'] ?? '') === 'analyzed' ? 'selected' : '' ?>>Com análise IA</option>
+                    <option value="not_analyzed" <?= ($filters['analysisStatus'] ?? '') === 'not_analyzed' ? 'selected' : '' ?>>Sem análise IA</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Website</label>
+                <select name="has_website" class="w-full bg-bg border border-stroke rounded-pill px-4 py-2.5 text-sm text-text focus:outline-none focus:border-lime/50 transition-all">
+                    <option value="">Todos</option>
+                    <option value="yes" <?= ($filters['hasWebsite'] ?? '') === 'yes' ? 'selected' : '' ?>>Com site</option>
+                    <option value="no" <?= ($filters['hasWebsite'] ?? '') === 'no' ? 'selected' : '' ?>>Sem site</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Telefone</label>
+                <select name="has_phone" class="w-full bg-bg border border-stroke rounded-pill px-4 py-2.5 text-sm text-text focus:outline-none focus:border-lime/50 transition-all">
+                    <option value="">Todos</option>
+                    <option value="yes" <?= ($filters['hasPhone'] ?? '') === 'yes' ? 'selected' : '' ?>>Com telefone</option>
+                    <option value="no" <?= ($filters['hasPhone'] ?? '') === 'no' ? 'selected' : '' ?>>Sem telefone</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Score mínimo</label>
+                <select name="min_score" class="w-full bg-bg border border-stroke rounded-pill px-4 py-2.5 text-sm text-text focus:outline-none focus:border-lime/50 transition-all">
+                    <?php foreach ([0 => 'Qualquer score', 25 => '25+', 50 => '50+', 70 => '70+', 90 => '90+'] as $value => $label): ?>
+                        <option value="<?= $value ?>" <?= (int) ($filters['minScore'] ?? 0) === $value ? 'selected' : '' ?>>
+                            <?= e($label) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-muted uppercase tracking-[0.1em] mb-2">Ordenação</label>
+                <select name="sort" class="w-full bg-bg border border-stroke rounded-pill px-4 py-2.5 text-sm text-text focus:outline-none focus:border-lime/50 transition-all">
+                    <option value="priority_desc" <?= ($filters['sort'] ?? 'priority_desc') === 'priority_desc' ? 'selected' : '' ?>>Maior score</option>
+                    <option value="recent_desc" <?= ($filters['sort'] ?? '') === 'recent_desc' ? 'selected' : '' ?>>Mais recentes</option>
+                    <option value="updated_desc" <?= ($filters['sort'] ?? '') === 'updated_desc' ? 'selected' : '' ?>>Atualizados por último</option>
+                    <option value="name_asc" <?= ($filters['sort'] ?? '') === 'name_asc' ? 'selected' : '' ?>>Nome A-Z</option>
+                </select>
+            </div>
+        </div>
+    </form>
+
     <div class="bg-surface border border-stroke rounded-cardLg overflow-hidden shadow-soft">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -203,6 +371,7 @@ $stageDotColors = [
                     <?php foreach ($leads as $lead): 
                         $rawTags = $lead['tags'] ?? [];
                         $tags = is_string($rawTags) ? (json_decode($rawTags, true) ?: []) : (is_array($rawTags) ? $rawTags : []);
+                        $hasAnalysis = !empty($lead['analysis'] ?? []);
                         
                         $rawCtx = $lead['human_context'] ?? [];
                         $context = is_string($rawCtx) ? (json_decode($rawCtx, true) ?: []) : (is_array($rawCtx) ? $rawCtx : []);
@@ -215,17 +384,18 @@ $stageDotColors = [
                             <div class="text-[11px] text-subtle mt-1 mb-2 font-medium"><?= timeAgo($lead['created_at']) ?></div>
                              <?php if ($temp || !empty($tags)): ?>
                                 <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                                    <?php if ($hasAnalysis): ?>
+                                        <span class="px-2 py-0.5 bg-mint/10 text-mint border border-mint/20 rounded-md text-[9px] font-bold uppercase tracking-wider">
+                                            Analisado IA
+                                        </span>
+                                    <?php endif; ?>
+
                                     <?php if ($temp): 
-                                        $tempColors = [
-                                            'Quente' => 'bg-red-500/10 text-red-500 border border-red-500/20',
-                                            'Morno'  => 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
-                                            'Frio'   => 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                                        ];
-                                        $tempClass = $tempColors[$temp] ?? 'bg-surface3 border border-stroke text-muted';
+                                        $tempMeta = $temperatureMeta[$temp] ?? ['label' => $temp, 'class' => 'bg-surface3 border border-stroke text-muted'];
                                     ?>
-                                        <span class="px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider <?= $tempClass ?> flex items-center gap-0.5" title="Temperatura">
+                                        <span class="px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider <?= $tempMeta['class'] ?> flex items-center gap-0.5" title="Temperatura">
                                             <span class="material-symbols-outlined text-[10px]">thermostat</span>
-                                            <?= e($temp) ?>
+                                            <?= e($tempMeta['label']) ?>
                                         </span>
                                     <?php endif; ?>
 
@@ -240,6 +410,12 @@ $stageDotColors = [
                                         </span>
                                     <?php endif; ?>
                                 </div>
+                             <?php elseif ($hasAnalysis): ?>
+                                <div class="mt-1">
+                                    <span class="px-2 py-0.5 bg-mint/10 text-mint border border-mint/20 rounded-md text-[9px] font-bold uppercase tracking-wider">
+                                        Analisado IA
+                                    </span>
+                                </div>
                             <?php endif; ?>
                         </td>
                         <td class="px-4 py-4 hidden md:table-cell">
@@ -253,7 +429,9 @@ $stageDotColors = [
                         <td class="px-4 py-4 hidden lg:table-cell">
                             <div class="flex items-center gap-2">
                                 <span class="size-2 rounded-full inline-block" style="background:<?= $stageDotColors[$lead['pipeline_status']] ?? '#202020' ?>"></span>
-                                <span class="text-xs font-medium text-muted"><?= e(stageLabel($lead['pipeline_status'] ?? 'new')) ?></span>
+                                <span class="text-xs font-medium <?= ($lead['pipeline_status'] ?? '') === 'analyzed' ? 'text-mint font-bold' : 'text-muted' ?>">
+                                    <?= e(stageLabel($lead['pipeline_status'] ?? 'new')) ?>
+                                </span>
                             </div>
                         </td>
                         <td class="px-4 py-4 hidden lg:table-cell">
@@ -338,3 +516,28 @@ $stageDotColors = [
         </form>
     </div>
 </div>
+
+<!-- Kanban Tag Filter JS -->
+<?php if ($view === 'kanban'): ?>
+<script>
+(function() {
+    const filter = document.getElementById('kanbanTagFilter');
+    if (!filter) return;
+
+    filter.addEventListener('change', function() {
+        const tag = this.value.toLowerCase();
+        document.querySelectorAll('.kanban-column').forEach(col => {
+            let visible = 0;
+            col.querySelectorAll('.kanban-card').forEach(card => {
+                const cardTags = (card.dataset.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+                const show = !tag || cardTags.includes(tag);
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            const counter = col.querySelector('.column-count');
+            if (counter) counter.textContent = visible;
+        });
+    });
+})();
+</script>
+<?php endif; ?>

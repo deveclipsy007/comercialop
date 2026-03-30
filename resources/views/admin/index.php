@@ -80,6 +80,14 @@ $pageSubtitle = 'Configurações do Sistema';
                         </div>
                         <p class="text-xs text-subtle">Trilhas de uso de base e tokens globais.</p>
                     </a>
+
+                    <a href="/admin/playbook" class="bg-surface2 border border-stroke hover:border-lime/30 rounded-card p-5 group transition-all flex flex-col justify-between h-32">
+                        <div class="flex items-center gap-3 text-text group-hover:text-lime transition-colors">
+                            <span class="material-symbols-outlined rounded-full bg-surface p-2 border border-stroke">auto_stories</span>
+                            <span class="font-bold text-sm">Playbook de Vendas</span>
+                        </div>
+                        <p class="text-xs text-subtle">Manual operacional e base comercial da equipe.</p>
+                    </a>
                 </div>
 
             </div>

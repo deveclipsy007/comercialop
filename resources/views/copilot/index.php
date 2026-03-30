@@ -11,6 +11,7 @@ foreach ($funnelStats as $fs) { $funnelMap[$fs['pipeline_status']] = (int)$fs['c
 $totalLeads = array_sum($funnelMap);
 $stages = [
     'new' => ['label' => 'Novos', 'color' => '#60a5fa', 'accent' => 'blue'],
+    'analyzed' => ['label' => 'Analisados', 'color' => '#34d399', 'accent' => 'emerald'],
     'contacted' => ['label' => 'Contatados', 'color' => '#22d3ee', 'accent' => 'cyan'],
     'qualified' => ['label' => 'Qualificados', 'color' => '#fbbf24', 'accent' => 'amber'],
     'proposal' => ['label' => 'Proposta', 'color' => '#fb923c', 'accent' => 'orange'],

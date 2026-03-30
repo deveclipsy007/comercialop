@@ -222,14 +222,17 @@ $pageSubtitle = 'Configurações de acesso e White Label';
                 <?php else: ?>
                     <div class="space-y-2">
                         <?php foreach($linkedTenants as $t): ?>
-                        <div class="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-stroke">
-                            <div class="size-9 rounded-xl bg-lime/10 border border-lime/20 flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined text-[18px] text-lime">business</span>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-bold text-text truncate"><?= e($t['name']) ?></p>
-                                <p class="text-[10px] text-muted capitalize">Papel: <?= e($t['pivot_role'] ?? 'agent') ?></p>
-                            </div>
+                        <div class="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-stroke hover:border-lime/30 transition-all group">
+                            <a href="/admin/tenant/<?= e($t['id']) ?>" class="flex items-center gap-3 flex-1 min-w-0">
+                                <div class="size-9 rounded-xl bg-lime/10 border border-lime/20 flex items-center justify-center flex-shrink-0 group-hover:bg-lime/20 transition-all">
+                                    <span class="material-symbols-outlined text-[18px] text-lime">business</span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-text truncate group-hover:text-lime transition-colors"><?= e($t['name']) ?></p>
+                                    <p class="text-[10px] text-muted capitalize">Papel: <?= e($t['pivot_role'] ?? 'agent') ?></p>
+                                </div>
+                                <span class="material-symbols-outlined text-sm text-muted group-hover:text-lime transition-colors opacity-0 group-hover:opacity-100">arrow_forward</span>
+                            </a>
                             <form method="POST" action="/admin/users/<?= e($user['id']) ?>/unlink-tenant" onsubmit="return confirm('Remover acesso desta empresa?')">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="tenant_id" value="<?= e($t['id']) ?>">

@@ -114,6 +114,7 @@ $flashType    = $flashError ? 'error' : ($flashSuccess ? 'success' : ($flashWarn
                 ['label' => 'Provedores',        'path' => '/admin/providers',    'key' => 'admin_providers'],
                 ['label' => 'Consumo',           'path' => '/admin/consumption',  'key' => 'admin_consumption'],
                 ['label' => 'Equipe',            'path' => '/admin/users',        'key' => 'admin_users'],
+                ['label' => 'Playbook',          'path' => '/admin/playbook',     'key' => 'admin_playbook'],
                 ['label' => 'Logs Globais',      'path' => '/admin/logs',         'key' => 'admin_logs'],
             ];
             $active = $active ?? '';

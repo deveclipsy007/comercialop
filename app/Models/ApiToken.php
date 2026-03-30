@@ -42,9 +42,13 @@ class ApiToken
         $hash = hash('sha256', $rawToken);
 
         $token = Database::selectFirst(
-            "SELECT t.*, u.name as user_name, u.email as user_email, u.role as user_role
+            "SELECT t.*, u.name as user_name, u.email as user_email,
+                    COALESCE(tu.role, u.role, 'agent') as user_role
              FROM api_tokens t
              JOIN users u ON t.user_id = u.id
+             LEFT JOIN tenant_user tu
+                    ON tu.user_id = t.user_id
+                   AND tu.tenant_id = t.tenant_id
              WHERE t.token_hash = ?
                AND t.revoked = 0
                AND t.expires_at > datetime('now')",
@@ -75,6 +79,19 @@ class ApiToken
             "UPDATE api_tokens SET revoked = 1 WHERE id = ?",
             [$tokenId]
         );
+    }
+
+    /**
+     * Atualiza a empresa ativa do token atual.
+     */
+    public static function switchTenant(string $tokenId, string $tenantId): bool
+    {
+        return Database::execute(
+            "UPDATE api_tokens
+                SET tenant_id = ?, last_used_at = datetime('now')
+              WHERE id = ? AND revoked = 0",
+            [$tenantId, $tokenId]
+        ) > 0;
     }
 
     /**

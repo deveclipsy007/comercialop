@@ -20,10 +20,28 @@ let lastContextKey = '';
 let contextRefreshTimer = null;
 let contextPollTimer = null;
 let contextListenersBound = false;
+let availableTenants = [];
+let activeTenantId = '';
+let tenantMenuOpen = false;
+let tenantSwitchBusy = '';
 
 let bulkLeads = [];
 let bulkDuplicates = {};
 let bulkSelected = new Set();
+let bulkScores = {};
+let bulkTopIndexes = [];
+let bulkRankingApplied = false;
+
+const BULK_TOP_LIMIT = 30;
+const BULK_SMART_CRITERIA = [
+  { key: 'rating', inputId: 'bulkWeightRating', label: 'nota média' },
+  { key: 'reviews', inputId: 'bulkWeightReviews', label: 'quantidade de avaliações' },
+  { key: 'website', inputId: 'bulkWeightWebsite', label: 'site confirmado' },
+  { key: 'phone', inputId: 'bulkWeightPhone', label: 'telefone confirmado' },
+  { key: 'completeness', inputId: 'bulkWeightCompleteness', label: 'completude dos dados' },
+  { key: 'category_match', inputId: 'bulkWeightCategory', label: 'aderência ao segmento' },
+  { key: 'operational', inputId: 'bulkWeightOperational', label: 'sinais operacionais' },
+];
 
 document.addEventListener('DOMContentLoaded', async () => {
   bindStaticListeners();
@@ -40,6 +58,14 @@ function bindStaticListeners() {
   document.getElementById('loginForm').addEventListener('submit', handleLogin);
   document.getElementById('btnLogout').addEventListener('click', handleLogout);
   document.getElementById('btnRefresh').addEventListener('click', () => refreshPageContext('manual'));
+  document.getElementById('tenantSwitcherButton').addEventListener('click', (event) => {
+    event.stopPropagation();
+    toggleTenantMenu();
+  });
+  document.addEventListener('click', handleTenantMenuDocumentClick);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeTenantMenu();
+  });
 
   document.querySelectorAll('.nav-item').forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -62,6 +88,11 @@ function bindStaticListeners() {
 
   document.getElementById('btnBulkCapture').addEventListener('click', handleBulkCapture);
   document.getElementById('bulkSelectAll').addEventListener('change', handleBulkSelectAll);
+  document.getElementById('btnSmartSelectTop').addEventListener('click', applySmartTopSelection);
+  document.getElementById('btnSmartClearSelection').addEventListener('click', clearSmartBulkSelection);
+  document.querySelectorAll('.smart-weight-input').forEach((input) => {
+    input.addEventListener('input', syncSmartWeightDisplays);
+  });
 
   document.getElementById('btnAnalyzePage').addEventListener('click', handleAnalyzePage);
   document.getElementById('btnSaveAnalysis').addEventListener('click', () => handleSaveAnalysis('analysis'));
@@ -109,12 +140,17 @@ function bindStaticListeners() {
 
   document.getElementById('btnVisualAnalyze').addEventListener('click', handleVisualAnalyze);
   document.getElementById('btnSaveVisual').addEventListener('click', () => handleSaveAnalysis('visual'));
+  syncSmartWeightDisplays();
 }
 
 function showLoginScreen() {
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('mainScreen').style.display = 'none';
   stopContextSync();
+  closeTenantMenu();
+  availableTenants = [];
+  activeTenantId = '';
+  tenantSwitchBusy = '';
 
   chrome.storage.local.get('operon_server_url', (result) => {
     if (result.operon_server_url) {
@@ -134,15 +170,39 @@ async function showMainScreen() {
   }
 
   if (me?.success) {
-    document.getElementById('userName').textContent = me.user_name || 'Usuário';
-    document.getElementById('tenantName').textContent = me.tenant_name || '';
-    platformUrl = me.platform_url || '';
+    applyAccountContext(me);
   }
 
+  const segmentsLoaded = await loadSegments();
+  if (segmentsLoaded === false) {
+    return;
+  }
+
+  setupContextSync();
+  await refreshPageContext('boot');
+  switchTab('hub');
+}
+
+function applyAccountContext(me) {
+  document.getElementById('userName').textContent = me.user_name || 'Usuário';
+  document.getElementById('tenantName').textContent = me.tenant_name || 'Empresa';
+  platformUrl = me.platform_url || '';
+  activeTenantId = me.tenant_id || '';
+  availableTenants = Array.isArray(me.tenants) ? me.tenants : [];
+  renderTenantMenu();
+}
+
+async function loadSegments() {
   const segs = await sendMessage({ type: 'GET_SEGMENTS' });
+  if (segs?.auth_expired) {
+    showLoginScreen();
+    return false;
+  }
+
+  const datalist = document.getElementById('segmentList');
+  datalist.innerHTML = '';
+
   if (segs?.segments) {
-    const datalist = document.getElementById('segmentList');
-    datalist.innerHTML = '';
     segs.segments.forEach((segment) => {
       const opt = document.createElement('option');
       opt.value = segment;
@@ -150,9 +210,7 @@ async function showMainScreen() {
     });
   }
 
-  setupContextSync();
-  await refreshPageContext('boot');
-  switchTab('hub');
+  return true;
 }
 
 function setupContextSync() {
@@ -188,12 +246,152 @@ function stopContextSync() {
   }
 }
 
+function toggleTenantMenu() {
+  if (tenantMenuOpen) {
+    closeTenantMenu();
+  } else {
+    openTenantMenu();
+  }
+}
+
+function openTenantMenu() {
+  tenantMenuOpen = true;
+  renderTenantMenu();
+  document.getElementById('tenantMenu').style.display = 'block';
+  document.getElementById('tenantSwitcherButton').classList.add('active');
+  document.getElementById('tenantSwitcherIcon').textContent = 'expand_less';
+}
+
+function closeTenantMenu() {
+  tenantMenuOpen = false;
+  const menu = document.getElementById('tenantMenu');
+  if (menu) menu.style.display = 'none';
+  const button = document.getElementById('tenantSwitcherButton');
+  if (button) button.classList.remove('active');
+  const icon = document.getElementById('tenantSwitcherIcon');
+  if (icon) icon.textContent = 'expand_more';
+}
+
+function handleTenantMenuDocumentClick(event) {
+  if (!tenantMenuOpen) return;
+
+  const menu = document.getElementById('tenantMenu');
+  const button = document.getElementById('tenantSwitcherButton');
+  if (!menu || !button) return;
+
+  if (menu.contains(event.target) || button.contains(event.target)) {
+    return;
+  }
+
+  closeTenantMenu();
+}
+
+function renderTenantMenu() {
+  const badgeEl = document.getElementById('tenantCountBadge');
+  const hintEl = document.getElementById('tenantMenuHint');
+  const listEl = document.getElementById('tenantMenuList');
+  const button = document.getElementById('tenantSwitcherButton');
+
+  if (!badgeEl || !hintEl || !listEl || !button) return;
+
+  badgeEl.textContent = String(availableTenants.length || 0);
+  button.disabled = availableTenants.length === 0;
+  listEl.innerHTML = '';
+
+  if (availableTenants.length === 0) {
+    hintEl.textContent = 'Nenhuma empresa disponível para este usuário na extensão.';
+    return;
+  }
+
+  hintEl.textContent = tenantSwitchBusy
+    ? 'Trocando o contexto operacional da extensão...'
+    : `${availableTenants.length} empresa${availableTenants.length > 1 ? 's' : ''} liberada${availableTenants.length > 1 ? 's' : ''} pelo admin para este usuário.`;
+
+  availableTenants.forEach((tenant) => {
+    const isCurrent = (tenant.id || '') === activeTenantId;
+    const isSwitching = tenantSwitchBusy === tenant.id;
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = `tenant-menu-item${isCurrent ? ' active' : ''}`;
+    item.disabled = Boolean(tenantSwitchBusy);
+    item.innerHTML = `
+      <span class="material-symbols-outlined tenant-item-icon">apartment</span>
+      <span class="tenant-item-body">
+        <span class="tenant-item-name">${escapeHtml(tenant.name || 'Empresa')}</span>
+        <span class="tenant-item-meta">Permissão: ${escapeHtml(formatRoleLabel(tenant.role || 'agent'))}</span>
+      </span>
+      <span class="tenant-item-status">
+        <span class="material-symbols-outlined ${isSwitching ? 'spin' : ''}">
+          ${isSwitching ? 'progress_activity' : isCurrent ? 'check_circle' : 'chevron_right'}
+        </span>
+      </span>
+    `;
+
+    item.addEventListener('click', () => handleTenantSwitch(tenant.id || ''));
+    listEl.appendChild(item);
+  });
+}
+
+function showTenantMenuError(message = '') {
+  const errorEl = document.getElementById('tenantMenuError');
+  if (!errorEl) return;
+
+  if (!message) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+    return;
+  }
+
+  errorEl.textContent = message;
+  errorEl.style.display = 'block';
+}
+
+async function handleTenantSwitch(tenantId) {
+  if (!tenantId || tenantSwitchBusy) return;
+  if (tenantId === activeTenantId) {
+    closeTenantMenu();
+    return;
+  }
+
+  tenantSwitchBusy = tenantId;
+  showTenantMenuError('');
+  renderTenantMenu();
+
+  const result = await sendMessage({ type: 'SWITCH_TENANT', tenantId });
+  tenantSwitchBusy = '';
+
+  if (result?.auth_expired) {
+    showLoginScreen();
+    return;
+  }
+
+  if (!result?.success) {
+    showTenantMenuError(result?.message || 'Não foi possível alternar a empresa.');
+    renderTenantMenu();
+    openTenantMenu();
+    return;
+  }
+
+  applyAccountContext(result);
+  resetTenantWorkspace();
+
+  const segmentsLoaded = await loadSegments();
+  if (segmentsLoaded === false) {
+    return;
+  }
+
+  closeTenantMenu();
+  switchTab('hub');
+  await refreshPageContext('tenant-switched');
+}
+
 function scheduleContextRefresh(reason) {
   if (contextRefreshTimer) clearTimeout(contextRefreshTimer);
   contextRefreshTimer = setTimeout(() => refreshPageContext(reason), 350);
 }
 
 function switchTab(tabName) {
+  closeTenantMenu();
   document.querySelectorAll('.tab-pane').forEach((pane) => pane.classList.remove('active'));
   const pane = document.getElementById('tab' + capitalize(tabName));
   if (pane) pane.classList.add('active');
@@ -317,6 +515,184 @@ function resetPageIntelligence() {
   document.getElementById('screenshotImg').src = '';
 }
 
+function resetBulkUi() {
+  bulkScores = {};
+  bulkTopIndexes = [];
+  bulkRankingApplied = false;
+  document.getElementById('bulkTotalCount').textContent = '0';
+  document.getElementById('bulkDuplicateCount').textContent = '0';
+  document.getElementById('bulkNewCount').textContent = '0';
+  document.getElementById('bulkSelectedCount').textContent = '0';
+  document.getElementById('bulkSegment').value = '';
+  document.getElementById('bulkLoading').style.display = 'none';
+  document.getElementById('bulkTableWrapper').style.display = 'none';
+  document.getElementById('bulkError').style.display = 'none';
+  document.getElementById('bulkSuccess').style.display = 'none';
+  document.getElementById('bulkTableBody').innerHTML = '';
+  document.getElementById('bulkSelectAll').checked = false;
+  document.getElementById('bulkSelectAll').indeterminate = false;
+  document.getElementById('btnBulkCapture').disabled = true;
+  document.getElementById('bulkCaptureLabel').textContent = 'Selecione leads';
+  document.getElementById('btnSmartSelectTop').disabled = true;
+  document.getElementById('bulkSmartSummary').style.display = 'none';
+  document.getElementById('bulkSmartSummary').innerHTML = '';
+  document.getElementById('btnSmartClearSelection').style.display = 'none';
+}
+
+function resetTenantWorkspace() {
+  forceCreate = false;
+  leadMatch = null;
+  extractedData = null;
+  chatHistory = [];
+  bulkLeads = [];
+  bulkDuplicates = {};
+  bulkSelected = new Set();
+  lastContextKey = '';
+  resetPageIntelligence();
+  resetBulkUi();
+  clearChat();
+}
+
+function syncSmartWeightDisplays() {
+  document.querySelectorAll('.smart-weight-input').forEach((input) => {
+    const outputId = input.dataset.output;
+    const output = outputId ? document.getElementById(outputId) : null;
+    if (output) {
+      output.textContent = input.value;
+    }
+  });
+}
+
+function getBulkCandidateIndexes() {
+  return bulkLeads
+    .map((_, index) => index)
+    .filter((index) => !bulkDuplicates[index]);
+}
+
+function applyDefaultBulkSelection() {
+  bulkSelected = new Set(getBulkCandidateIndexes());
+}
+
+function getBulkSmartWeights() {
+  return BULK_SMART_CRITERIA.reduce((acc, criterion) => {
+    const input = document.getElementById(criterion.inputId);
+    acc[criterion.key] = Number(input?.value || 0);
+    return acc;
+  }, {});
+}
+
+function parseLeadRatingValue(lead) {
+  const numeric = Number.parseFloat(String(lead?.rating ?? '').replace(',', '.'));
+  return Number.isFinite(numeric) ? Math.max(0, Math.min(5, numeric)) : 0;
+}
+
+function parseLeadReviewCount(lead) {
+  const numeric = Number.parseInt(String(lead?.review_count ?? '').replace(/\D/g, ''), 10);
+  return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
+}
+
+function computeCategoryMatchScore(lead, segmentText) {
+  const normalizedSegment = normalizeComparableText(segmentText);
+  if (!normalizedSegment) return null;
+
+  const segmentTokens = normalizedSegment.split(' ').filter((token) => token.length > 2);
+  if (segmentTokens.length === 0) return null;
+
+  const haystack = normalizeComparableText(`${lead?.category || ''} ${lead?.name || ''}`);
+  if (!haystack) return 0;
+  if (haystack.includes(normalizedSegment)) return 1;
+
+  const hits = segmentTokens.filter((token) => haystack.includes(token)).length;
+  return Math.min(1, hits / segmentTokens.length);
+}
+
+function computeBulkMetrics(lead, segmentText, maxReviewCount) {
+  const rating = parseLeadRatingValue(lead);
+  const reviewCount = parseLeadReviewCount(lead);
+  const hasWebsite = Boolean((lead?.website || '').trim());
+  const hasPhone = Boolean((lead?.phone || '').trim());
+  const hasAddress = Boolean((lead?.address || '').trim());
+  const hasCategory = Boolean((lead?.category || '').trim());
+  const hasOpeningHours = Boolean((lead?.opening_hours || '').trim());
+  const hasMapsProfile = Boolean((lead?.google_maps_url || '').trim());
+
+  const completenessScore = [
+    rating > 0,
+    reviewCount > 0,
+    hasWebsite,
+    hasPhone,
+    hasAddress,
+    hasCategory,
+    hasOpeningHours,
+  ].filter(Boolean).length / 7;
+
+  const operationalScore = [
+    hasAddress,
+    hasCategory,
+    hasOpeningHours,
+    hasMapsProfile,
+  ].filter(Boolean).length / 4;
+
+  return {
+    rating,
+    reviewCount,
+    ratingScore: rating > 0 ? rating / 5 : 0,
+    reviewsScore: reviewCount > 0 && maxReviewCount > 0
+      ? Math.log1p(reviewCount) / Math.log1p(maxReviewCount)
+      : 0,
+    websiteScore: hasWebsite ? 1 : 0,
+    phoneScore: hasPhone ? 1 : 0,
+    completenessScore,
+    operationalScore,
+    categoryMatchScore: computeCategoryMatchScore(lead, segmentText),
+    flags: {
+      hasWebsite,
+      hasPhone,
+      hasAddress,
+      hasCategory,
+      hasOpeningHours,
+      hasMapsProfile,
+    },
+  };
+}
+
+function renderSmartSelectionSummary(summary) {
+  const summaryEl = document.getElementById('bulkSmartSummary');
+  const clearBtn = document.getElementById('btnSmartClearSelection');
+  if (!summaryEl || !clearBtn) return;
+
+  if (!summary) {
+    summaryEl.style.display = 'none';
+    summaryEl.innerHTML = '';
+    clearBtn.style.display = 'none';
+    return;
+  }
+
+  const ignoredItems = Array.isArray(summary.ignored) ? summary.ignored : [];
+  const ignoredLine = ignoredItems.length > 0
+    ? `<div>Ignorados por falta de dado útil: ${escapeHtml(ignoredItems.join(', '))}.</div>`
+    : '';
+
+  summaryEl.innerHTML = `
+    <strong>${escapeHtml(summary.title)}</strong>
+    <div>${escapeHtml(summary.body)}</div>
+    ${ignoredLine}
+  `;
+  summaryEl.style.display = 'block';
+  clearBtn.style.display = 'inline-flex';
+}
+
+function clearSmartBulkSelection() {
+  bulkScores = {};
+  bulkTopIndexes = [];
+  bulkRankingApplied = false;
+  applyDefaultBulkSelection();
+  renderSmartSelectionSummary(null);
+  renderBulkTable();
+  updateBulkCheckboxes();
+  updateBulkCaptureButton();
+}
+
 function refreshActivePane() {
   const activePane = document.querySelector('.tab-pane.active');
   if (!activePane) return;
@@ -429,9 +805,9 @@ async function handleLogin(e) {
 
 async function handleLogout() {
   await sendMessage({ type: 'LOGOUT' });
-  chatHistory = [];
-  leadMatch = null;
-  resetPageIntelligence();
+  availableTenants = [];
+  activeTenantId = '';
+  resetTenantWorkspace();
   showLoginScreen();
 }
 
@@ -580,6 +956,9 @@ async function startBulkExtraction() {
   bulkLeads = [];
   bulkDuplicates = {};
   bulkSelected = new Set();
+  bulkScores = {};
+  bulkTopIndexes = [];
+  bulkRankingApplied = false;
 
   const loadingEl = document.getElementById('bulkLoading');
   const tableWrapper = document.getElementById('bulkTableWrapper');
@@ -590,6 +969,7 @@ async function startBulkExtraction() {
   errorEl.style.display = 'none';
   successEl.style.display = 'none';
   document.getElementById('btnBulkCapture').disabled = true;
+  document.getElementById('btnSmartSelectTop').disabled = true;
   document.getElementById('bulkLoadingText').textContent = 'Extraindo resultados da página...';
 
   const extractResult = await sendMessage({ type: 'EXTRACT_ALL_DATA' });
@@ -618,13 +998,10 @@ async function startBulkExtraction() {
 
   loadingEl.style.display = 'none';
   tableWrapper.style.display = 'block';
+  document.getElementById('btnSmartSelectTop').disabled = false;
+  renderSmartSelectionSummary(null);
+  applyDefaultBulkSelection();
   renderBulkTable();
-
-  bulkLeads.forEach((_, index) => {
-    if (!bulkDuplicates[index]) {
-      bulkSelected.add(index);
-    }
-  });
   updateBulkCheckboxes();
   updateBulkCaptureButton();
 
@@ -641,10 +1018,30 @@ function renderBulkTable() {
   const tbody = document.getElementById('bulkTableBody');
   tbody.innerHTML = '';
 
-  bulkLeads.forEach((lead, index) => {
+  const indexes = bulkLeads.map((_, index) => index);
+  if (bulkRankingApplied) {
+    indexes.sort((a, b) => {
+      const scoreDiff = (bulkScores[b]?.score ?? 0) - (bulkScores[a]?.score ?? 0);
+      if (scoreDiff !== 0) return scoreDiff;
+
+      const reviewDiff = parseLeadReviewCount(bulkLeads[b]) - parseLeadReviewCount(bulkLeads[a]);
+      if (reviewDiff !== 0) return reviewDiff;
+
+      return parseLeadRatingValue(bulkLeads[b]) - parseLeadRatingValue(bulkLeads[a]);
+    });
+  }
+
+  indexes.forEach((index) => {
+    const lead = bulkLeads[index];
     const isDuplicate = !!bulkDuplicates[index];
+    const isTopLead = bulkRankingApplied && bulkTopIndexes.includes(index);
+    const score = bulkScores[index]?.score ?? null;
+    const meta = buildBulkLeadMeta(lead, index);
     const tr = document.createElement('tr');
-    tr.className = isDuplicate ? 'is-duplicate' : '';
+    tr.className = [
+      isDuplicate ? 'is-duplicate' : '',
+      isTopLead ? 'is-smart-top' : '',
+    ].filter(Boolean).join(' ');
     tr.dataset.index = index;
     tr.innerHTML = `
       <td class="col-check">
@@ -653,9 +1050,13 @@ function renderBulkTable() {
       <td>
         <span class="lead-name" title="${escapeHtml(lead.name)}">${escapeHtml(lead.name)}</span>
         <span class="lead-category">${escapeHtml(lead.category || lead.address || '')}</span>
+        ${meta ? `<span class="lead-meta">${escapeHtml(meta)}</span>` : ''}
       </td>
       <td class="col-rating">
         ${lead.rating ? `<span class="lead-rating">${escapeHtml(String(lead.rating))}</span>` : '—'}
+      </td>
+      <td class="col-score">
+        ${score !== null ? `<span class="lead-score-badge">${escapeHtml(String(score))}</span>` : '—'}
       </td>
       <td class="col-status">
         ${isDuplicate ? '<span class="status-duplicate">Existe</span>' : '<span class="status-new">Novo</span>'}
@@ -675,10 +1076,136 @@ function renderBulkTable() {
   });
 }
 
+function buildBulkLeadMeta(lead, index) {
+  const metrics = bulkScores[index]?.metrics;
+  const hasWebsite = metrics ? metrics.flags.hasWebsite : Boolean((lead?.website || '').trim());
+  const hasPhone = metrics ? metrics.flags.hasPhone : Boolean((lead?.phone || '').trim());
+  const hasOpeningHours = metrics ? metrics.flags.hasOpeningHours : Boolean((lead?.opening_hours || '').trim());
+  const reviewCount = metrics ? metrics.reviewCount : parseLeadReviewCount(lead);
+  const tags = [];
+
+  if (hasWebsite) tags.push('site');
+  if (hasPhone) tags.push('telefone');
+  if (reviewCount > 0) tags.push(`${reviewCount} aval.`);
+  if (hasOpeningHours) tags.push('horário');
+  if (bulkRankingApplied && (metrics?.categoryMatchScore ?? 0) >= 0.7) tags.push('aderente');
+
+  return tags.slice(0, 4).join(' • ');
+}
+
+async function applySmartTopSelection() {
+  const errorEl = document.getElementById('bulkError');
+  errorEl.style.display = 'none';
+
+  const candidateIndexes = getBulkCandidateIndexes();
+  if (candidateIndexes.length === 0) {
+    showMsg(errorEl, 'Não há leads novos suficientes para aplicar a curadoria inteligente.');
+    return;
+  }
+
+  const weights = getBulkSmartWeights();
+  const totalWeight = Object.values(weights).reduce((sum, value) => sum + value, 0);
+  if (totalWeight <= 0) {
+    showMsg(errorEl, 'Defina pelo menos um critério com peso maior que zero.');
+    return;
+  }
+
+  const segmentText = document.getElementById('bulkSegment').value.trim();
+  const maxReviewCount = Math.max(
+    1,
+    ...candidateIndexes.map((index) => parseLeadReviewCount(bulkLeads[index]))
+  );
+
+  const metricsByIndex = {};
+  candidateIndexes.forEach((index) => {
+    metricsByIndex[index] = computeBulkMetrics(bulkLeads[index], segmentText, maxReviewCount);
+  });
+
+  const criterionState = {
+    rating: candidateIndexes.some((index) => metricsByIndex[index].rating > 0),
+    reviews: candidateIndexes.some((index) => metricsByIndex[index].reviewCount > 0),
+    website: true,
+    phone: true,
+    completeness: true,
+    category_match: Boolean(segmentText),
+    operational: candidateIndexes.some((index) => metricsByIndex[index].operationalScore > 0),
+  };
+
+  const ignoredCriteria = BULK_SMART_CRITERIA
+    .filter((criterion) => weights[criterion.key] > 0 && !criterionState[criterion.key])
+    .map((criterion) => criterion.label);
+
+  const activeCriteria = BULK_SMART_CRITERIA
+    .filter((criterion) => weights[criterion.key] > 0 && criterionState[criterion.key])
+    .sort((a, b) => (weights[b.key] || 0) - (weights[a.key] || 0))
+    .map((criterion) => criterion.label);
+
+  if (activeCriteria.length === 0) {
+    showMsg(errorEl, 'Os critérios escolhidos não têm dados suficientes nesta captura. Ajuste os pesos ou preencha melhor o segmento.');
+    return;
+  }
+
+  bulkScores = {};
+  candidateIndexes.forEach((index) => {
+    const metrics = metricsByIndex[index];
+    let weightedScore = 0;
+    let activeWeight = 0;
+
+    BULK_SMART_CRITERIA.forEach((criterion) => {
+      const weight = weights[criterion.key] || 0;
+      if (weight <= 0 || !criterionState[criterion.key]) return;
+
+      const criterionScoreMap = {
+        rating: metrics.ratingScore,
+        reviews: metrics.reviewsScore,
+        website: metrics.websiteScore,
+        phone: metrics.phoneScore,
+        completeness: metrics.completenessScore,
+        category_match: metrics.categoryMatchScore ?? 0,
+        operational: metrics.operationalScore,
+      };
+
+      weightedScore += (criterionScoreMap[criterion.key] || 0) * weight;
+      activeWeight += weight;
+    });
+
+    bulkScores[index] = {
+      score: activeWeight > 0 ? Math.round((weightedScore / activeWeight) * 100) : 0,
+      metrics,
+    };
+  });
+
+  const sortedIndexes = [...candidateIndexes].sort((a, b) => {
+    const scoreDiff = (bulkScores[b]?.score ?? 0) - (bulkScores[a]?.score ?? 0);
+    if (scoreDiff !== 0) return scoreDiff;
+
+    const reviewDiff = (bulkScores[b]?.metrics?.reviewCount ?? 0) - (bulkScores[a]?.metrics?.reviewCount ?? 0);
+    if (reviewDiff !== 0) return reviewDiff;
+
+    return (bulkScores[b]?.metrics?.rating ?? 0) - (bulkScores[a]?.metrics?.rating ?? 0);
+  });
+
+  const selectedIndexes = sortedIndexes.slice(0, Math.min(BULK_TOP_LIMIT, sortedIndexes.length));
+  bulkTopIndexes = selectedIndexes;
+  bulkRankingApplied = true;
+  bulkSelected = new Set(selectedIndexes);
+
+  const leadingCriteria = activeCriteria.slice(0, 3);
+  renderSmartSelectionSummary({
+    title: `${selectedIndexes.length} leads priorizados para envio`,
+    body: `A tabela foi reordenada e os melhores leads foram selecionados usando principalmente ${leadingCriteria.join(', ')}.`,
+    ignored: ignoredCriteria,
+  });
+
+  renderBulkTable();
+  updateBulkCheckboxes();
+  updateBulkCaptureButton();
+}
+
 function handleBulkSelectAll(e) {
   bulkSelected = new Set();
   if (e.target.checked) {
-    bulkLeads.forEach((_, index) => bulkSelected.add(index));
+    getBulkCandidateIndexes().forEach((index) => bulkSelected.add(index));
   }
   updateBulkCheckboxes();
   updateBulkCaptureButton();
@@ -693,10 +1220,13 @@ function updateBulkCheckboxes() {
 
 function updateBulkSelectAllState() {
   const selectAll = document.getElementById('bulkSelectAll');
-  if (bulkSelected.size === bulkLeads.length) {
+  const candidateIndexes = getBulkCandidateIndexes();
+  const selectedCandidates = candidateIndexes.filter((index) => bulkSelected.has(index)).length;
+
+  if (candidateIndexes.length > 0 && selectedCandidates === candidateIndexes.length) {
     selectAll.checked = true;
     selectAll.indeterminate = false;
-  } else if (bulkSelected.size === 0) {
+  } else if (selectedCandidates === 0) {
     selectAll.checked = false;
     selectAll.indeterminate = false;
   } else {
@@ -1382,6 +1912,22 @@ function buildPlatformLink(path) {
   return path;
 }
 
+function formatRoleLabel(role) {
+  const labels = {
+    admin: 'Admin',
+    agent: 'Agente',
+    manager: 'Gestor',
+    owner: 'Owner',
+  };
+
+  if (labels[role]) {
+    return labels[role];
+  }
+
+  const normalized = String(role || 'agent').replace(/[_-]+/g, ' ').trim();
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 function showMsg(el, msg) {
   el.textContent = msg;
   el.style.display = 'block';
@@ -1397,6 +1943,16 @@ function escapeHtml(text) {
 function truncate(str, len) {
   if (!str) return '';
   return str.length > len ? `${str.substring(0, len - 3)}...` : str;
+}
+
+function normalizeComparableText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function formatAIResponse(text) {

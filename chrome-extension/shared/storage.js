@@ -53,6 +53,22 @@ export async function setTenantId(tenantId) {
   await chrome.storage.local.set({ [KEYS.TENANT]: tenantId });
 }
 
+export async function updateAuthContext(data = {}) {
+  const payload = {};
+
+  if (Object.prototype.hasOwnProperty.call(data, 'user')) {
+    payload[KEYS.USER] = data.user || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, 'tenant_id')) {
+    payload[KEYS.TENANT] = data.tenant_id || null;
+  }
+
+  if (Object.keys(payload).length > 0) {
+    await chrome.storage.local.set(payload);
+  }
+}
+
 export async function isAuthenticated() {
   const token = await getToken();
   return !!token;
